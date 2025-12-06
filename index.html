@@ -325,6 +325,14 @@
             border-radius: 8px;
             border: 2px solid #ddd;
         }
+        /* Team Management Modal - Always on top */
+#teamManagementModal {
+    z-index: 1060 !important;
+}
+
+#teamManagementModal .modal-backdrop {
+    z-index: 1055 !important;
+}
         
         @media print {
             body {
@@ -1428,13 +1436,30 @@
       // ===== ฟังก์ชันจัดการทีม (Team Management Modal) =====
         let tempTeamConfig = {};
 
-        window.showTeamManagement = () => {
-            tempTeamConfig = JSON.parse(JSON.stringify(systemSettings.teams));
-            renderTeamConfigList();
-            updateTeamCount();
-            new bootstrap.Modal(document.getElementById('teamManagementModal')).show();
-        };
-
+      window.showTeamManagement = () => {
+    const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+    if (settingsModal) {
+        settingsModal.hide();
+    }
+    
+    setTimeout(() => {
+        tempTeamConfig = JSON.parse(JSON.stringify(systemSettings.teams));
+        renderTeamConfigList();
+        updateTeamCount();
+        
+        const teamModal = new bootstrap.Modal(document.getElementById('teamManagementModal'));
+        teamModal.show();
+        
+        // เมื่อปิด Team Management Modal ให้กลับไปเปิด Settings Modal
+        document.getElementById('teamManagementModal').addEventListener('hidden.bs.modal', function reopenSettings() {
+            if (settingsModal) {
+                settingsModal.show();
+            }
+            // ลบ listener หลังใช้งานเพื่อไม่ให้เรียกซ้ำ
+            this.removeEventListener('hidden.bs.modal', reopenSettings);
+        }, { once: true });
+    }, 300);
+};
         function renderTeamConfigList() {
             const container = document.getElementById('teamConfigList');
             const teams = Object.values(tempTeamConfig).sort((a, b) => a.order - b.order);
@@ -1602,33 +1627,44 @@
         };
 
         window.saveTeamConfig = async () => {
-            const enabledCount = Object.values(tempTeamConfig).filter(t => t.enabled).length;
-            if (enabledCount < 2) {
-                Swal.fire({ icon: 'error', title: 'ข้อผิดพลาด', text: 'ต้องเปิดใช้งานอย่างน้อย 2 ทีม' });
-                return;
+    const enabledCount = Object.values(tempTeamConfig).filter(t => t.enabled).length;
+    if (enabledCount < 2) {
+        Swal.fire({ icon: 'error', title: 'ข้อผิดพลาด', text: 'ต้องเปิดใช้งานอย่างน้อย 2 ทีม' });
+        return;
+    }
+    
+    const result = await Swal.fire({
+        title: 'ยืนยันการบันทึก?',
+        text: 'การเปลี่ยนแปลงจะมีผลกับทั้งระบบ',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'บันทึก',
+        cancelButtonText: 'ยกเลิก'
+    });
+    
+    if (result.isConfirmed) {
+        systemSettings.teams = tempTeamConfig;
+        
+        set(ref(db, 'settings/teams'), tempTeamConfig).then(() => {
+            applySettingsToUI();
+            Swal.fire({ icon: 'success', title: 'บันทึกเรียบร้อย', timer: 1500, showConfirmButton: false });
+            
+            // ปิด Team Management Modal
+            const teamModal = bootstrap.Modal.getInstance(document.getElementById('teamManagementModal'));
+            if (teamModal) {
+                teamModal.hide();
             }
             
-            const result = await Swal.fire({
-                title: 'ยืนยันการบันทึก?',
-                text: 'การเปลี่ยนแปลงจะมีผลกับทั้งระบบ',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'บันทึก',
-                cancelButtonText: 'ยกเลิก'
-            });
+            // เปิด Settings Modal กลับมา
+            setTimeout(() => {
+                new bootstrap.Modal(document.getElementById('settingsModal')).show();
+            }, 500);
             
-            if (result.isConfirmed) {
-                systemSettings.teams = tempTeamConfig;
-                
-                set(ref(db, 'settings/teams'), tempTeamConfig).then(() => {
-                    applySettingsToUI();
-                    Swal.fire({ icon: 'success', title: 'บันทึกเรียบร้อย', timer: 1500, showConfirmButton: false });
-                    bootstrap.Modal.getInstance(document.getElementById('teamManagementModal')).hide();
-                }).catch((error) => {
-                    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
-                });
-            }
-        };
+        }).catch((error) => {
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message });
+        });
+    }
+};
 
         // ===== ส่งออกข้อมูลเป็น Excel =====
         window.exportToExcel = () => {
