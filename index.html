@@ -1445,15 +1445,27 @@
             }
         };
 
-        window.showPage = (id) => {
-            document.querySelectorAll('.page-section').forEach(el => el.classList.add('d-none'));
-            document.getElementById('page-' + id).classList.remove('d-none');
-            if(id === 'dashboard') {
-                renderMatchList();
-                editingMatchId = null; 
-            }
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        };
+       window.showPage = (id) => {
+    // ซ่อนทุก page
+    document.querySelectorAll('.page-section').forEach(el => {
+        el.classList.add('d-none');
+        el.classList.remove('active');
+    });
+    
+    // แสดงเฉพาะ page ที่เลือก
+    const targetPage = document.getElementById('page-' + id);
+    if (targetPage) {
+        targetPage.classList.remove('d-none');
+        targetPage.classList.add('active');
+    }
+    
+    if(id === 'dashboard') {
+        renderMatchList();
+        editingMatchId = null; 
+    }
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
         window.getSportName = (k) => systemSettings.sports[k] || k;
 
