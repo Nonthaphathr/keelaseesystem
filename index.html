@@ -346,6 +346,18 @@
                 width: 100%;
                 page-break-after: auto;
             }
+            /* Force hide all page sections except dashboard */
+            .page-section {
+                display: none !important;
+            }
+
+            .page-section.active {
+                display: block !important;
+            }
+
+            #page-dashboard {
+                display: block !important;
+            }
         }
     </style>
 </head>
