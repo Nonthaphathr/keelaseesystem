@@ -2022,103 +2022,115 @@
             if([...filterDateSel.options].some(o => o.value === currentDate)) filterDateSel.value = currentDate;
         }
 
-        // ===== แสดงรายการแข่งขัน (รองรับ Dynamic Teams) =====
-        window.renderMatchList = () => {
-            const filterS = document.getElementById('filterSport').value;
-            const filterW = document.getElementById('filterWinner').value;
-            const filterD = document.getElementById('filterDate').value;
-            const filterM = document.getElementById('filterScoringMethod').value;
-            const list = document.getElementById('matchList');
-            list.innerHTML = '';
-            
-            if(allMatchesArray.length === 0) {
-                list.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">ไม่พบข้อมูล<br><small>กดปุ่ม "เพิ่มรายการ" เพื่อสร้างใหม่</small></td></tr>';
-                
-                const teams = getActiveTeams();
-                teams.forEach(team => {
-                    const el = document.getElementById(`sumWin_${team.id}`);
-                    if (el) el.innerText = '0';
-                });
-                return;
+       // ===== แสดงรายการแข่งขัน (รองรับ Dynamic Teams) =====
+window.renderMatchList = () => {
+    const filterS = document.getElementById('filterSport').value;
+    const filterW = document.getElementById('filterWinner').value;
+    const filterD = document.getElementById('filterDate').value;
+    const filterM = document.getElementById('filterScoringMethod').value;
+    const list = document.getElementById('matchList');
+    list.innerHTML = '';
+    
+    if(allMatchesArray.length === 0) {
+        list.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">ไม่พบข้อมูล<br><small>กดปุ่ม "เพิ่มรายการ" เพื่อสร้างใหม่</small></td></tr>';
+        
+        const teams = getActiveTeams();
+        teams.forEach(team => {
+            const el = document.getElementById(`sumWin_${team.id}`);
+            if (el) el.innerText = '0';
+        });
+        return;
+    }
+
+    const teams = getActiveTeams();
+    const winCounts = {};
+    teams.forEach(team => { winCounts[team.id] = 0; });
+    
+    let displayCount = 0;
+    
+    allMatchesArray.forEach(m => {
+        if(m.status === 'done' && m.winner && winCounts[m.winner] !== undefined) {
+            winCounts[m.winner]++;
+        }
+        
+        if(filterS !== 'all' && m.sport !== filterS) return;
+        if(filterW !== 'all' && m.winner !== filterW) return;
+        if(filterD !== 'all' && m.date !== filterD) return;
+        if(filterM !== 'all' && (m.scoringMethod || 'score_once') !== filterM) return;
+
+        displayCount++;
+        
+        let badge = m.status === 'done' ? '<span class="status-badge bg-done">จบ</span>' : '<span class="status-badge bg-wait">รอ</span>';
+        
+        // Winner Display - แสดงสีของทีมที่ชนะ
+        let winnerTxt = '-';
+        if (m.status === 'done' && m.winner) {
+            if (m.winner === 'draw') {
+                winnerTxt = '<span class="text-muted fw-bold">🤝 เสมอ</span>';
+            } else if (m.winner !== 'none' && systemSettings.teams[m.winner]) {
+                const winnerColor = getTeamColor(m.winner);
+                const winnerName = getTeamName(m.winner);
+                winnerTxt = `<span class="fw-bold" style="color: ${winnerColor};" title="${winnerName}">● ${winnerName}</span>`;
             }
+        }
+        
+        const hasRefs = m.referees && m.referees.some(r => r.trim() !== '');
+        const refIcon = hasRefs ? '<i class="fas fa-whistle text-success me-1"></i>' : '<i class="fas fa-whistle text-secondary opacity-25 me-1"></i>';
+        
+        let hasPlayers = false;
+        if (m.players) {
+            hasPlayers = teams.some(team => m.players[team.id] && m.players[team.id].length > 0);
+        }
+        const playerIcon = hasPlayers ? '<i class="fas fa-users text-success"></i>' : '<i class="fas fa-users text-secondary opacity-25"></i>';
 
-            const teams = getActiveTeams();
-            const winCounts = {};
-            teams.forEach(team => { winCounts[team.id] = 0; });
-            
-            let displayCount = 0;
-            
-            allMatchesArray.forEach(m => {
-                if(m.status === 'done' && m.winner && winCounts[m.winner] !== undefined) {
-                    winCounts[m.winner]++;
-                }
-                
-                if(filterS !== 'all' && m.sport !== filterS) return;
-                if(filterW !== 'all' && m.winner !== filterW) return;
-                if(filterD !== 'all' && m.date !== filterD) return;
-                if(filterM !== 'all' && (m.scoringMethod || 'score_once') !== filterM) return;
-
-                displayCount++;
-                
-                let badge = m.status === 'done' ? '<span class="status-badge bg-done">จบ</span>' : '<span class="status-badge bg-wait">รอ</span>';
-                
-                let winnerTxt = '-';
-                if (m.status === 'done' && m.winner && systemSettings.teams[m.winner]) {
-                    const winnerColor = getTeamColor(m.winner);
-                    winnerTxt = `<span class="fw-bold" style="color: ${winnerColor};">●</span>`;
-                }
-                
-                const hasRefs = m.referees && m.referees.some(r => r.trim() !== '');
-                const refIcon = hasRefs ? '<i class="fas fa-whistle text-success me-1"></i>' : '<i class="fas fa-whistle text-secondary opacity-25 me-1"></i>';
-                
-                let hasPlayers = false;
-                if (m.players) {
-                    hasPlayers = teams.some(team => m.players[team.id] && m.players[team.id].length > 0);
-                }
-                const playerIcon = hasPlayers ? '<i class="fas fa-users text-success"></i>' : '<i class="fas fa-users text-secondary opacity-25"></i>';
-
-                let scoreDisplay = '';
-                if (m.scores) {
-                    const scoreTexts = teams.map(team => m.scores[team.id] || 0);
-                    scoreDisplay = scoreTexts.join(' - ');
-                } else {
-                    scoreDisplay = teams.map(() => '0').join(' - ');
-                }
-
-                list.innerHTML += `
-                    <tr>
-                        <td>${m.time || '-'}<br>${badge}</td>
-                        <td>
-                            <strong style="font-size: 0.9em;">${getSportName(m.sport)}</strong>
-                            <br><small class="text-muted">${m.category || '-'}</small>
-                            <div class="mt-1 small">${refIcon} ${playerIcon}</div>
-                        </td>
-                        <td class="text-center"><span class="badge bg-light text-dark border">${scoreDisplay}</span></td>
-                        <td class="text-center">${winnerTxt}</td>
-                        <td class="text-end">
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="fas fa-copy"></i></button>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="#" onclick="copyMatchText('${m.id}', 'schedule')">คัดลอกกำหนดการ</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="copyMatchText('${m.id}', 'result')">คัดลอกผลการแข่งขัน</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="#" onclick="editMatchDetails('${m.id}')">แก้ไขรายละเอียด</a></li>
-                                </ul>
-                                <button class="btn btn-outline-dark" onclick="openMatch('${m.id}')"><i class="fas fa-edit"></i></button>
-                                <button class="btn btn-outline-danger" onclick="deleteMatch('${m.id}')"><i class="fas fa-trash"></i></button>
-                                ${m.status === 'done' ? `<button class="btn btn-danger" onclick="previewReport('${m.id}')"><i class="fas fa-print"></i></button>` : ''}
-                            </div>
-                        </td>
-                    </tr>`;
+        // Score Display - แสดงคะแนนทุกทีม
+        let scoreDisplay = '';
+        if (m.scores) {
+            const scoreTexts = teams.map(team => {
+                const score = m.scores[team.id] || 0;
+                const color = getTeamColor(team.id);
+                return `<span style="color: ${color}; font-weight: 600;">${score}</span>`;
             });
-            
-            if(displayCount === 0) list.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">ไม่พบรายการที่ตรงกับตัวกรอง</td></tr>';
-            
-            teams.forEach(team => {
-                const el = document.getElementById(`sumWin_${team.id}`);
-                if (el) el.innerText = winCounts[team.id];
-            });
-        };
+            scoreDisplay = scoreTexts.join(' - ');
+        } else {
+            scoreDisplay = teams.map(() => '0').join(' - ');
+        }
+
+        list.innerHTML += `
+            <tr>
+                <td>${m.time || '-'}<br>${badge}</td>
+                <td>
+                    <strong style="font-size: 0.9em;">${getSportName(m.sport)}</strong>
+                    <br><small class="text-muted">${m.category || '-'}</small>
+                    <div class="mt-1 small">${refIcon} ${playerIcon}</div>
+                </td>
+                <td class="text-center"><span class="badge bg-light text-dark border">${scoreDisplay}</span></td>
+                <td class="text-center">${winnerTxt}</td>
+                <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="fas fa-copy"></i></button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="copyMatchText('${m.id}', 'schedule')">คัดลอกกำหนดการ</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="copyMatchText('${m.id}', 'result')">คัดลอกผลการแข่งขัน</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="editMatchDetails('${m.id}')">แก้ไขรายละเอียด</a></li>
+                        </ul>
+                        <button class="btn btn-outline-dark" onclick="openMatch('${m.id}')"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-outline-danger" onclick="deleteMatch('${m.id}')"><i class="fas fa-trash"></i></button>
+                        ${m.status === 'done' ? `<button class="btn btn-danger" onclick="previewReport('${m.id}')"><i class="fas fa-print"></i></button>` : ''}
+                    </div>
+                </td>
+            </tr>`;
+    });
+    
+    if(displayCount === 0) list.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">ไม่พบรายการที่ตรงกับตัวกรอง</td></tr>';
+    
+    // Update Team Summary Cards
+    teams.forEach(team => {
+        const el = document.getElementById(`sumWin_${team.id}`);
+        if (el) el.innerText = winCounts[team.id];
+    });
+};
 
         window.applyFilters = () => { renderMatchList(); };
 
@@ -2235,31 +2247,44 @@
             }
         };
 
-        // ===== Copy Match Text =====
-        window.copyMatchText = (id, type) => {
-            const m = allMatchesArray.find(x => x.id === id);
-            if(!m) return;
-            
-            const eventTag = `#${systemSettings.eventName.replace(/\s+/g, '')}${systemSettings.academicYear}`;
-            let text = "";
-            
-            if(type === 'schedule') { 
-                text = `📅 กำหนดการแข่งขัน\n🏆 กีฬา: ${getSportName(m.sport)} (${m.category})\n⏰ เวลา: ${m.time} น. (วันที่ ${formatDateThai(m.date)})\n📍 สนาม: ${m.location || '-'}\n\n${eventTag}`; 
-            } else {
-                const teams = getActiveTeams();
-                let scoreText = teams.map(team => {
-                    const score = m.scores?.[team.id] || 0;
-                    return `${getTeamName(team.id)} ${score}`;
-                }).join(' - ');
-                
-                let wTxt = m.status !== 'done' ? 'ยังไม่แข่ง' : (m.winner ? `${getTeamName(m.winner)}ชนะ` : 'เสมอ');
-                text = `📢 ผลการแข่งขัน\n🏆 กีฬา: ${getSportName(m.sport)} (${m.category})\n------------------\n${scoreText}\nผล: ${wTxt}\n------------------\n${eventTag}`; 
-            }
-            
-            navigator.clipboard.writeText(text).then(() => { 
-                Swal.fire({ icon: 'success', title: 'คัดลอกข้อความแล้ว', timer: 1000, showConfirmButton: false }); 
-            });
-        };
+       // ===== Copy Match Text (รองรับ Dynamic Teams) =====
+    window.copyMatchText = (id, type) => {
+    const m = allMatchesArray.find(x => x.id === id);
+    if(!m) return;
+    
+    const eventTag = `#${systemSettings.eventName.replace(/\s+/g, '')}${systemSettings.academicYear}`;
+    const teams = getActiveTeams();
+    let text = "";
+    
+    if(type === 'schedule') { 
+        text = `📅 กำหนดการแข่งขัน\n🏆 กีฬา: ${getSportName(m.sport)} (${m.category})\n⏰ เวลา: ${m.time} น. (วันที่ ${formatDateThai(m.date)})\n📍 สนาม: ${m.location || '-'}\n\n${eventTag}`; 
+    } else {
+        // Build score text with all teams
+        let scoreText = teams.map(team => {
+            const score = m.scores?.[team.id] || 0;
+            const teamName = getTeamName(team.id);
+            return `${teamName} ${score}`;
+        }).join(' - ');
+        
+        // Determine winner text
+        let wTxt = '';
+        if (m.status !== 'done') {
+            wTxt = 'ยังไม่แข่ง';
+        } else if (m.winner === 'draw') {
+            wTxt = 'เสมอกัน';
+        } else if (m.winner === 'none') {
+            wTxt = 'ไม่มีผู้ชนะ';
+        } else {
+            wTxt = `${getTeamName(m.winner)}ชนะ`;
+        }
+        
+        text = `📢 ผลการแข่งขัน\n🏆 กีฬา: ${getSportName(m.sport)} (${m.category})\n------------------\n${scoreText}\nผล: ${wTxt}\n------------------\n${eventTag}`; 
+    }
+    
+    navigator.clipboard.writeText(text).then(() => { 
+        Swal.fire({ icon: 'success', title: 'คัดลอกข้อความแล้ว', timer: 1000, showConfirmButton: false }); 
+    });
+};
 
         // ===== Initialization =====
         document.addEventListener('DOMContentLoaded', () => {
