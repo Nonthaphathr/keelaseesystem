@@ -333,7 +333,18 @@
 #teamManagementModal .modal-backdrop {
     z-index: 1055 !important;
 }
-        
+         /* Force hide all page sections except dashboard */
+            .page-section {
+                display: none !important;
+            }
+
+            .page-section.active {
+                display: block !important;
+            }
+
+            #page-dashboard {
+                display: block !important;
+            }
         @media print {
             body {
                 background: white;
@@ -345,18 +356,6 @@
                 padding: 20mm 25mm;
                 width: 100%;
                 page-break-after: auto;
-            }
-            /* Force hide all page sections except dashboard */
-            .page-section {
-                display: none !important;
-            }
-
-            .page-section.active {
-                display: block !important;
-            }
-
-            #page-dashboard {
-                display: block !important;
             }
         }
     </style>
@@ -618,26 +617,6 @@
                         <button class="btn btn-success w-100 mt-3 mt-md-4 py-2 fs-5 shadow-sm" onclick="finishMatch()">
                             <i class="fas fa-check-circle me-2"></i> จบการแข่งขัน
                         </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-                <div class="col-lg-7">
-                    <div class="glass-card p-3 p-md-4 text-center">
-                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                            <span class="badge bg-secondary" id="matchCatDisplay">Category</span>
-                            <span class="status-badge bg-live">LIVE</span>
-                            <button class="btn btn-sm btn-outline-danger" onclick="clearMatchData()">ล้าง</button>
-                        </div>
-                        <h3 class="fw-bold mb-3 mb-md-4" id="matchTitleDisplay" style="font-size: clamp(1.2rem, 4vw, 1.75rem);">Sport Name</h3>
-
-                        <!-- Score Display - จะถูก generate แบบ dynamic -->
-                        <div id="scoreDisplayArea" class="mb-3 mb-md-4"></div>
-
-                        <div id="dynamicScoreControls" class="bg-white rounded p-3 shadow-sm border text-start"></div>
-
-                        <button class="btn btn-success w-100 mt-3 mt-md-4 py-2 fs-5 shadow-sm" onclick="finishMatch()"><i class="fas fa-check-circle me-2"></i> จบการแข่งขัน</button>
                     </div>
                 </div>
             </div>
