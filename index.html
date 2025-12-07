@@ -2848,7 +2848,95 @@ window.renderMatchList = () => {
                 });
             } 
         };
+// ===== Preview Copy (รองรับ Dynamic Teams) =====
+        window.previewCopy = (type) => {
+            const filterD = document.getElementById('filterDate').value;
+            let text = "";
+            let targetMatches = allMatchesArray;
+            let dateLabel = "ทั้งหมด";
 
+            if (filterD !== 'all') {
+                targetMatches = allMatchesArray.filter(m => m.date === filterD);
+                dateLabel = `วันที่ ${formatDateThai(filterD)}`;
+            }
+
+            if (targetMatches.length === 0) {
+                Swal.fire({ icon: 'info', title: 'ไม่พบข้อมูล', text: 'ไม่มีรายการแข่งขันในช่วงเวลาที่เลือก' });
+                return;
+            }
+
+            const eventTag = `#${systemSettings.eventName.replace(/\s+/g, '')}${systemSettings.academicYear}`;
+            const teams = getActiveTeams();
+
+            if (type === 'schedule') {
+                document.getElementById('previewTitle').innerHTML = '<i class="far fa-calendar-alt me-2"></i> ตัวอย่างกำหนดการ';
+                text = `📅 กำหนดการแข่งขันกีฬาภายใน\n📍 ประจำ${dateLabel}\n----------------------------\n`;
+                targetMatches.forEach(m => {
+                    let statusIcon = m.status === 'done' ? '✅' : '⏰';
+                    text += `${statusIcon} ${m.time} น. : ${getSportName(m.sport)}\n   👉 ${m.category} (สนาม: ${m.location||'-'})\n\n`;
+                });
+            } else if (type === 'result') {
+                document.getElementById('previewTitle').innerHTML = '<i class="fas fa-trophy me-2"></i> ตัวอย่างผลการแข่งขัน';
+                text = `📢 สรุปผลการแข่งขันกีฬาภายใน\n📍 ประจำ${dateLabel}\n----------------------------\n`;
+                let hasResult = false;
+                
+                targetMatches.forEach(m => {
+                    if(m.status === 'done') {
+                        hasResult = true;
+                        
+                        // Build score display
+                        let scoreText = teams.map(team => {
+                            const score = m.scores?.[team.id] || 0;
+                            return `${getTeamName(team.id)} ${score}`;
+                        }).join(' - ');
+                        
+                        // Winner icon
+                        let winIcon = '';
+                        if (m.winner === 'draw') {
+                            winIcon = '🤝';
+                        } else if (m.winner !== 'none' && systemSettings.teams[m.winner]) {
+                            winIcon = `🏆 ${getTeamName(m.winner)}`;
+                        }
+                        
+                        text += `✅ ${getSportName(m.sport)} (${m.category})\n   ${scoreText} | ${winIcon}\n\n`;
+                    }
+                });
+                
+                if(!hasResult) text += "(ยังไม่มีการบันทึกผลการแข่งขัน)\n";
+                
+                // Summary for all dates
+                if (filterD === 'all') {
+                    const winCounts = {};
+                    teams.forEach(team => { winCounts[team.id] = 0; });
+                    
+                    allMatchesArray.forEach(m => { 
+                        if(m.status === 'done' && m.winner && winCounts[m.winner] !== undefined) { 
+                            winCounts[m.winner]++; 
+                        } 
+                    });
+                    
+                    text += `----------------------------\n📊 สรุปเหรียญรวม (ทั้งหมด)\n`;
+                    teams.forEach(team => {
+                        text += `🥇 ${team.name}: ${winCounts[team.id]} เหรียญ\n`;
+                    });
+                }
+            }
+
+            text += `----------------------------\n${eventTag}`;
+            
+            document.getElementById('copyPreviewText').value = text;
+            new bootstrap.Modal(document.getElementById('copyPreviewModal')).show();
+        };
+
+        window.copyFromPreview = () => {
+            const copyText = document.getElementById("copyPreviewText");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); 
+            navigator.clipboard.writeText(copyText.value).then(() => {
+                Swal.fire({ icon: 'success', title: 'คัดลอกแล้ว', timer: 1000, showConfirmButton: false });
+                bootstrap.Modal.getInstance(document.getElementById('copyPreviewModal')).hide();
+            });
+        };
         // ===== Finish Match (รองรับ Dynamic Teams) =====
         window.finishMatch = () => {
             const m = matchDataLocal;
