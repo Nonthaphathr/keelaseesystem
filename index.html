@@ -2284,9 +2284,20 @@
 
         // ===== Initialization =====
         document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(forceHideLoader, 5000);
-            loadSettings();
-            loadMatches();
+            document.addEventListener('DOMContentLoaded', () => {
+    // Force hide all pages except dashboard
+    setTimeout(() => {
+        document.querySelectorAll('.page-section').forEach(el => {
+            if (el.id !== 'page-dashboard') {
+                el.classList.add('d-none');
+            }
+        });
+    }, 100);
+    
+    setTimeout(forceHideLoader, 5000);
+    loadSettings();
+    loadMatches();
+});
         });
         
         loadSettings();
