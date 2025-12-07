@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ลงทะเบียนนักกีฬา - กระดุมทองเกมส์ 2568</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f4f7f6;
+            background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
+            background-size: 20px 20px;
+            padding-bottom: 50px;
+            min-height: 100vh;
+        }
+
+        h1, h2, h3, h4, h5, .font-title { font-family: 'Kanit', sans-serif; }
+
+        /* Header Styling */
+        .header-section {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 25px 20px 40px 20px;
+            border-bottom-left-radius: 30px;
+            border-bottom-right-radius: 30px;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            margin-bottom: -25px;
+            z-index: 10;
+        }
+
+        .teacher-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+        .teacher-btn:hover {
+            background: rgba(255,255,255,0.3);
+            color: #ffd700;
+        }
+
+        /* Card Styling */
+        .match-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            border: none;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .match-card:active { transform: scale(0.98); }
+        .match-card:hover { box-shadow: 0 15px 35px rgba(0,0,0,0.12); }
+        
+        .match-card.done-match {
+            background: #f8f9fa;
+            opacity: 0.9;
+            border: 1px dashed #ccc;
+        }
+
+        .sport-badge {
+            width: 60px; height: 60px;
+            background: linear-gradient(45deg, #FFB75E, #ED8F03);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.8rem;
+            color: white;
+            box-shadow: 0 4px 10px rgba(237, 143, 3, 0.3);
+        }
+        
+        .done-match .sport-badge {
+            background: linear-gradient(45deg, #56ab2f, #a8e063);
+            box-shadow: none;
+        }
+
+        /* Filter Section */
+        .filter-container {
+            background: white;
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 20;
+        }
+
+        /* Date Header Section */
+        .date-divider {
+            position: relative;
+            text-align: center;
+            margin: 30px 0 20px 0;
+            z-index: 1;
+        }
+        .date-divider::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 0; right: 0;
+            height: 1px;
+            background: #e0e0e0;
+            z-index: -1;
+        }
+        .date-badge {
+            background: #343a40;
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            border: 2px solid white;
+        }
+
+        /* Team Badge for Match Cards */
+        .team-badge-mini {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 4px;
+            margin-bottom: 4px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        /* Modal Styling */
+        .modal-content {
+            border-radius: 20px;
+            border: none;
+            overflow: hidden;
+        }
+        .modal-header {
+            background: var(--primary-gradient);
+            color: white;
+            border-bottom: none;
+            padding: 20px;
+        }
+        .modal-title { font-weight: 700; }
+        .btn-close-white { filter: invert(1) grayscale(100%) brightness(200%); }
+        
+        .team-box {
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #fff;
+            border: 1px solid #eee;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        }
+
+        .player-input {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-size: 1.1rem;
+        }
+        .player-input:focus { border-color: #2c5364; box-shadow: 0 0 0 0.2rem rgba(44, 83, 100, 0.15); }
+
+        /* Animation Classes */
+        .slide-up { animation: slideUp 0.5s ease forwards; opacity: 0; transform: translateY(20px); }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+        .modal-footer-fixed {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-section text-center">
+        <a href="index.html" class="teacher-btn"><i class="fas fa-user-shield me-1"></i> สำหรับครูผู้รับผิดชอบ</a>
+        <img src="https://nonthaphathr.github.io/uploadimg/logoschool.png" height="60" class="mb-3 animate__animated animate__fadeInDown" id="headerLogo">
+        <h3 class="fw-bold mb-1 animate__animated animate__fadeInUp" id="headerTitle">ลงทะเบียนนักกีฬา</h3>
+        <p class="mb-0 opacity-75 fw-light animate__animated animate__fadeInUp" id="headerSubtitle">กระดุมทองเกมส์ 2568</p>
+    </div>
+
+    <div class="container" style="margin-top: -20px;">
+        
+        <div class="filter-container animate__animated animate__fadeIn">
+            <div class="row g-2">
+                <div class="col-6">
+                    <label class="small text-muted mb-1 fw-bold"><i class="fas fa-filter me-1"></i> ชนิดกีฬา</label>
+                    <select id="filterSport" class="form-select border-0 bg-light fw-bold text-dark shadow-none py-2" onchange="renderMatches()">
+                        <option value="all">ทั้งหมด</option>
+                    </select>
+                </div>
+                <div class="col-6">
+                    <label class="small text-muted mb-1 fw-bold"><i class="fas fa-tasks me-1"></i> สถานะ</label>
+                    <select id="filterStatus" class="form-select border-0 bg-light fw-bold text-dark shadow-none py-2" onchange="renderMatches()">
+                        <option value="all">ทั้งหมด</option>
+                        <option value="wait" selected>⏳ รอแข่งขัน</option>
+                        <option value="done">✅ แข่งจบแล้ว</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="matchList" class="pb-5">
+            <div class="text-center py-5 text-muted">
+                <div class="spinner-border text-secondary mb-3" role="status"></div>
+                <p>กำลังเชื่อมต่อข้อมูล...</p>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="regModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-fullscreen-sm-down modal-dialog-centered modal-xl">
+            <div class="modal-content h-100">
+                <div class="modal-header">
+                    <div>
+                        <h4 class="modal-title" id="modalSportName">ชื่อกีฬา</h4>
+                        <div class="badge bg-white text-dark mt-1" id="modalCategory">รุ่น...</div>
+                        <span id="modalStatusBadge" class="badge bg-success mt-1 ms-1 d-none">แข่งจบแล้ว (แก้ไขย้อนหลัง)</span>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body bg-light" style="padding-bottom: 20px;">
+                    <div class="alert alert-primary border-0 shadow-sm d-flex align-items-center mb-4">
+                        <i class="fas fa-info-circle fa-2x me-3"></i>
+                        <div>
+                            <strong>คำแนะนำ:</strong> พิมพ์ชื่อ-นามสกุล ของนักกีฬาให้ครบถ้วน แล้วกดปุ่ม "บันทึกข้อมูล" ด้านล่าง
+                        </div>
+                    </div>
+
+                    <div id="teamInputsContainer" class="row g-3">
+                        <!-- Team boxes will be generated dynamically here -->
+                    </div>
+                </div>
+                
+                <div class="modal-footer modal-footer-fixed p-3">
+                    <button type="button" class="btn btn-light btn-lg flex-grow-0" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-success btn-lg flex-grow-1 fw-bold shadow-sm" onclick="savePlayers()">
+                        <i class="fas fa-save me-2"></i> บันทึกข้อมูล
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+        import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
+            authDomain: "keelaseesystem.firebaseapp.com",
+            databaseURL: "https://keelaseesystem-default-rtdb.firebaseio.com",
+            projectId: "keelaseesystem",
+            storageBucket: "keelaseesystem.firebasestorage.app",
+            messagingSenderId: "434885983982",
+            appId: "1:434885983982:web:ffb751f1652abf2308fdff"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let allMatches = [];
+        let currentMatchId = null;
+        let tempPlayers = {}; // {team1: [], team2: [], ...}
+        let systemSettings = {
+            schoolName: 'โรงเรียนกระดุมทองวิทยา',
+            eventName: 'กระดุมทองเกมส์',
+            academicYear: '2568',
+            schoolLogo: 'https://nonthaphathr.github.io/uploadimg/logoschool.png',
+            teams: {
+                'team1': { name: 'สีเหลือง', color: '#ffc107', active: true },
+                'team2': { name: 'สีฟ้า', color: '#2196f3', active: true }
+            },
+            sports: {
+                'football': 'ฟุตบอล 7 คน',
+                'volleyball': 'วอลเลย์บอล',
+                'beach_volleyball': 'วอลเลย์บอลชายหาด',
+                'esports': 'E-Sports ROV',
+                'petanque': 'เปตอง',
+                'athletics': 'กรีฑา',
+                'sepaktakraw': 'เซปักตะกร้อ',
+                'folksport': 'กีฬาพื้นบ้าน',
+                'cheer': 'ประกวดกองเชียร์ฯ'
+            }
+        };
+
+        // โหลดการตั้งค่าจาก Firebase
+        onValue(ref(db, 'settings'), (snap) => {
+            const data = snap.val();
+            if (data) {
+                systemSettings = { ...systemSettings, ...data };
+                if (data.teams) systemSettings.teams = data.teams;
+                if (data.sports) systemSettings.sports = data.sports;
+                updateHeaderUI();
+            }
+        }, { onlyOnce: true });
+
+        function updateHeaderUI() {
+            if (systemSettings.schoolLogo) {
+                document.getElementById('headerLogo').src = systemSettings.schoolLogo;
+            }
+            document.getElementById('headerTitle').textContent = 'ลงทะเบียนนักกีฬา';
+            document.getElementById('headerSubtitle').textContent = `${systemSettings.eventName} ${systemSettings.academicYear}`;
+        }
+
+        function getActiveTeams() {
+            return Object.keys(systemSettings.teams)
+                .filter(key => systemSettings.teams[key].active)
+                .map(key => ({ key, ...systemSettings.teams[key] }));
+        }
+
+        function getTeamByKey(key) {
+            return systemSettings.teams[key] || { name: key, color: '#999', active: false };
+        }
+
+        window.getSportName = (k) => systemSettings.sports[k] || k;
+
+        function formatThaiDate(dateStr) {
+            if(!dateStr) return 'ไม่ระบุวันที่';
+            const date = new Date(dateStr);
+            const months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+            const day = date.getDate();
+            const month = months[date.getMonth()];
+            const year = date.getFullYear() + 543;
+            return `${day} ${month} ${year}`;
+        }
+
+        // โหลดรายการแข่งขัน
+        onValue(ref(db, 'matches'), (snap) => {
+            const data = snap.val();
+            if (data) {
+                allMatches = Object.keys(data).map(k => ({...data[k], id: k}))
+                                     .sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
+                
+                updateFilterDropdown();
+                renderMatches();
+            } else {
+                document.getElementById('matchList').innerHTML = `
+                    <div class="text-center mt-5 p-5 bg-white rounded-4 shadow-sm">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <h5>ยังไม่มีรายการแข่งขัน</h5>
+                        <p class="text-muted">โปรดรอครูผู้ดูแลเพิ่มรายการในระบบหลัก</p>
+                    </div>`;
+            }
+        });
+
+        function updateFilterDropdown() {
+            const select = document.getElementById('filterSport');
+            const currentVal = select.value;
+            const sports = [...new Set(allMatches.map(m => m.sport))];
+            select.innerHTML = '<option value="all">ทั้งหมด</option>';
+            sports.forEach(s => {
+                select.innerHTML += `<option value="${s}">${getSportName(s)}</option>`;
+            });
+            select.value = currentVal;
+        }
+
+        window.renderMatches = () => {
+            const filterSport = document.getElementById('filterSport').value;
+            const filterStatus = document.getElementById('filterStatus').value;
+            const container = document.getElementById('matchList');
+            container.innerHTML = '';
+
+            const filtered = allMatches.filter(m => {
+                const matchSport = (filterSport === 'all' || m.sport === filterSport);
+                let matchStatus = true;
+                if (filterStatus === 'wait') matchStatus = (m.status !== 'done');
+                else if (filterStatus === 'done') matchStatus = (m.status === 'done');
+                return matchSport && matchStatus;
+            });
+
+            if(filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center mt-4 p-4 text-muted animate__animated animate__fadeIn">
+                        <i class="fas fa-search fa-2x mb-2 opacity-50"></i>
+                        <p>ไม่พบรายการแข่งขันตามเงื่อนไข</p>
+                    </div>`;
+                return;
+            }
+
+            let lastDate = '';
+
+            filtered.forEach((m, index) => {
+                const players = m.players || {};
+                const teams = m.teams || ['team1', 'team2'];
+                const delay = index * 0.05;
+                const isDone = m.status === 'done';
+
+                // แสดง Date Header
+                if (m.date !== lastDate) {
+                    lastDate = m.date;
+                    container.innerHTML += `
+                        <div class="date-divider animate__animated animate__fadeIn">
+                            <span class="date-badge">
+                                <i class="far fa-calendar-alt me-2 text-warning"></i> ${formatThaiDate(m.date)}
+                            </span>
+                        </div>
+                    `;
+                }
+
+                const statusBadge = isDone 
+                    ? '<span class="badge bg-success ms-2"><i class="fas fa-check-circle me-1"></i>จบแล้ว</span>' 
+                    : '<span class="badge bg-secondary ms-2 text-white-50"><i class="fas fa-hourglass-half me-1"></i>รอแข่ง</span>';
+
+                const cardClass = isDone ? 'match-card done-match' : 'match-card';
+                const iconClass = isDone ? 'fas fa-check' : 'fas fa-running';
+
+                // สร้าง Team Badges พร้อมจำนวนนักกีฬา
+                let teamBadgesHtml = '';
+                teams.forEach(teamKey => {
+                    const team = getTeamByKey(teamKey);
+                    const count = (players[teamKey] || []).filter(x => x).length;
+                    const hasPlayers = count > 0;
+                    teamBadgesHtml += `
+                        <span class="team-badge-mini ${hasPlayers ? '' : 'opacity-50'}" 
+                              style="background-color: ${team.color}20; color: ${team.color}; border-color: ${team.color};">
+                            <i class="fas fa-user me-1"></i>${team.name}: ${count}
+                        </span>
+                    `;
+                });
+
+                container.innerHTML += `
+                    <div class="${cardClass} p-3 d-flex align-items-center slide-up" style="animation-delay: ${delay}s" onclick="openRegister('${m.id}')">
+                        <div class="sport-badge me-3">
+                            <i class="${iconClass}"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap">
+                                <h5 class="fw-bold mb-1 text-dark">${getSportName(m.sport)}</h5>
+                                <div class="mb-1">${statusBadge}</div>
+                            </div>
+                            <div class="small text-muted mb-2"><i class="far fa-clock me-1"></i>${m.time} น. | ${m.category}</div>
+                            
+                            <div class="d-flex gap-1 flex-wrap">
+                                ${teamBadgesHtml}
+                            </div>
+                        </div>
+                        <div class="text-secondary ps-3 opacity-50">
+                            <i class="fas fa-chevron-right fa-lg"></i>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        window.openRegister = (id) => {
+            currentMatchId = id;
+            const m = allMatches.find(x => x.id === id);
+            
+            document.getElementById('modalSportName').innerText = getSportName(m.sport);
+            document.getElementById('modalCategory').innerText = m.category;
+            
+            const badge = document.getElementById('modalStatusBadge');
+            if(m.status === 'done') {
+                badge.classList.remove('d-none');
+            } else {
+                badge.classList.add('d-none');
+            }
+            
+            // โหลด Players จาก Firebase
+            const players = m.players || {};
+            const teams = m.teams || ['team1', 'team2'];
+            
+            tempPlayers = {};
+            teams.forEach(teamKey => {
+                tempPlayers[teamKey] = [...(players[teamKey] || [])];
+                if(tempPlayers[teamKey].length === 0) tempPlayers[teamKey].push('');
+            });
+
+            renderTeamInputs(teams);
+
+            new bootstrap.Modal(document.getElementById('regModal')).show();
+        };
+
+        function renderTeamInputs(teams) {
+            const container = document.getElementById('teamInputsContainer');
+            container.innerHTML = '';
+
+            const colClass = teams.length === 2 ? 'col-12 col-md-6' : (teams.length === 3 ? 'col-12 col-md-4' : 'col-12 col-lg-3 col-md-6');
+
+            teams.forEach(teamKey => {
+                const team = getTeamByKey(teamKey);
+                const players = tempPlayers[teamKey] || [];
+
+                let playersHtml = '';
+                players.forEach((name, idx) => {
+                    playersHtml += `
+                        <div class="d-flex gap-2 mb-2 animate__animated animate__fadeIn">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border text-muted">${idx+1}</span>
+                                <input type="text" class="form-control player-input bg-white" 
+                                       value="${name}" placeholder="ชื่อ-นามสกุล..."
+                                       oninput="updateTemp('${teamKey}', ${idx}, this.value)">
+                            </div>
+                            ${players.length > 1 ? `
+                                <button class="btn btn-outline-danger border-0" onclick="removeInput('${teamKey}', ${idx})">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>` : ''}
+                        </div>
+                    `;
+                });
+
+                container.innerHTML += `
+                    <div class="${colClass}">
+                        <div class="team-box h-100" style="border-left: 5px solid ${team.color};">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="fw-bold m-0 text-dark">
+                                    <i class="fas fa-circle me-2" style="color: ${team.color};"></i>${team.name}
+                                </h5>
+                                <button class="btn btn-sm btn-light fw-bold border" 
+                                        style="color: ${team.color}; border-color: ${team.color};"
+                                        onclick="addInput('${teamKey}')">
+                                    <i class="fas fa-plus"></i> เพิ่ม
+                                </button>
+                            </div>
+                            <div id="list_${teamKey}" class="d-flex flex-column gap-2">
+                                ${playersHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        window.addInput = (teamKey) => {
+            if(!tempPlayers[teamKey]) tempPlayers[teamKey] = [];
+            tempPlayers[teamKey].push('');
+            const m = allMatches.find(x => x.id === currentMatchId);
+            renderTeamInputs(m.teams || ['team1', 'team2']);
+        };
+
+        window.removeInput = (teamKey, idx) => {
+            if(tempPlayers[teamKey]) {
+                tempPlayers[teamKey].splice(idx, 1);
+            }
+            const m = allMatches.find(x => x.id === currentMatchId);
+            renderTeamInputs(m.teams || ['team1', 'team2']);
+        };
+
+        window.updateTemp = (teamKey, idx, val) => {
+            if(!tempPlayers[teamKey]) tempPlayers[teamKey] = [];
+            tempPlayers[teamKey][idx] = val;
+        };
+
+        window.savePlayers = () => {
+            const cleanPlayers = {};
+            Object.keys(tempPlayers).forEach(teamKey => {
+                cleanPlayers[teamKey] = tempPlayers[teamKey].filter(n => n.trim() !== '');
+            });
+
+            update(ref(db, `matches/${currentMatchId}`), {
+                players: cleanPlayers
+            }).then(() => {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'บันทึกเรียบร้อย!',
+                    text: 'รายชื่อถูกส่งเข้าระบบกลางแล้ว',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                bootstrap.Modal.getInstance(document.getElementById('regModal')).hide();
+            }).catch(err => {
+                Swal.fire('Error', 'เกิดข้อผิดพลาดในการบันทึก', 'error');
+            });
+        };
+    </script>
+</body>
+</html>
