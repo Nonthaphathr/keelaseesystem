@@ -1847,26 +1847,28 @@
     function renderScoreDisplay(m) {
         const container = document.getElementById('scoreDisplayArea');
         const teams = m.teams || ['team1', 'team2'];
+        const isRank = (m.scoringMethod === 'rank');
+        const dispVal = (tk) => isRank ? getRankLabel(m, tk) : (m.scores?.[tk] || 0);
+        const bigClass = isRank ? 'fs-2 fw-bold' : 'display-3 fw-bold';
+        const bigClassMulti = isRank ? 'fs-3 fw-bold' : 'fs-1 fw-bold';
         
         if (teams.length === 2) {
             const team1 = getTeamByKey(teams[0]);
             const team2 = getTeamByKey(teams[1]);
-            const score1 = m.scores?.[teams[0]] || 0;
-            const score2 = m.scores?.[teams[1]] || 0;
             
             container.innerHTML = `
                 <div class="row align-items-center g-2">
                     <div class="col-5">
                         <div class="p-2 p-md-3 rounded border bg-opacity-10" style="border-color: ${team1.color}!important; background: ${team1.color};">
                             <h5 class="fw-bold text-dark mb-1" style="font-size: clamp(0.85rem, 3vw, 1.25rem);">${team1.name}</h5>
-                            <div class="display-3 fw-bold" id="scoreDisplay_${teams[0]}">${score1}</div>
+                            <div class="${bigClass}" id="scoreDisplay_${teams[0]}">${dispVal(teams[0])}</div>
                         </div>
                     </div>
                     <div class="col-2"><h2 class="text-muted opacity-50 mb-0">VS</h2></div>
                     <div class="col-5">
                         <div class="p-2 p-md-3 rounded border bg-opacity-10" style="border-color: ${team2.color}!important; background: ${team2.color};">
                             <h5 class="fw-bold text-dark mb-1" style="font-size: clamp(0.85rem, 3vw, 1.25rem);">${team2.name}</h5>
-                            <div class="display-3 fw-bold" id="scoreDisplay_${teams[1]}">${score2}</div>
+                            <div class="${bigClass}" id="scoreDisplay_${teams[1]}">${dispVal(teams[1])}</div>
                         </div>
                     </div>
                 </div>
@@ -1875,13 +1877,12 @@
             let html = '<div class="row g-2">';
             teams.forEach(tk => {
                 const team = getTeamByKey(tk);
-                const score = m.scores?.[tk] || 0;
                 const colSize = Math.floor(12 / teams.length);
                 html += `
                     <div class="col-${colSize}">
                         <div class="p-2 rounded border text-center" style="border-color: ${team.color}!important;">
                             <h6 class="fw-bold mb-1" style="color: ${team.color};">${team.name}</h6>
-                            <div class="fs-1 fw-bold" id="scoreDisplay_${tk}">${score}</div>
+                            <div class="${bigClassMulti}" id="scoreDisplay_${tk}">${dispVal(tk)}</div>
                         </div>
                     </div>
                 `;
@@ -2102,7 +2103,6 @@
             teams.forEach(tk => {
                 const team = getTeamByKey(tk);
                 const curRank = m.details?.[`rank_${tk}`] || 0;
-                const pts = getRankPoints(curRank);
                 let options = `<option value="0" ${curRank===0?'selected':''}>- เลือกอันดับ -</option>`;
                 for (let r = 1; r <= n; r++) {
                     options += `<option value="${r}" ${curRank===r?'selected':''}>อันดับ ${r}</option>`;
@@ -2117,11 +2117,11 @@
                                     onchange="updateRank('${tk}', this.value)">
                                 ${options}
                             </select>
-                            <span class="badge bg-secondary" id="rankPts_${tk}" style="min-width:70px;">${pts} คะแนน</span>
+                            <span class="badge bg-secondary" id="rankPts_${tk}" style="min-width:70px;">${curRank>0?`อันดับ ${curRank}`:'ยังไม่จัด'}</span>
                         </div>
                     </div>`;
             });
-            html += `<div class="small text-muted mt-1"><i class="fas fa-circle-info me-1"></i>ปรับคะแนนของแต่ละอันดับได้ที่ ตั้งค่า → คะแนนตามอันดับ</div>`;
+            html += `<div class="small text-muted mt-1"><i class="fas fa-circle-info me-1"></i>เลือกอันดับให้แต่ละสี ระบบจะคำนวณคะแนนให้อัตโนมัติเบื้องหลัง</div>`;
         }
         else {
             const colSize = Math.floor(12 / teams.length);
@@ -2292,6 +2292,12 @@
         return Number(rp[rank]) || 0;
     }
 
+    // ป้ายแสดงอันดับ (ใช้แทนตัวเลขคะแนนในหน้าจอ/เอกสาร) — คะแนนจริงยังคำนวณอยู่เบื้องหลัง
+    function getRankLabel(m, tk) {
+        const r = m.details?.[`rank_${tk}`] || 0;
+        return r > 0 ? `อันดับ ${r}` : '-';
+    }
+
     window.updateRank = (teamKey, rankValue) => {
         if (!matchDataLocal.details) matchDataLocal.details = {};
         if (!matchDataLocal.scores) matchDataLocal.scores = {};
@@ -2305,14 +2311,15 @@
         const scores = {};
         teams.forEach(tk => {
             const r = matchDataLocal.details[`rank_${tk}`] || 0;
-            const pts = getRankPoints(r);
+            const pts = getRankPoints(r); // คะแนนจริง เก็บไว้เบื้องหลัง
             scores[tk] = pts;
             matchDataLocal.scores[tk] = pts;
 
+            const label = r > 0 ? `อันดับ ${r}` : '-';
             const elScore = document.getElementById(`scoreDisplay_${tk}`);
-            if (elScore) elScore.innerText = pts;
+            if (elScore) elScore.innerText = label;
             const elPts = document.getElementById(`rankPts_${tk}`);
-            if (elPts) elPts.innerText = `${pts} คะแนน`;
+            if (elPts) elPts.innerText = r > 0 ? `อันดับ ${r}` : 'ยังไม่จัด';
         });
 
         update(ref(db, `matches/${currentMatchId}`), { scores, details: matchDataLocal.details });
@@ -2455,16 +2462,19 @@
             const scores = m.scores || {};
             
             // สร้างตารางคะแนน
+            const isRankReport = (m.scoringMethod === 'rank');
             let scoreTableHtml = '<table style="width:100%; color:#fff;"><tr>';
             teams.forEach(tk => {
                 const team = getTeamByKey(tk);
                 const score = scores[tk] || 0;
+                const shown = isRankReport ? getRankLabel(m, tk) : score;
+                const fsize = isRankReport ? '28pt' : '50pt';
                 const colWidth = Math.floor(100 / teams.length);
                 
                 scoreTableHtml += `
                     <td style="width:${colWidth}%; text-align:center;">
                         <h3 style="margin:0; color:${team.color}; font-size:16pt;">${team.name}</h3>
-                        <div style="font-size:50pt; font-weight:bold;">${score}</div>
+                        <div style="font-size:${fsize}; font-weight:bold;">${shown}</div>
                     </td>
                 `;
             });
@@ -2801,8 +2811,12 @@
                 const rowBg = idx % 2 === 0 ? '#fff' : '#f9f9f9';
                 
                 let teamScores = '';
+                const isRankRow = (m.scoringMethod === 'rank');
                 activeTeams.forEach(t => {
-                    const score = m.status === 'done' ? (m.scores?.[t.key] || 0) : '-';
+                    let score = '-';
+                    if (m.status === 'done') {
+                        score = isRankRow ? getRankLabel(m, t.key) : (m.scores?.[t.key] || 0);
+                    }
                     teamScores += `<td style="border:1px solid #333; padding:5px; text-align:center; font-weight:bold;">${score}</td>`;
                 });
                 
@@ -3055,6 +3069,12 @@
             const players = m.players || {};
             const teamScores = {};
             activeTeams.forEach(team => { teamScores[`คะแนน_${team.name}`] = scores[team.key] || 0; });
+            const isRankMatch = (m.scoringMethod === 'rank');
+            const teamRanks = {};
+            activeTeams.forEach(team => {
+                const r = (m.details || {})[`rank_${team.key}`] || 0;
+                teamRanks[`อันดับ_${team.name}`] = (isRankMatch && r > 0) ? `อันดับ ${r}` : '';
+            });
             const teamPlayers = {};
             activeTeams.forEach(team => { 
                 const pList = players[team.key] || [];
@@ -3068,7 +3088,7 @@
             return {
                 'ลำดับ': idx + 1, 'รหัสกีฬา': m.sport, 'ชื่อกีฬา': getSportName(m.sport), 'รุ่น/ประเภท': m.category,
                 'วันที่': m.date, 'เวลา': m.time, 'สถานที่': m.location || '', 'วิธีตัดสิน': m.scoringMethod || 'score_once',
-                'จำนวน Set': m.setCount || '', ...teamScores, 'ผู้ชนะ': winnerText, 'สถานะ': m.status === 'done' ? 'จบแล้ว' : 'รอแข่ง',
+                'จำนวน Set': m.setCount || '', ...teamScores, ...teamRanks, 'ผู้ชนะ': winnerText, 'สถานะ': m.status === 'done' ? 'จบแล้ว' : 'รอแข่ง',
                 'กรรมการ': (m.referees || []).filter(r => r).join(', '), 'ลงชื่อนักกีฬา': m.athleteSign || '', 'หมายเหตุ': m.note || '',
                 ...teamPlayers, 'ทีมที่แข่งขัน': (m.teams || []).join(','), 'รายละเอียดคะแนน': JSON.stringify(m.details || {}), 'Firebase ID': m.id
             };
