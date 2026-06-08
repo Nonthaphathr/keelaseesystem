@@ -365,6 +365,7 @@
                         <option value="win_set">ชนะ/แพ้ Set</option>
                         <option value="score_once">ลงคะแนนรอบเดียว</option>
                         <option value="win_once">ชนะ/แพ้รอบเดียว</option>
+                        <option value="rank">จัดอันดับ</option>
                     </select>
                     
                     <select id="filterWinner" class="form-select form-select-sm" style="width: auto; min-width: 90px;" onchange="applyFilters()">
@@ -440,6 +441,7 @@
                                 <option value="win_set">เลือกชนะ/แพ้เป็น Set</option>
                                 <option value="score_once">ลงคะแนนรอบเดียว</option>
                                 <option value="win_once">เลือกชนะ/แพ้รอบเดียว</option>
+                                <option value="rank">จัดอันดับ (ให้ที่ 1-4 แต่ละสี)</option>
                             </select>
                         </div>
                         <div class="col-12 col-md-6 d-none" id="setCountContainer">
@@ -781,6 +783,29 @@
                     </div>
 
                     <div class="setting-section">
+                        <h6><i class="fas fa-ranking-star me-2"></i>คะแนนตามอันดับ (วิธีตัดสินแบบจัดอันดับ)</h6>
+                        <div class="row g-2">
+                            <div class="col-3">
+                                <label class="form-label small fw-bold">อันดับ 1</label>
+                                <input type="number" class="form-control form-control-sm text-center" id="rankPoint1" min="0">
+                            </div>
+                            <div class="col-3">
+                                <label class="form-label small fw-bold">อันดับ 2</label>
+                                <input type="number" class="form-control form-control-sm text-center" id="rankPoint2" min="0">
+                            </div>
+                            <div class="col-3">
+                                <label class="form-label small fw-bold">อันดับ 3</label>
+                                <input type="number" class="form-control form-control-sm text-center" id="rankPoint3" min="0">
+                            </div>
+                            <div class="col-3">
+                                <label class="form-label small fw-bold">อันดับ 4</label>
+                                <input type="number" class="form-control form-control-sm text-center" id="rankPoint4" min="0">
+                            </div>
+                        </div>
+                        <small class="text-muted">ใช้กับกีฬาที่ตัดสินด้วยการให้ที่ เช่น กรีฑา (สีที่ได้ที่ 1 ได้คะแนนมากสุด)</small>
+                    </div>
+
+                    <div class="setting-section">
                         <h6><i class="fas fa-image me-2"></i>รูปภาพ/โลโก้</h6>
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -930,6 +955,7 @@
         schoolLogo: 'https://nonthaphathr.github.io/uploadimg/logoschool.png',
         eventLogo: '',
         password: 'KTW1234',
+        rankPoints: { 1: 5, 2: 3, 3: 2, 4: 1 },
         teams: {
             'team1': { name: 'สีเหลือง', color: '#ffc107', active: true },
             'team2': { name: 'สีฟ้า', color: '#2196f3', active: true }
@@ -1126,6 +1152,11 @@
             document.getElementById('settingEventName').value = systemSettings.eventName;
             document.getElementById('settingAcademicYear').value = systemSettings.academicYear;
             document.getElementById('settingPassword').value = systemSettings.password;
+            const rp = systemSettings.rankPoints || {};
+            document.getElementById('rankPoint1').value = rp[1] ?? 5;
+            document.getElementById('rankPoint2').value = rp[2] ?? 3;
+            document.getElementById('rankPoint3').value = rp[3] ?? 2;
+            document.getElementById('rankPoint4').value = rp[4] ?? 1;
             document.getElementById('previewSchoolLogo').src = systemSettings.schoolLogo;
             
             if (systemSettings.eventLogo) {
@@ -1333,6 +1364,12 @@
         systemSettings.eventName = document.getElementById('settingEventName').value || systemSettings.eventName;
         systemSettings.academicYear = document.getElementById('settingAcademicYear').value || systemSettings.academicYear;
         systemSettings.password = document.getElementById('settingPassword').value || systemSettings.password;
+        systemSettings.rankPoints = {
+            1: parseInt(document.getElementById('rankPoint1').value) || 0,
+            2: parseInt(document.getElementById('rankPoint2').value) || 0,
+            3: parseInt(document.getElementById('rankPoint3').value) || 0,
+            4: parseInt(document.getElementById('rankPoint4').value) || 0
+        };
         
         const schoolLogoInput = document.getElementById('settingSchoolLogo');
         const eventLogoInput = document.getElementById('settingEventLogo');
@@ -1390,7 +1427,8 @@
             'score_set': 'ลงคะแนน Set',
             'win_set': 'ชนะ/แพ้ Set',
             'score_once': 'ลงคะแนนรอบเดียว',
-            'win_once': 'ชนะ/แพ้รอบเดียว'
+            'win_once': 'ชนะ/แพ้รอบเดียว',
+            'rank': 'จัดอันดับ'
         };
         return methods[method] || method;
     }
@@ -2058,6 +2096,33 @@
             
             html += '</div></div>';
         }
+        else if (scoringMethod === 'rank') {
+            html = `<h6 class="border-bottom pb-2 mb-2">จัดอันดับแต่ละสี</h6>`;
+            const n = teams.length;
+            teams.forEach(tk => {
+                const team = getTeamByKey(tk);
+                const curRank = m.details?.[`rank_${tk}`] || 0;
+                const pts = getRankPoints(curRank);
+                let options = `<option value="0" ${curRank===0?'selected':''}>- เลือกอันดับ -</option>`;
+                for (let r = 1; r <= n; r++) {
+                    options += `<option value="${r}" ${curRank===r?'selected':''}>อันดับ ${r}</option>`;
+                }
+                html += `
+                    <div class="d-flex align-items-center justify-content-between mb-2 p-2 border rounded">
+                        <span class="fw-bold" style="color:${team.color};">
+                            <i class="fas fa-flag me-1"></i>${team.name}
+                        </span>
+                        <div class="d-flex align-items-center gap-2">
+                            <select class="form-select form-select-sm" style="width:auto; border:2px solid ${team.color};"
+                                    onchange="updateRank('${tk}', this.value)">
+                                ${options}
+                            </select>
+                            <span class="badge bg-secondary" id="rankPts_${tk}" style="min-width:70px;">${pts} คะแนน</span>
+                        </div>
+                    </div>`;
+            });
+            html += `<div class="small text-muted mt-1"><i class="fas fa-circle-info me-1"></i>ปรับคะแนนของแต่ละอันดับได้ที่ ตั้งค่า → คะแนนตามอันดับ</div>`;
+        }
         else {
             const colSize = Math.floor(12 / teams.length);
             html = `<div class="row text-center g-2">`;
@@ -2218,6 +2283,39 @@
         });
         
         update(ref(db, `matches/${currentMatchId}`), { scores: wins, details: matchDataLocal.details });
+    };
+
+    // ===== วิธีตัดสินแบบจัดอันดับ (เช่น กรีฑา ให้ที่ 1-4 แต่ละสี) =====
+    function getRankPoints(rank) {
+        if (!rank) return 0;
+        const rp = systemSettings.rankPoints || {};
+        return Number(rp[rank]) || 0;
+    }
+
+    window.updateRank = (teamKey, rankValue) => {
+        if (!matchDataLocal.details) matchDataLocal.details = {};
+        if (!matchDataLocal.scores) matchDataLocal.scores = {};
+
+        const rank = parseInt(rankValue) || 0;
+        if (rank > 0) matchDataLocal.details[`rank_${teamKey}`] = rank;
+        else delete matchDataLocal.details[`rank_${teamKey}`];
+
+        // แปลงอันดับของทุกสีเป็นคะแนนใหม่ทั้งหมด
+        const teams = matchDataLocal.teams || [];
+        const scores = {};
+        teams.forEach(tk => {
+            const r = matchDataLocal.details[`rank_${tk}`] || 0;
+            const pts = getRankPoints(r);
+            scores[tk] = pts;
+            matchDataLocal.scores[tk] = pts;
+
+            const elScore = document.getElementById(`scoreDisplay_${tk}`);
+            if (elScore) elScore.innerText = pts;
+            const elPts = document.getElementById(`rankPts_${tk}`);
+            if (elPts) elPts.innerText = `${pts} คะแนน`;
+        });
+
+        update(ref(db, `matches/${currentMatchId}`), { scores, details: matchDataLocal.details });
     };
 
     window.manualScore = (teamKey, delta) => {
