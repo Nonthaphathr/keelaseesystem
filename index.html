@@ -2994,11 +2994,32 @@
                     hasResult = true;
                     const teams = m.teams || [];
                     const scores = m.scores || {};
-                    let scoreText = teams.map(tk => {
-                        const team = getTeamByKey(tk);
-                        return `${team.name} ${scores[tk]||0}`;
-                    }).join(' - ');
-                    text += `✅ ${getSportName(m.sport)} (${m.category})\n   ${scoreText}\n\n`;
+
+                    if (m.scoringMethod === 'rank') {
+                        // แมตช์จัดอันดับ: เขียนเป็น "อันดับ X สี..." เรียงจากที่ 1
+                        const details = m.details || {};
+                        const ranked = teams
+                            .map(tk => ({ name: getTeamByKey(tk).name, r: details[`rank_${tk}`] || 0 }))
+                            .filter(o => o.r > 0)
+                            .sort((a, b) => a.r - b.r);
+                        const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+                        text += `✅ ${getSportName(m.sport)} (${m.category})\n`;
+                        ranked.forEach(o => {
+                            text += `   ${medals[o.r] || '🏅'} อันดับ ${o.r} ${o.name}\n`;
+                        });
+                        const unranked = teams
+                            .filter(tk => !(details[`rank_${tk}`] > 0))
+                            .map(tk => getTeamByKey(tk).name);
+                        if (unranked.length) text += `   (ยังไม่จัดอันดับ: ${unranked.join(', ')})\n`;
+                        text += `\n`;
+                    } else {
+                        let scoreText = teams.map(tk => {
+                            const team = getTeamByKey(tk);
+                            return `${team.name} ${scores[tk]||0}`;
+                        }).join(' - ');
+                        text += `✅ ${getSportName(m.sport)} (${m.category})\n   ${scoreText}\n\n`;
+                    }
                 }
             });
             if(!hasResult) text += "(ยังไม่มีการบันทึกผลการแข่งขัน)\n";
