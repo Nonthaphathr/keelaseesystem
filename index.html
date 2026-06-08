@@ -870,7 +870,8 @@
     </div>
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-    import { getDatabase, ref, push, onValue, update, remove, set, get } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+    import { getDatabase, ref, push, onValue, update, remove, set, get, runTransaction } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -884,6 +885,35 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+
+    // ===== ข้อ 2: ยืนยันตัวตนแบบ Anonymous เพื่อให้ผ่าน Security Rules =====
+    // ทุกคนที่เปิดหน้าเว็บจะได้ token อัตโนมัติ (ผู้ใช้ไม่ต้องล็อกอินเอง)
+    // ทำให้ Security Rules สามารถบล็อกการยิง API จากภายนอกที่ไม่ผ่านหน้าเว็บได้
+    // หมายเหตุ: ต้องเปิดใช้ Anonymous sign-in ใน Firebase Console ก่อน (ดูคำแนะนำในแชต)
+    const auth = getAuth(app);
+    let authReady = false;
+    signInAnonymously(auth).catch((err) => {
+        console.warn('Anonymous auth failed:', err.code, err.message);
+        // แจ้งเตือนแบบไม่บล็อกการทำงาน เผื่อยังไม่ได้เปิด Anonymous auth ใน Console
+        if (window.Swal) {
+            Swal.fire({
+                toast: true, position: 'top-end', icon: 'warning',
+                title: 'ยืนยันตัวตนไม่สำเร็จ',
+                text: 'หากบันทึกข้อมูลไม่ได้ ให้เปิดใช้ Anonymous ใน Firebase Authentication',
+                showConfirmButton: false, timer: 6000
+            });
+        }
+    });
+    onAuthStateChanged(auth, (user) => { authReady = !!user; });
+
+    // ===== แก้บั๊ก: ช่องกรอก SweetAlert ที่ซ้อนบน Bootstrap modal พิมพ์ไม่ได้ =====
+    // Bootstrap modal มีระบบล็อกโฟกัส (focus trap) ที่จะแย่งโฟกัสกลับเข้า modal เสมอ
+    // ทำให้พิมพ์ใน input ของ SweetAlert ไม่ได้ จึงต้องหยุดการแย่งโฟกัสเมื่อ SweetAlert เปิดอยู่
+    document.addEventListener('focusin', (e) => {
+        if (e.target.closest && e.target.closest('.swal2-container')) {
+            e.stopImmediatePropagation();
+        }
+    }, true);
     
     let currentMatchId = null;
     let matchDataLocal = {}; // ตัวแปรสำคัญสำหรับเก็บค่าล่าสุดในเครื่อง
@@ -1158,21 +1188,32 @@
 
     // ===== ฟังก์ชันจัดการทีม (เพิ่ม/แก้ไข/ลบ) =====
     window.addNewTeam = async () => {
-        const { value: teamName } = await Swal.fire({
+        const palette = ['#f44336', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4', '#ffeb3b'];
+        const defaultColor = palette[Math.floor(Math.random() * palette.length)];
+
+        const { value: formValues } = await Swal.fire({
             title: 'เพิ่มทีมใหม่',
-            input: 'text',
-            inputLabel: 'ชื่อทีม',
-            inputPlaceholder: 'เช่น สีแดง, คณะเหนือ',
+            html: `
+                <input id="swalTeamName" class="swal2-input" placeholder="ชื่อทีม เช่น สีแดง, คณะเหนือ">
+                <label class="d-block mt-2" style="font-size:0.9rem;">เลือกสีประจำทีม</label>
+                <input id="swalTeamColor" type="color" value="${defaultColor}" style="width:60px;height:40px;border:none;cursor:pointer;">
+            `,
+            focusConfirm: false,
             showCancelButton: true,
-            inputValidator: (value) => { if (!value) return 'กรุณากรอกชื่อทีม'; }
+            confirmButtonText: 'เพิ่มทีม',
+            cancelButtonText: 'ยกเลิก',
+            didOpen: () => { document.getElementById('swalTeamName').focus(); },
+            preConfirm: () => {
+                const name = document.getElementById('swalTeamName').value.trim();
+                const color = document.getElementById('swalTeamColor').value;
+                if (!name) { Swal.showValidationMessage('กรุณากรอกชื่อทีม'); return false; }
+                return { name, color };
+            }
         });
-        
-        if (teamName) {
+
+        if (formValues) {
             const teamKey = 'team' + (Object.keys(systemSettings.teams).length + 1) + '_' + Date.now().toString().slice(-4);
-            const colors = ['#f44336', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4', '#ffeb3b'];
-            const randomColor = colors[Math.floor(Math.random() * colors.length)];
-            
-            systemSettings.teams[teamKey] = { name: teamName, color: randomColor, active: true };
+            systemSettings.teams[teamKey] = { name: formValues.name, color: formValues.color, active: true };
             renderTeamManagement();
         }
     };
@@ -2180,15 +2221,24 @@
     };
 
     window.manualScore = (teamKey, delta) => {
-        if (!matchDataLocal.scores) matchDataLocal.scores = {};
-        
-        const newVal = Math.max(0, (matchDataLocal.scores[teamKey] || 0) + delta);
-        matchDataLocal.scores[teamKey] = newVal; // Update local state
-        
+        // ===== ข้อ 1: ใช้ runTransaction เพื่อกันคะแนนหายเมื่อมีคนกดพร้อมกัน =====
+        // อ่าน-บวก-เขียน เป็นการทำงานแบบอะตอมมิกบนเซิร์ฟเวอร์ ไม่ใช้ค่าในเครื่องที่อาจล้าสมัย
+        const scoreRef = ref(db, `matches/${currentMatchId}/scores/${teamKey}`);
         const el = document.getElementById(`scoreDisplay_${teamKey}`);
-        if (el) el.innerText = newVal;
-        
-        update(ref(db, `matches/${currentMatchId}`), { scores: matchDataLocal.scores });
+
+        runTransaction(scoreRef, (current) => {
+            return Math.max(0, (current || 0) + delta);
+        }).then((res) => {
+            if (res.committed) {
+                const newVal = res.snapshot.val() || 0;
+                if (!matchDataLocal.scores) matchDataLocal.scores = {};
+                matchDataLocal.scores[teamKey] = newVal; // sync ค่าในเครื่อง
+                if (el) el.innerText = newVal;
+            }
+        }).catch((err) => {
+            console.error('manualScore transaction error:', err);
+            Swal.fire({ icon: 'error', title: 'บันทึกคะแนนไม่สำเร็จ', text: 'กรุณาลองใหม่อีกครั้ง' });
+        });
     };
 
     window.clearMatchData = () => { 
