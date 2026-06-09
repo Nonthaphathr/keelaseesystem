@@ -984,6 +984,40 @@
         return systemSettings.teams?.[key] || { name: key, color: '#999', active: false };
     };
 
+    // ===== ชื่อสีทีมที่แข่งขันในแมตช์ =====
+    // แบบข้อความ (สำหรับคัดลอกส่งไลน์) เช่น "สีเหลือง 🆚 สีฟ้า"
+    window.getMatchTeamsText = (m) => {
+        const teams = m.teams || [];
+        const names = teams.map(tk => getTeamByKey(tk).name);
+        if (names.length === 0) return '-';
+        if (names.length === 2) return names.join(' 🆚 ');
+        return names.join(', ');
+    };
+
+    // เลือกสีตัวอักษรให้อ่านง่ายตามความสว่างของสีพื้น (พื้นอ่อน→ดำ, พื้นเข้ม→ขาว)
+    window.getContrastTextColor = (bgColor) => {
+        let hex = (bgColor || '').replace('#', '');
+        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+        if (hex.length !== 6) return '#fff';
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        // ค่าความสว่างแบบ luminance (0-255) ถ้าสว่างมากใช้ตัวดำ
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+        return luminance > 160 ? '#000' : '#fff';
+    };
+
+    // แบบ HTML (สำหรับเอกสาร PDF) แสดงชื่อสีพร้อมป้ายสี
+    window.getMatchTeamsHTML = (m) => {
+        const teams = m.teams || [];
+        if (teams.length === 0) return '-';
+        return teams.map(tk => {
+            const t = getTeamByKey(tk);
+            const textColor = getContrastTextColor(t.color);
+            return `<span style="display:inline-block; padding:1px 7px; margin:1px; border-radius:3px; background:${t.color}; color:${textColor}; font-size:0.9em; white-space:nowrap;">${t.name}</span>`;
+        }).join(' ');
+    };
+
     // ===== ฟังก์ชันแสดง/ซ่อนหน้า =====
     window.showPage = (pageId) => {
         document.querySelectorAll('.page-section').forEach(el => {
@@ -2796,9 +2830,10 @@
                             <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:5%;">#</th>
                             <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:12%;">วันที่</th>
                             <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:8%;">เวลา</th>
-                            <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:20%;">กีฬา</th>
-                            <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:15%;">รุ่น/ประเภท</th>
-                            <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:12%;">สถานที่</th>
+                            <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:18%;">กีฬา</th>
+                            <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:13%;">รุ่น/ประเภท</th>
+                            <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:11%;">สถานที่</th>
+                            <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:14%;">ทีมที่แข่งขัน</th>
                             ${teamHeaders}
                             <th style="background:#1a237e; color:#fff; border:1px solid #333; padding:6px; width:8%;">สถานะ</th>
                         </tr>
@@ -2828,6 +2863,7 @@
                         <td style="border:1px solid #333; padding:5px; text-align:left;">${getSportName(m.sport)}</td>
                         <td style="border:1px solid #333; padding:5px; text-align:center;">${m.category}</td>
                         <td style="border:1px solid #333; padding:5px; text-align:center;">${m.location || '-'}</td>
+                        <td style="border:1px solid #333; padding:5px; text-align:center;">${getMatchTeamsHTML(m)}</td>
                         ${teamScores}
                         <td style="border:1px solid #333; padding:5px; text-align:center;">${statusTxt}</td>
                     </tr>
@@ -2870,6 +2906,7 @@
                                 <strong>${getSportName(m.sport)}</strong>
                                 <span style="color:#666; font-size:0.9em;"> - ${m.category}</span>
                                 <div style="font-size:0.85em; color:#888;">📍 ${m.location || 'ไม่ระบุสถานที่'}</div>
+                                <div style="font-size:0.85em; margin-top:3px;">🎽 ${getMatchTeamsHTML(m)}</div>
                             </div>
                             <div style="text-align:right; min-width:150px;">
                                 <span style="font-size:0.85em;">${statusIcon} ${scoreTxt}</span>
@@ -2983,7 +3020,7 @@
             text = `📅 กำหนดการแข่งขันกีฬาภายใน\n📍 ประจำ${dateLabel}\n----------------------------\n`;
             targetMatches.forEach(m => {
                 let statusIcon = m.status === 'done' ? '✅' : '⏰';
-                text += `${statusIcon} ${m.time} น. : ${getSportName(m.sport)}\n   👉 ${m.category} (สนาม: ${m.location||'-'})\n\n`;
+                text += `${statusIcon} ${m.time} น. : ${getSportName(m.sport)}\n   👉 ${m.category} (สนาม: ${m.location||'-'})\n   🎽 ${getMatchTeamsText(m)}\n\n`;
             });
         } else if (type === 'result') {
             document.getElementById('previewTitle').innerHTML = '<i class="fas fa-trophy me-2"></i> ตัวอย่างผลการแข่งขัน';
@@ -3059,7 +3096,7 @@
         let text = "";
         
         if(type === 'schedule') { 
-            text = `📅 กำหนดการแข่งขัน\n🏆 กีฬา: ${getSportName(m.sport)} (${m.category})\n⏰ เวลา: ${m.time} น. (วันที่ ${formatDateThai(m.date)})\n📍 สนาม: ${m.location || '-'}\n\n${eventTag}`; 
+            text = `📅 กำหนดการแข่งขัน\n🏆 กีฬา: ${getSportName(m.sport)} (${m.category})\n🎽 ทีมที่แข่ง: ${getMatchTeamsText(m)}\n⏰ เวลา: ${m.time} น. (วันที่ ${formatDateThai(m.date)})\n📍 สนาม: ${m.location || '-'}\n\n${eventTag}`; 
         } else {
             const teams = m.teams || [];
             const scores = m.scores || {};
