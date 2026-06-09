@@ -408,7 +408,7 @@
                     <table class="table table-hover align-middle mb-0" style="min-width: 500px;">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 12%;">เวลา</th>
+                                <th style="width: 12%;">วัน/เวลา</th>
                                 <th style="width: 24%;">รายการ</th>
                                 <th class="text-center" style="width: 16%;">สี/ทีม</th>
                                 <th class="text-center" style="width: 13%;">คะแนน</th>
@@ -1672,7 +1672,10 @@
 
             list.innerHTML += `
                 <tr>
-                    <td>${m.time || '-'}<br>${badge}</td>
+                    <td style="white-space: nowrap;">
+                        ${m.date ? `<div class="text-muted" style="font-size: 0.78em;"><i class="far fa-calendar-alt"></i> ${formatDateThai(m.date)}</div>` : ''}
+                        <strong>${m.time || '-'}</strong><br>${badge}
+                    </td>
                     <td>
                         <strong style="font-size: 0.9em;">${getSportName(m.sport)}</strong>
                         <br><small class="text-muted">${m.category || '-'}</small>
