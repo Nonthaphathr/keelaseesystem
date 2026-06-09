@@ -192,6 +192,22 @@
             .display-5 { font-size: 2rem !important; }
             .btn-sm { font-size: 0.75rem; padding: 5px 10px; }
             .table { font-size: 0.85rem; }
+
+            /* ตารางหน้าหลักบนมือถือ */
+            #matchList td, #matchList th { padding: 6px 6px; }
+
+            /* คอลัมน์สี/ทีม: เรียงป้ายสีลงแนวตั้งเพื่อไม่ให้ตารางกว้างเกิน */
+            #matchList .teams-cell { white-space: normal !important; }
+            #matchList .teams-cell span {
+                display: block !important;
+                margin: 2px auto !important;
+                max-width: 78px;
+                font-size: 0.72rem !important;
+                padding: 2px 4px !important;
+            }
+
+            /* ปุ่มจัดการให้กระชับลง */
+            #matchList .btn-group-sm .btn { padding: 4px 7px; min-height: 32px; }
         }
         
         .btn { min-height: 38px; touch-action: manipulation; }
@@ -392,11 +408,12 @@
                     <table class="table table-hover align-middle mb-0" style="min-width: 500px;">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 15%;">เวลา</th>
-                                <th style="width: 30%;">รายการ</th>
-                                <th class="text-center" style="width: 15%;">คะแนน</th>
-                                <th class="text-center" style="width: 15%;">ผู้ชนะ</th>
-                                <th class="text-end" style="width: 25%;">จัดการ</th>
+                                <th style="width: 12%;">เวลา</th>
+                                <th style="width: 24%;">รายการ</th>
+                                <th class="text-center" style="width: 16%;">สี/ทีม</th>
+                                <th class="text-center" style="width: 13%;">คะแนน</th>
+                                <th class="text-center" style="width: 13%;">ผู้ชนะ</th>
+                                <th class="text-end" style="width: 22%;">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody id="matchList" class="bg-white"></tbody>
@@ -1608,7 +1625,7 @@
         list.innerHTML = '';
         
         if(allMatchesArray.length === 0) {
-            list.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">ไม่พบข้อมูล<br><small>กดปุ่ม "เพิ่มรายการ" เพื่อสร้างใหม่</small></td></tr>';
+            list.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">ไม่พบข้อมูล<br><small>กดปุ่ม "เพิ่มรายการ" เพื่อสร้างใหม่</small></td></tr>';
             renderTeamSummaryCards();
             return;
         }
@@ -1661,6 +1678,7 @@
                         <br><small class="text-muted">${m.category || '-'}</small>
                         <div class="mt-1 small">${refIcon} ${playerIcon}</div>
                     </td>
+                    <td class="text-center teams-cell" style="line-height: 1.8;">${getMatchTeamsHTML(m)}</td>
                     <td class="text-center"><span class="badge bg-light text-dark border">${scoreDisplay}</span></td>
                     <td class="text-center">${winnerDisplay}</td>
                     <td class="text-end">
@@ -1680,7 +1698,7 @@
                 </tr>`;
         });
         
-        if(displayCount === 0) list.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">ไม่พบรายการที่ตรงกับตัวกรอง</td></tr>';
+        if(displayCount === 0) list.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">ไม่พบรายการที่ตรงกับตัวกรอง</td></tr>';
         renderTeamSummaryCards();
     };
 
