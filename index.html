@@ -1113,6 +1113,7 @@
             updateScheduleDropdowns();
             renderTeamSummaryCards();
             renderTeamManagement();
+            if (window.updateOrphanBanner) updateOrphanBanner();
         }, { onlyOnce: true });
     }
 
@@ -1754,6 +1755,63 @@
         new bootstrap.Modal(document.getElementById('qrModal')).show();
     };
 
+    // ===== ซ่อมรายการที่อ้างอิงทีมที่ไม่มีในระบบ (เช่น team1/team2 หลังลบทีมเดิม) =====
+    function findOrphanKeys() {
+        const exist = systemSettings.teams || {};
+        const set1 = new Set();
+        allMatchesArray.forEach(m => (m.teams || ['team1', 'team2']).forEach(k => { if (!exist[k]) set1.add(k); }));
+        return [...set1].sort();
+    }
+    window.updateOrphanBanner = () => {
+        let el = document.getElementById('orphanBanner');
+        if (!el) {
+            el = document.createElement('div'); el.id = 'orphanBanner';
+            const dash = document.getElementById('page-dashboard'); if (!dash) return;
+            dash.insertBefore(el, dash.firstChild);
+        }
+        const keys = findOrphanKeys();
+        if (!keys.length || !Object.keys(systemSettings.teams || {}).length) { el.innerHTML = ''; return; }
+        const n = allMatchesArray.filter(m => (m.teams || ['team1', 'team2']).some(k => keys.includes(k))).length;
+        el.innerHTML = `<div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 mb-3">
+            <i class="fas fa-triangle-exclamation"></i>
+            <div class="me-auto"><b>พบ ${n} รายการที่อ้างอิงทีมที่ไม่มีในระบบ</b> (${keys.join(', ')}) จึงไม่แสดงสีทีม — เกิดเมื่อลบ/เปลี่ยนทีม หรือนำเข้าไฟล์ที่ไม่ระบุทีม</div>
+            <button class="btn btn-sm btn-warning fw-bold" onclick="fixOrphanTeams()"><i class="fas fa-wand-magic-sparkles me-1"></i>แก้ไขให้ใช้ทีมปัจจุบัน</button></div>`;
+    };
+    window.fixOrphanTeams = async () => {
+        const keys = findOrphanKeys();
+        const teams = getActiveTeams();
+        if (!keys.length) return;
+        if (!teams.length) { Swal.fire({ icon: 'info', title: 'ยังไม่มีทีมที่ใช้งานในตั้งค่า' }); return; }
+        const opts = (sel) => teams.map((t, i) => `<option value="${t.key}" ${i === sel ? 'selected' : ''}>${t.name}</option>`).join('');
+        const rows = keys.map((k, i) => `<div class="d-flex align-items-center gap-2 mb-2"><code style="min-width:90px">${k}</code><i class="fas fa-arrow-right"></i>
+            <select class="form-select form-select-sm" id="orph_${i}">${opts(Math.min(i, teams.length - 1))}</select></div>`).join('');
+        const r = await Swal.fire({ title: 'เลือกทีมที่ต้องการใช้แทน', html: `<div class="text-start small mb-2">รหัสทีมเดิมแต่ละตัวจะถูกเปลี่ยนเป็นทีมที่เลือก (ทั้งรายการทีม คะแนน รายชื่อนักกีฬา)</div>${rows}`,
+            showCancelButton: true, confirmButtonText: 'แก้ไข', cancelButtonText: 'ยกเลิก', width: 520,
+            preConfirm: () => {
+                const map = {}; keys.forEach((k, i) => { map[k] = document.getElementById('orph_' + i).value; });
+                return map;
+            } });
+        if (!r.isConfirmed) return;
+        const map = r.value;
+        try {
+            await authWait;
+            const remapObj = (o, keyFix) => { const out = {}; Object.keys(o || {}).forEach(k => { const nk = keyFix(k); if (!(nk in out) || out[nk] === undefined) out[nk] = o[k]; }); return out; };
+            const upd = {};
+            allMatchesArray.forEach(m => {
+                const old = m.teams || ['team1', 'team2'];
+                if (!old.some(k => map[k])) return;
+                const fix = (k) => map[k] || k;
+                upd[`matches/${m.id}/teams`] = [...new Set(old.map(fix))];
+                upd[`matches/${m.id}/scores`] = remapObj(m.scores, fix);
+                upd[`matches/${m.id}/players`] = remapObj(m.players, fix);
+                if (m.coaches) upd[`matches/${m.id}/coaches`] = remapObj(m.coaches, fix);
+                if (m.details) upd[`matches/${m.id}/details`] = remapObj(m.details, (k) => { const mt = Object.keys(map).find(o => k === o || k.endsWith('_' + o)); return mt ? k.slice(0, k.length - mt.length) + map[mt] : k; });
+            });
+            await update(ref(db), upd);
+            Swal.fire({ icon: 'success', title: 'แก้ไขเรียบร้อย', text: `ปรับ ${Object.keys(upd).length ? new Set(Object.keys(upd).map(p => p.split('/')[1])).size : 0} รายการ`, timer: 2000, showConfirmButton: false });
+        } catch (e) { Swal.fire({ icon: 'error', title: 'แก้ไขไม่สำเร็จ', text: String((e && (e.code || e.message)) || e) }); }
+    };
+
     // ===== โหลดรายการแข่งขัน =====
     function loadMatches() {
         onValue(ref(db, 'matches'), (snap) => {
@@ -1770,6 +1828,7 @@
             updateScheduleDropdowns();
             renderMatchList();
             renderTeamSummaryCards();
+            updateOrphanBanner();
         }, (error) => {
             forceHideLoader();
             Swal.fire('Error', 'เชื่อมต่อ Firebase ไม่ได้', 'error');

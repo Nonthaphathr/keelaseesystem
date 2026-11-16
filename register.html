@@ -206,6 +206,7 @@
         <h3 class="fw-bold mb-1 animate__animated animate__fadeInUp" id="headerTitle">ลงทะเบียนนักกีฬา</h3>
         <p class="mb-0 opacity-75 fw-light animate__animated animate__fadeInUp" id="headerSubtitle">กระดุมทองเกมส์ 2568</p>
         <div id="teamPill" class="mt-2"></div>
+        <button id="paradeBtn" class="btn btn-light btn-sm rounded-pill mt-2 fw-bold d-none" onclick="openParade()"><i class="fas fa-flag me-1 text-warning"></i>ข้อมูลขบวนพาเหรด</button>
     </div>
 
     <div class="container" style="margin-top: -20px;">
@@ -258,6 +259,7 @@
                         </div>
                     </div>
 
+                    <div id="conflictBox" class="d-none"></div>
                     <div id="teamInputsContainer" class="row g-3">
                         <!-- Team boxes will be generated dynamically here -->
                     </div>
@@ -273,12 +275,31 @@
         </div>
     </div>
 
+    <div class="modal fade" id="paradeModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title"><i class="fas fa-flag me-2"></i>ข้อมูลขบวนพาเหรด <span id="paradeTeamName"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body bg-light">
+                    <div class="alert alert-info border-0 small">ข้อมูลนี้เชื่อมกับแบบฟอร์มพิธีกรโดยตรง พิธีกรใช้อ่านบรรยายขบวน แก้ไขภายหลังได้ด้วยลิงก์เดิม · พิมพ์ชื่อแล้วเลือกจากรายการได้</div>
+                    <div id="paradeWarn" class="d-none"></div>
+                    <div class="row g-2" id="paradeFields"></div>
+                </div>
+                <div class="modal-footer modal-footer-fixed p-3">
+                    <button type="button" class="btn btn-light btn-lg flex-grow-0" data-bs-dismiss="modal">ปิด</button>
+                    <button type="button" class="btn btn-success btn-lg flex-grow-1 fw-bold" onclick="saveParade()"><i class="fas fa-save me-2"></i>บันทึกข้อมูลขบวน</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="sugBox" style="display:none;"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-        import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+        import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+        import { TEAM_PARADE_FIELDS, paradeConflicts, athleteConflicts, attachSuggest, matchInterval, fmtTime } from "./reg-utils.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -370,6 +391,7 @@
                 if (s) { systemSettings = { ...systemSettings, ...s }; if (s.teams) systemSettings.teams = s.teams; if (s.sports) systemSettings.sports = s.sports; }
                 if (!systemSettings.teams[myTeam]) return showMessage('fa-link-slash', 'ไม่พบคณะสีของลิงก์นี้ กรุณาติดต่อครูผู้รับผิดชอบ');
                 updateHeaderUI();
+                document.getElementById('paradeBtn').classList.remove('d-none');
 
                 // รายชื่อสำหรับช่วยกรอก (ถ้าแอดมินนำเข้าไว้)
                 get(ref(db, 'registry/people')).then(sn => {
@@ -499,16 +521,49 @@
             document.getElementById('teamInputsContainer').innerHTML =
                 box(`นักกีฬา ${esc(team.name)}`, 'fa-user', 'p', tempPlayers) +
                 box('ครูผู้ควบคุม/ผู้ฝึกสอน', 'fa-chalkboard-teacher', 'c', tempCoaches);
+            checkAthlete();
         }
 
         const arrOf = (k) => k === 'p' ? tempPlayers : tempCoaches;
         window.addInput = (k) => { arrOf(k).push(''); renderTeamInputs(); };
         window.removeInput = (k, idx) => { arrOf(k).splice(idx, 1); if (!arrOf(k).length) arrOf(k).push(''); renderTeamInputs(); };
 
-        window.savePlayers = () => {
+        // ----- ตรวจชื่อชนกันตามเวลาแข่งขัน (เตือนเท่านั้น ไม่ห้ามบันทึก) -----
+        const mlabel = (m) => `${getSportName(m.sport)} ${m.category || ''} (${m.date ? m.date.slice(8, 10) + '/' + m.date.slice(5, 7) : ''} ${m.time} น.)`;
+        function currentConflicts(players, coaches) {
+            const copy = allMatches.map(m => ({
+                id: m.id, sport: m.sport, category: m.category, date: m.date, time: m.time, note: m.note,
+                players: { [myTeam]: m.id === currentMatchId ? players : (((m.players || {})[myTeam]) || []) },
+                coaches: { [myTeam]: m.id === currentMatchId ? coaches : (((m.coaches || {})[myTeam]) || []) }
+            }));
+            return athleteConflicts(copy).filter(c => c.kind === 'time' && (c.a.m.id === currentMatchId || c.b.m.id === currentMatchId));
+        }
+        const conflictHtml = (cs) => cs.map(c => {
+            const other = c.a.m.id === currentMatchId ? c.b : c.a;
+            return `<li><b>${esc(c.name)}</b> (${c.a.role}) — ชนกับ ${esc(mlabel(other.m))}</li>`;
+        }).join('');
+        window.checkAthlete = () => {
+            const box = document.getElementById('conflictBox');
+            if (!currentMatchId) return;
             const clean = (a) => [...new Set(a.map(n => n.trim()).filter(Boolean))];
-            const m = allMatches.find(x => x.id === currentMatchId);
+            const cs = currentConflicts(clean(tempPlayers), clean(tempCoaches));
+            box.classList.toggle('d-none', !cs.length);
+            box.innerHTML = cs.length ? `<div class="alert alert-warning border-0 shadow-sm"><i class="fas fa-triangle-exclamation me-1"></i><b>เตือน: พบชื่อที่เวลาแข่งขันซ้อนกัน</b>
+                <ul class="mb-1 mt-1 small">${conflictHtml(cs)}</ul><small>ยังบันทึกได้ตามปกติ (หน้างานจริงยืดหยุ่นได้)</small></div>` : '';
+        };
+
+        window.savePlayers = async () => {
+            const clean = (a) => [...new Set(a.map(n => n.trim()).filter(Boolean))];
             const players = clean(tempPlayers), coaches = clean(tempCoaches);
+            const cs = currentConflicts(players, coaches);
+            if (cs.length) {
+                const r = await Swal.fire({
+                    icon: 'warning', title: 'พบชื่อที่เวลาแข่งซ้อนกัน', width: 560,
+                    html: `<ul class="text-start small mb-0">${conflictHtml(cs)}</ul><p class="small text-muted mt-2 mb-0">ยังบันทึกต่อได้ถ้าหน้างานปรับเวลาได้</p>`,
+                    showCancelButton: true, confirmButtonText: 'บันทึกต่อ', cancelButtonText: 'กลับไปแก้ไข'
+                });
+                if (!r.isConfirmed) return;
+            }
             // เขียนเฉพาะข้อมูลของคณะตัวเอง ไม่แตะข้อมูลของคณะอื่น
             Promise.all([
                 set(ref(db, `matches/${currentMatchId}/players/${myTeam}`), players),
@@ -520,6 +575,52 @@
                 console.error(err);
                 Swal.fire('บันทึกไม่สำเร็จ', String(err && (err.code || err.message) || err), 'error');
             });
+        };
+
+        // ===== ข้อมูลขบวนพาเหรด (เชื่อมกับแบบฟอร์มพิธีกร: mcData/teams/{คณะสี}) =====
+        let mcCache = {};
+        const sugP = attachSuggest(document.getElementById('sugBox'), () => idx.all,
+            (el, p) => { el.value = p.n; checkParade(); });
+        function paradeOverlay() {
+            const mc = JSON.parse(JSON.stringify(mcCache || {}));
+            mc.teams = mc.teams || {}; mc.teams[myTeam] = mc.teams[myTeam] || {};
+            document.querySelectorAll('#paradeFields [data-f]').forEach(el => { mc.teams[myTeam][el.dataset.f] = el.value.trim(); });
+            return mc;
+        }
+        window.checkParade = () => {
+            const groups = paradeConflicts(paradeOverlay(), systemSettings.teams).filter(g => g.entries.some(e => e.scope === myTeam));
+            const box = document.getElementById('paradeWarn');
+            box.classList.toggle('d-none', !groups.length);
+            box.innerHTML = groups.length ? `<div class="alert alert-warning border-0"><i class="fas fa-triangle-exclamation me-1"></i><b>เตือน: ชื่อซ้ำกันในขบวน/พิธี</b><ul class="mb-1 mt-1 small">${groups.map(g =>
+                `<li><b>${esc(g.name)}</b> — ${g.entries.map(e => (e.scope === myTeam || e.scope === 'school' || e.scope === 'event') ? esc(e.label) : 'ขบวนคณะสีอื่น').join(' และ ')}</li>`).join('')}</ul><small>ยังบันทึกได้ตามปกติ</small></div>` : '';
+            return groups;
+        };
+        window.openParade = async () => {
+            try { await authReady; mcCache = (await get(ref(db, 'mcData'))).val() || {}; } catch (e) { mcCache = {}; }
+            const td = (mcCache.teams || {})[myTeam] || {};
+            document.getElementById('paradeTeamName').textContent = (systemSettings.teams[myTeam] || {}).name || '';
+            document.getElementById('paradeFields').innerHTML = TEAM_PARADE_FIELDS.map(f => `<div class="col-md-${f.w}">
+                <label class="form-label fw-bold small mb-1">${f.l}</label>
+                <input type="text" class="form-control" data-f="${f.k}" data-orig="${esc(td[f.k] ?? '')}" value="${esc(td[f.k] ?? '')}" placeholder="${esc(f.ph || (f.person ? 'พิมพ์ชื่อแล้วเลือกจากรายการ' : ''))}"
+                       oninput="checkParade()"></div>`).join('');
+            document.querySelectorAll('#paradeFields [data-f]').forEach(el => { if (TEAM_PARADE_FIELDS.find(f => f.k === el.dataset.f).person) sugP.bind(el); });
+            checkParade();
+            new bootstrap.Modal(document.getElementById('paradeModal')).show();
+        };
+        window.saveParade = async () => {
+            const groups = checkParade();
+            if (groups.length) {
+                const r = await Swal.fire({ icon: 'warning', title: 'พบชื่อซ้ำกันในขบวน', text: 'ยังบันทึกต่อได้ ต้องการบันทึกต่อหรือไม่?', showCancelButton: true, confirmButtonText: 'บันทึกต่อ', cancelButtonText: 'กลับไปแก้ไข' });
+                if (!r.isConfirmed) return;
+            }
+            const upd = {};
+            document.querySelectorAll('#paradeFields [data-f]').forEach(el => { if (el.value.trim() !== el.dataset.orig.trim()) upd[`teams/${myTeam}/${el.dataset.f}`] = el.value.trim(); });
+            upd['meta/team_' + myTeam] = { updatedAt: Date.now() };
+            try {
+                await authReady; await update(ref(db, 'mcData'), upd);
+                bootstrap.Modal.getInstance(document.getElementById('paradeModal')).hide();
+                Swal.fire({ icon: 'success', title: 'บันทึกข้อมูลขบวนแล้ว', timer: 1400, showConfirmButton: false });
+            } catch (e) { Swal.fire('บันทึกไม่สำเร็จ', String(e && (e.code || e.message) || e), 'error'); }
         };
 
         // ===== ช่วยกรอกชื่อ (Suggest) =====
@@ -537,6 +638,7 @@
         window.onNameInput = (el) => {
             const k = el.dataset.kind, i = +el.dataset.idx;
             arrOf(k)[i] = el.value;
+            checkAthlete();
             const q = norm(el.value);
             const pool = k === 'p' ? idx.all : idx.teachers;
             if (q.length < 1 || !pool.length) { sugBox.style.display = 'none'; return; }
