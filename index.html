@@ -338,8 +338,8 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto gap-2 py-2 py-lg-0">
-                    <li class="nav-item"><button class="btn btn-sm btn-outline-light border-0 w-100" onclick="showQRCode()"><i class="fas fa-qrcode me-1"></i> QR ระบบ</button></li>
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-2 py-2 py-lg-0">
+                    <li class="nav-item"><button class="btn btn-sm btn-light w-100 px-3" onclick="showPage('dashboard')"><i class="fas fa-home me-1"></i> หน้าหลัก</button></li>
                     <li class="nav-item">
                         <a href="register.html" target="_blank" class="btn btn-sm btn-outline-warning border-0 w-100 text-start text-lg-center">
                             <i class="fas fa-user-edit me-1"></i> ระบบลงทะเบียน
@@ -350,10 +350,10 @@
                             <i class="fas fa-file-invoice me-1"></i> สร้างเอกสารพิธีการ
                         </a>
                     </li>
+                    <li class="nav-item"><button class="btn btn-sm btn-outline-light border-0 w-100" onclick="showQRCode()"><i class="fas fa-qrcode me-1"></i> QR ระบบ</button></li>
                     <li class="nav-item"><button class="btn btn-sm btn-outline-info border-0 w-100" onclick="showManual()"><i class="fas fa-book-reader me-1"></i> คู่มือ</button></li>
                     <li class="nav-item"><button class="btn btn-sm btn-outline-success border-0 w-100" onclick="showSettings()"><i class="fas fa-cog me-1"></i> ตั้งค่าระบบ</button></li>
-                    <li class="nav-item"><button class="btn btn-sm btn-light w-100" onclick="showPage('dashboard')"><i class="fas fa-home me-1"></i> หน้าหลัก</button></li>
-                    <li class="nav-item"><button class="btn btn-sm btn-add-match w-100" onclick="prepareAddMatch()"><i class="fas fa-plus me-1"></i> เพิ่มรายการ</button></li>
+                    <li class="nav-item ms-lg-2"><button class="btn btn-sm btn-add-match w-100 px-3" onclick="prepareAddMatch()"><i class="fas fa-plus me-1"></i> เพิ่มรายการ</button></li>
                 </ul>
             </div>
         </div>
@@ -998,7 +998,8 @@
     };
 
     window.getTeamByKey = (key) => {
-        return systemSettings.teams?.[key] || { name: key, color: '#999', active: false };
+        // ถ้า key ไม่มีในตั้งค่าทีม (เช่น ทีมถูกลบ/ยังไม่ได้บันทึกตั้งค่า) ให้แสดงเป็น "ทีมที่ถูกลบ" แทน key ดิบ เช่น team4_4234
+        return systemSettings.teams?.[key] || { name: 'ทีมที่ถูกลบ', color: '#999', active: false, missing: true };
     };
 
     // ===== ชื่อสีทีมที่แข่งขันในแมตช์ =====
@@ -1334,6 +1335,21 @@
             cancelButtonText: 'ยกเลิก'
         });
         if (result.isConfirmed) {
+            // เตือนถ้ามีแมตช์ที่ยังใช้ทีมนี้อยู่
+            try {
+                const snap = await get(ref(db, 'matches'));
+                const used = Object.values(snap.val() || {}).filter(m => (m.teams || []).includes(key)).length;
+                if (used > 0) {
+                    const c = await Swal.fire({
+                        icon: 'warning',
+                        title: `ทีมนี้ถูกใช้ใน ${used} รายการแข่ง`,
+                        text: 'หากลบ รายการเหล่านั้นจะแสดงเป็น "ทีมที่ถูกลบ" ต้องการลบต่อหรือไม่?',
+                        showCancelButton: true, confirmButtonColor: '#d33',
+                        confirmButtonText: 'ลบต่อ', cancelButtonText: 'ยกเลิก'
+                    });
+                    if (!c.isConfirmed) return;
+                }
+            } catch (e) { console.warn(e); }
             delete systemSettings.teams[key];
             renderTeamManagement();
             Swal.fire({ icon: 'success', title: 'ลบเรียบร้อย', timer: 1000, showConfirmButton: false });

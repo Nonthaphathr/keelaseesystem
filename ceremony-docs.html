@@ -118,6 +118,8 @@
             background: white;
             width: 210mm;
             min-height: 297mm;
+            height: auto;
+            flex: 0 0 auto;
             margin: 10px auto;
             padding: 20mm 25mm;
             color: #000;
@@ -233,6 +235,31 @@
                         </div>
                     </div>
                 </div>
+
+                <h5 class="mb-3 pb-2 border-bottom border-light"><i class="fas fa-people-group text-primary me-2"></i>เอกสารพิธีเปิดเพิ่มเติม</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="doc-type-card" onclick="selectDocType('opening_schedule')">
+                            <i class="fas fa-list-ol text-info"></i>
+                            <h6 class="fw-bold mb-1">กำหนดการพิธีเปิด</h6>
+                            <small class="text-muted">ตารางเวลา/ลำดับพิธีการ</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="doc-type-card" onclick="selectDocType('opening_mc')">
+                            <i class="fas fa-microphone text-success"></i>
+                            <h6 class="fw-bold mb-1">บทพิธีกร</h6>
+                            <small class="text-muted">บทพูดพิธีกร ขบวน พิธีการ และบรรยายกีฬา</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="doc-type-card" onclick="selectDocType('oath_bio')">
+                            <i class="fas fa-fire text-danger"></i>
+                            <h6 class="fw-bold mb-1">คำปฏิญาณและประวัตินักกีฬา</h6>
+                            <small class="text-muted">นักกีฬาอาวุโส และนักกีฬาวิ่งคบเพลิง</small>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="step2" class="d-none">
@@ -288,6 +315,16 @@
                     </div>
                 </div>
 
+                <div id="awardTeacherSection" class="d-none mt-4">
+                    <div class="card border-0 bg-light">
+                        <div class="card-header bg-white border-0 py-3">
+                            <h6 class="fw-bold text-primary mb-0"><i class="fas fa-user-graduate me-2"></i>ครูผู้มอบรางวัล</h6>
+                            <small class="text-muted">ใส่ชื่อพร้อมคำนำหน้า (เช่น ครูสมชาย ใจดี) และตำแหน่งถ้ามี — ระบบจะใส่ในคำกล่าวให้อัตโนมัติ และจำรายชื่อไว้ใช้ครั้งต่อไป</small>
+                        </div>
+                        <div class="card-body p-3"><div id="awardTeacherList"></div></div>
+                    </div>
+                </div>
+
                 <div class="d-flex gap-2 mt-4 pt-3 border-top">
                     <button class="btn btn-secondary rounded-pill px-4" onclick="goBack()">
                         <i class="fas fa-arrow-left me-1"></i> ย้อนกลับ
@@ -297,7 +334,20 @@
                     </button>
                 </div>
             </div>
-        </div>
+        
+            <div id="stepExtra" class="d-none">
+                <h5 class="mb-4 pb-2 border-bottom border-light"><i class="fas fa-edit text-primary me-2"></i><span id="extraTitle"></span></h5>
+                <div class="row g-3" id="extraForm"></div>
+                <div class="d-flex gap-2 mt-4 pt-3 border-top">
+                    <button class="btn btn-secondary rounded-pill px-4" onclick="goBack()">
+                        <i class="fas fa-arrow-left me-1"></i> ย้อนกลับ
+                    </button>
+                    <button class="btn btn-primary flex-grow-1 rounded-pill shadow-sm" onclick="generateExtraDocument()">
+                        <i class="fas fa-file-alt me-1"></i> สร้างเอกสาร
+                    </button>
+                </div>
+            </div>
+</div>
     </div>
 
     <div class="modal fade" id="previewModal" tabindex="-1">
@@ -307,7 +357,7 @@
                     <h5 class="modal-title"><i class="fas fa-print me-2"></i>ตัวอย่างเอกสาร</h5>
                     <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body bg-secondary bg-opacity-10 p-4 d-flex justify-content-center" style="overflow-y: auto; max-height: 80vh;">
+                <div class="modal-body bg-secondary bg-opacity-10 p-4 d-flex justify-content-center" style="overflow-y: auto; max-height: 80vh; align-items: flex-start !important;">
                     <div id="documentContent" class="report-preview-page"></div>
                 </div>
                 <div class="modal-footer py-2 bg-light">
@@ -459,6 +509,7 @@
             event.currentTarget.classList.add('selected');
             
             setTimeout(() => {
+                if (EXTRA_TYPES.includes(type)) { openExtra(type); return; }
                 const step1 = document.getElementById('step1');
                 step1.classList.add('d-none');
                 
@@ -484,6 +535,17 @@
                     speakerLabel.textContent = 'ชื่อผู้กล่าวรายงาน';
                     renderAwardTypes();
                 }
+
+                const atSec = document.getElementById('awardTeacherSection');
+                const showAT = (type === 'closing_chairman' || type === 'closing_report');
+                atSec.classList.toggle('d-none', !showAT);
+                if (showAT) {
+                    document.getElementById('awardTeacherList').innerHTML = cxList('award_teachers',
+                        [{ k: 'name', w: 3, ph: 'ชื่อ-สกุล (พร้อมคำนำหน้า)' }, { k: 'role', w: 2, ph: 'ตำแหน่ง (ถ้ามี)' }],
+                        [{}, {}, {}], 'เพิ่มครูผู้มอบรางวัล');
+                    cxRenderList('award_teachers');
+                    saveCd();
+                }
             }, 300);
         };
 
@@ -491,6 +553,7 @@
             const step2 = document.getElementById('step2');
             step2.classList.add('d-none');
             step2.classList.remove('fade-in');
+            document.getElementById('stepExtra').classList.add('d-none');
             
             const step1 = document.getElementById('step1');
             step1.classList.remove('d-none');
@@ -847,6 +910,9 @@
                     <div class="speech-line speech-indent">
                         ขอขอบคุณคณะกรรมการจัดการแข่งขัน คณะครูผู้ควบคุมนักกีฬา ครูผู้ฝึกสอน กรรมการตัดสิน เจ้าหน้าที่ทุกฝ่าย ผู้ปกครอง และศิษย์เก่าที่ได้สละเวลาและแรงกายแรงใจมาร่วมจัดงานในครั้งนี้ให้ประสบความสำเร็จอย่างงดงาม
                     </div>
+                    ${cxAwardTeachers().length ? `<div class="speech-line speech-indent">
+                        ขอขอบคุณคณะครูผู้มอบรางวัล ได้แก่ ${cxJoinThai(cxAwardTeachers())} ที่ได้สละเวลามาร่วมมอบรางวัลแก่นักกีฬาผู้ชนะการแข่งขันในครั้งนี้
+                    </div>` : ''}
                     
                     <div class="speech-line speech-indent">
                         หวังเป็นอย่างยิ่งว่านักเรียนทุกคนจะนำประสบการณ์และบทเรียนจากการแข่งขันครั้งนี้ไปใช้ในชีวิตประจำวัน จงรักษาความสามัคคี น้ำใจนักกีฬา และจิตวิญญาณของการเป็นนักกีฬาที่ดีไว้เสมอ คุณสมบัติเหล่านี้จะเป็นรากฐานสำคัญที่จะนำไปสู่ความสำเร็จในทุกด้านของชีวิต
@@ -969,6 +1035,10 @@
                     <div class="speech-line speech-indent">
                         บัดนี้ การแข่งขันกีฬาภายใน "${systemSettings.eventName}" ประจำปีการศึกษา 25${yearShort} ได้ถึงบทสรุปลงแล้ว ${pronoun}ขอกราบเรียนเชิญท่านประธานได้มอบถ้วยรางวัลและโล่รางวัลแก่ผู้ชนะการแข่งขัน ดังต่อไปนี้
                     </div>
+
+                    ${cxAwardTeachers().length ? `<div class="speech-line speech-indent">
+                        ในการนี้ ขอเรียนเชิญคณะครูผู้ร่วมมอบรางวัล ได้แก่ ${cxJoinThai(cxAwardTeachers())} ร่วมมอบรางวัลแก่ผู้ชนะการแข่งขัน
+                    </div>` : ''}
                     
                     <div style="margin-top: 12px; margin-bottom: 12px;">
                         <strong>รางวัลการแข่งขันแต่ละประเภท</strong>
@@ -996,6 +1066,392 @@
                     </div>
                 </div>
             `;
+        }
+
+        // ===== เอกสารพิธีเปิดเพิ่มเติม: กำหนดการ / บทพิธีกร / คำปฏิญาณและประวัตินักกีฬา =====
+        const EXTRA_TYPES = ['opening_schedule', 'opening_mc', 'oath_bio'];
+        const EXTRA_TITLES = {
+            opening_schedule: 'กำหนดการพิธีเปิด',
+            opening_mc: 'บทพิธีกร พิธีเปิด',
+            oath_bio: 'คำปฏิญาณและประวัตินักกีฬา'
+        };
+        let cd = {};
+        try { cd = JSON.parse(localStorage.getItem('ceremonyDocData') || '{}') || {}; } catch (e) { cd = {}; }
+        const saveCd = () => { try { localStorage.setItem('ceremonyDocData', JSON.stringify(cd)); } catch (e) {} };
+        const cxEsc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const cxBr = (s) => cxEsc(s).replace(/\r?\n/g, '<br>');
+        const cxDots = (v, n = 30) => (v && String(v).trim()) ? cxEsc(String(v).trim()) : '.'.repeat(n);
+        const cxEditors = {};
+
+        // ----- ตัวช่วยสร้างฟอร์ม -----
+        function cxFld(id, label, def = '', ph = '', col = 'col-md-6') {
+            if (cd[id] === undefined) cd[id] = def;
+            return `<div class="${col}"><label class="form-label fw-bold">${label}</label>
+                <input type="text" class="form-control" data-cd="${id}" value="${cxEsc(cd[id])}" placeholder="${cxEsc(ph)}"></div>`;
+        }
+        function cxArea(id, label, def = '', rows = 3, col = 'col-12') {
+            if (cd[id] === undefined) cd[id] = def;
+            return `<div class="${col}"><label class="form-label fw-bold">${label}</label>
+                <textarea rows="${rows}" class="form-control" data-cd="${id}">${cxEsc(cd[id])}</textarea></div>`;
+        }
+        function cxSec(title, icon, hint = '') {
+            return `<div class="col-12 mt-4"><h6 class="fw-bold text-primary border-bottom pb-2 mb-0"><i class="fas ${icon} me-2"></i>${title}</h6>
+                ${hint ? `<small class="text-muted">${hint}</small>` : ''}</div>`;
+        }
+        function cxList(key, cols, defaults, addLabel) {
+            if (!Array.isArray(cd[key])) cd[key] = defaults.map(r => ({ ...r }));
+            cxEditors[key] = { cols };
+            return `<div class="col-12"><div id="list_${key}"></div>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="cxAdd('${key}')"><i class="fas fa-plus me-1"></i>${addLabel}</button></div>`;
+        }
+        function cxRenderList(key) {
+            const el = document.getElementById('list_' + key);
+            if (!el) return;
+            const { cols } = cxEditors[key];
+            el.innerHTML = cd[key].map((r, i) => `
+                <div class="d-flex gap-2 mb-2 align-items-start">
+                    <span class="text-muted small pt-2" style="width:24px;">${i + 1}.</span>
+                    ${cols.map(c => c.area
+                        ? `<textarea rows="2" class="form-control form-control-sm" style="flex:${c.w || 1}" data-list="${key}" data-idx="${i}" data-col="${c.k}" placeholder="${cxEsc(c.ph || '')}">${cxEsc(r[c.k] || '')}</textarea>`
+                        : `<input type="text" class="form-control form-control-sm" style="flex:${c.w || 1}" data-list="${key}" data-idx="${i}" data-col="${c.k}" placeholder="${cxEsc(c.ph || '')}" value="${cxEsc(r[c.k] || '')}">`
+                    ).join('')}
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary" onclick="cxMove('${key}',${i},-1)"><i class="fas fa-arrow-up"></i></button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="cxMove('${key}',${i},1)"><i class="fas fa-arrow-down"></i></button>
+                        <button type="button" class="btn btn-outline-danger" onclick="cxDel('${key}',${i})"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>`).join('');
+        }
+        window.cxAdd = (key) => { cd[key].push({}); saveCd(); cxRenderList(key); };
+        window.cxDel = (key, i) => { cd[key].splice(i, 1); saveCd(); cxRenderList(key); };
+        window.cxMove = (key, i, d) => {
+            const j = i + d;
+            if (j < 0 || j >= cd[key].length) return;
+            [cd[key][i], cd[key][j]] = [cd[key][j], cd[key][i]];
+            saveCd(); cxRenderList(key);
+        };
+        document.addEventListener('input', (e) => {
+            const t = e.target;
+            if (t.dataset && t.dataset.cd) { cd[t.dataset.cd] = t.value; saveCd(); }
+            else if (t.dataset && t.dataset.list) { cd[t.dataset.list][+t.dataset.idx][t.dataset.col] = t.value; saveCd(); }
+        });
+
+        // ----- เปิดหน้าฟอร์มของเอกสารเพิ่มเติม -----
+        function openExtra(type) {
+            document.getElementById('step1').classList.add('d-none');
+            const s = document.getElementById('stepExtra');
+            s.classList.remove('d-none');
+            s.classList.add('fade-in');
+            document.getElementById('extraTitle').textContent = 'ขั้นตอนที่ 2: กรอกข้อมูล — ' + EXTRA_TITLES[type];
+            const forms = { opening_schedule: cxFormSchedule, opening_mc: cxFormMc, oath_bio: cxFormOath };
+            document.getElementById('extraForm').innerHTML = forms[type]();
+            saveCd();
+            Object.keys(cxEditors).forEach(cxRenderList);
+        }
+
+        window.generateExtraDocument = () => {
+            const docs = { opening_schedule: cxDocSchedule, opening_mc: cxDocMc, oath_bio: cxDocOath };
+            document.getElementById('documentContent').innerHTML = docs[selectedDocType]();
+            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        };
+
+        // ----- รายชื่อครูผู้มอบรางวัล (ใช้ในคำกล่าวปิด) -----
+        function cxAwardTeachers() {
+            return (cd.award_teachers || []).filter(t => (t.name || '').trim())
+                .map(t => cxEsc(t.name.trim()) + ((t.role || '').trim() ? ` (${cxEsc(t.role.trim())})` : ''));
+        }
+        function cxJoinThai(arr) {
+            if (arr.length <= 1) return arr.join('');
+            return arr.slice(0, -1).join(' ') + ' และ' + arr[arr.length - 1];
+        }
+
+        function cxFooter() {
+            return `<div style="text-align:center; font-size:10pt; margin-top:40px; color:#666; border-top:1px solid #ddd; padding-top:10px;">
+                เอกสารนี้พิมพ์จากระบบจัดการกีฬาภายใน พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง</div>`;
+        }
+        function cxTeamWord() {
+            const n = getActiveTeams().length;
+            return n === 2 ? 'ทั้งสอง' : (n > 2 ? `ทั้ง ${n}` : 'ทุก');
+        }
+        function cxDateLine() {
+            const d = (cd.x_date || '').trim();
+            if (!d) return 'วันที่ ' + '.'.repeat(25);
+            return cxEsc(/^วันที่/.test(d) ? d : 'วันที่ ' + d);
+        }
+        function cxHead(title) {
+            return getDocumentHeader(title, `${systemSettings.eventName} ประจำปีการศึกษา ${systemSettings.academicYear}`);
+        }
+        function cxTitleBlock() {
+            return `<div style="text-align:center; margin-bottom:18px; font-weight:bold;">${cxDateLine()}<br>ณ ${cxDots(cd.x_venue, 25)}</div>`;
+        }
+        function cxH(text) {
+            return `<div style="font-weight:bold; font-size:17pt; margin:20px 0 8px; padding-bottom:3px; border-bottom:1px solid #000; page-break-after:avoid;">${text}</div>`;
+        }
+        const cxWrap = (inner) => `<div style="line-height:1.6; font-size:16pt; font-family:'Kanit',sans-serif;">${inner}${cxFooter()}</div>`;
+
+        // =========================================================
+        // 1) กำหนดการพิธีเปิด
+        // =========================================================
+        function cxFormSchedule() {
+            const school = systemSettings.schoolName, year = systemSettings.academicYear;
+            const names = getActiveTeams().map(t => t.name);
+            const teamsTxt = names.map(n => 'คณะนักกีฬา' + n).join(' และ ');
+            const cheerTxt = names.map(n => 'คณะ' + n).join(' และ ');
+            const defaults = [
+                { desc: `${teamsTxt} ตั้งขบวนพร้อมกัน ณ บริเวณหน้าโรงเรียน` },
+                { desc: 'ขบวนนักกีฬาเคลื่อนที่เข้าสู่สนามกีฬา' },
+                { desc: 'ตัวแทนนักกีฬา เชิญธงกีฬาขึ้นสู่ยอดเสา' },
+                { desc: `พิธีเปิดงานแข่งกีฬาภายใน${school} ประจำปีการศึกษา ${year} โดย {chairman} {chairman_pos}\nกล่าวรายงานโดย {reporter}` },
+                { desc: 'นักกีฬาอาวุโสเข้าสู่สนาม พร้อมนำกล่าวคำปฏิญาณ' },
+                { desc: 'นักกีฬาคบเพลิงเข้าสู่สนาม พร้อมจุดคบเพลิงที่กระถางคบเพลิง' },
+                { desc: `การแสดงเชียร์ลีดเดอร์ของ${cheerTxt}` },
+                {}, {}, {}, {}, {}, {}
+            ];
+            return cxFld('x_date', 'วันที่จัดงาน', '', 'เช่น 2-3 ธันวาคม 2568')
+                + cxFld('x_venue', 'สถานที่', 'สนามกีฬา' + school)
+                + cxFld('chairman', 'ชื่อประธานในพิธี', '', 'ระบุชื่อประธาน')
+                + cxFld('chairman_pos', 'ตำแหน่งประธานในพิธี', 'ประธานคณะกรรมการสถานศึกษาขั้นพื้นฐาน' + school)
+                + cxFld('reporter', 'ผู้กล่าวรายงาน', 'นางสุนิสา ใจใหญ่')
+                + cxFld('reporter_pos', 'ตำแหน่งผู้กล่าวรายงาน', 'ประธานจัดการแข่งขัน')
+                + cxSec('รายการกำหนดการ', 'fa-list-ol', 'เวลาเว้นว่างได้ (จะแสดงเป็นจุด ๆ ให้เขียนเอง) — ในข้อความใช้ {chairman} {chairman_pos} {reporter} แทนข้อมูลที่กรอกด้านบน')
+                + cxList('sch_rows', [{ k: 'time', w: 1, ph: 'เวลา เช่น 08.00' }, { k: 'desc', w: 4, area: true, ph: 'รายการ' }], defaults, 'เพิ่มรายการ');
+        }
+        function cxFill(t) {
+            return cxBr(t)
+                .replace(/\{chairman_pos\}/g, cxEsc(cd.chairman_pos || ''))
+                .replace(/\{chairman\}/g, cxDots(cd.chairman, 40))
+                .replace(/\{reporter_pos\}/g, cxEsc(cd.reporter_pos || ''))
+                .replace(/\{reporter\}/g, cxDots(cd.reporter, 40));
+        }
+        function cxDocSchedule() {
+            const rows = (cd.sch_rows || []).map(r => {
+                const t = (r.time || '').trim().replace(/\s*น\.?$/, '');
+                const time = 'เวลา ' + (t ? cxEsc(t) : '.'.repeat(10)) + ' น.';
+                const desc = (r.desc || '').trim() ? cxFill(r.desc) : '.'.repeat(60);
+                return `<tr style="page-break-inside:avoid;">
+                    <td style="width:4.2cm; vertical-align:top; padding:7px 10px 7px 0; font-weight:bold; white-space:nowrap;">${time}</td>
+                    <td style="vertical-align:top; padding:7px 0;">${desc}</td></tr>`;
+            }).join('');
+            return cxWrap(`
+                ${cxHead('กำหนดการพิธีเปิดการแข่งขันกีฬาภายใน')}
+                ${cxTitleBlock()}
+                <table style="width:100%; border-collapse:collapse; font-size:16pt;">${rows}</table>`);
+        }
+
+        // =========================================================
+        // 2) คำปฏิญาณและประวัตินักกีฬา
+        // =========================================================
+        function cxFormOath() {
+            const school = systemSettings.schoolName;
+            const torch = [
+                { name: 'เด็กชายมนัสนันท์ สายตา', bio: 'นักเรียนชั้นมัธยมศึกษาปีที่ 1 บุตรของนายสุรศักดิ์ สายตา และนางสมปอง วงประเทศ สำเร็จการศึกษาระดับประถมศึกษาจากโรงเรียนบ้านขี้เหล็ก เป็นนักกีฬาที่มีความสามารถหลากหลายประเภท โดยเฉพาะกีฬาฟุตบอลและเปตอง โดยเพิ่งคว้าเหรียญเงินระดับจังหวัดจากการแข่งขันกีฬาเปตอง ในรายการกีฬานักเรียนสังกัดองค์การบริหารส่วนจังหวัดศรีสะเกษ ประจำปี 2568' },
+                { name: 'เด็กหญิงฟ้าลดา สายลาด', bio: 'นักเรียนชั้นมัธยมศึกษาปีที่ 2 บุตรีของนายเจริญ สายลาด และนางเสวียน สายลาด ภูมิลำเนาบ้านเลิงแฝก ตำบลหนองหัวช้าง อำเภอกันทรารมย์ จังหวัดศรีสะเกษ เป็นนักกีฬาวอลเลย์บอลชายหาดที่มีความสามารถโดดเด่น คว้าเหรียญเงินจากการแข่งขันวอลเลย์บอลชายหาด รุ่นอายุไม่เกิน 14 ปี ประเภทหญิง ในรายการกีฬาองค์การบริหารส่วนจังหวัดศรีสะเกษ' },
+                { name: 'เด็กหญิงนรินทร บุตรสิงห์', bio: 'นักเรียนชั้นมัธยมศึกษาปีที่ 2 บุตรีของนายนนท์ปวิธ บุตรสิงห์ และนางดวงเดือน ศรีสะเนตร ภูมิลำเนาบ้านบกขี้ยาง ตำบลหนองหัวช้าง อำเภอกันทรารมย์ จังหวัดศรีสะเกษ มีประสบการณ์ด้านกีฬาวอลเลย์บอลที่โดดเด่น คว้ารางวัลรองชนะเลิศอันดับที่ 1 จากการแข่งขันกีฬาซีอีโอเกมส์ระดับอำเภอ และคว้าเหรียญเงินจากการแข่งขันวอลเลย์บอลชายหาด รุ่นอายุไม่เกิน 14 ปี ประเภทหญิง ในรายการกีฬาองค์การบริหารส่วนจังหวัดศรีสะเกษ' }
+            ];
+            return cxSec('ประวัตินักกีฬาอาวุโส', 'fa-user-tie')
+                + cxFld('sr_name', 'ชื่อ-สกุล (พร้อมคำนำหน้า)', 'นายธนะสิทธิ์ พรหมทอง')
+                + cxFld('sr_pos', 'ตำแหน่ง', 'ผู้ช่วยครูอัตราจ้าง')
+                + cxFld('sr_org', 'สังกัด', `${school} สังกัดองค์การบริหารส่วนจังหวัดศรีสะเกษ`, '', 'col-12')
+                + cxArea('sr_family', 'ครอบครัวและภูมิลำเนา', 'เป็นบุตรของนายพวง พรหมทอง และนางเลียง พรหมทอง มีพี่น้องร่วมบิดามารดาจำนวน 6 คน ภูมิลำเนาเดิมอยู่ที่อำเภอทุ่งสง จังหวัดนครศรีธรรมราช', 2)
+                + cxArea('sr_edu', 'ประวัติการศึกษา', 'สำเร็จการศึกษาระดับประถมศึกษาจากโรงเรียนบ้านบนควน สำเร็จการศึกษาระดับมัธยมศึกษาจากโรงเรียนทุ่งสง และสำเร็จการศึกษาระดับปริญญาตรี สาขาวิชาสังคมศึกษา จากมหาวิทยาลัยรามคำแหง', 2)
+                + cxArea('sr_sport', 'ประวัติการกีฬา', 'นายธนะสิทธิ์เป็นนักกีฬามวยสมัครเล่นที่มีประสบการณ์ยาวนาน ในช่วงการศึกษาระดับประถมศึกษาและมัธยมศึกษา ได้เข้าร่วมการแข่งขันมวยสมัครเล่น รุ่นน้ำหนักไม่เกิน 45 กิโลกรัม และในช่วงการศึกษาระดับอุดมศึกษา ได้ก้าวสู่การเป็นนักกีฬามวยสมัครเล่น รุ่นน้ำหนักไม่เกิน 48 กิโลกรัม', 3)
+                + cxArea('sr_close', 'ข้อความสรุปท้ายประวัติ', `นายธนะสิทธิ์ พรหมทอง เป็นแบบอย่างที่ดีของนักกีฬาที่มีความมุ่งมั่น อุทิศตนในการฝึกฝน และเป็นผู้ที่เข้าใจคุณค่าของการกีฬาอย่างแท้จริง ทั้งยังเป็นผู้ที่นำความรู้และประสบการณ์ด้านกีฬามาพัฒนาเยาวชนใน${school}ในปัจจุบัน`, 3)
+                + cxSec('คำกล่าวปฏิญาณตน', 'fa-hand-paper')
+                + cxArea('oath', 'ข้อความคำปฏิญาณ', 'ข้าพเจ้า ขอประกาศตนไว้ ณ ที่นี้ว่า ข้าพเจ้า คือนักกีฬาสมัครเล่น และขอปฏิญาณตนว่า ข้าพเจ้าจะแข่งขันกีฬาด้วยน้ำใจนักกีฬา อันแท้จริง', 3)
+                + cxSec('ประวัตินักกีฬาวิ่งคบเพลิง', 'fa-fire', 'รายชื่อชุดนี้ถูกนำไปใช้ในบทพิธีกรด้วย')
+                + cxList('torch', [{ k: 'name', w: 2, ph: 'ชื่อ-สกุล (พร้อมคำนำหน้า)' }, { k: 'bio', w: 5, area: true, ph: 'ประวัติ เช่น นักเรียนชั้น... บุตรของ...' }], torch, 'เพิ่มนักกีฬาคบเพลิง');
+        }
+        function cxDocOath() {
+            const torchHtml = (cd.torch || []).filter(t => (t.name || '').trim() || (t.bio || '').trim()).map(t => `
+                <div class="speech-line speech-indent" style="page-break-inside:avoid;"><strong>${cxEsc(t.name)}</strong> ${cxBr(t.bio)}</div>`).join('');
+            const sr = `
+                <div class="speech-line speech-indent" style="page-break-inside:avoid;"><strong>${cxDots(cd.sr_name)}</strong> ตำแหน่ง ${cxEsc(cd.sr_pos)} ${cxEsc(cd.sr_org)} ${cxBr(cd.sr_family)}</div>
+                <div class="speech-line speech-indent" style="page-break-inside:avoid;"><strong>ประวัติการศึกษา</strong> ${cxBr(cd.sr_edu)}</div>
+                <div class="speech-line speech-indent" style="page-break-inside:avoid;"><strong>ประวัติการกีฬา</strong> ${cxBr(cd.sr_sport)}</div>
+                <div class="speech-line speech-indent" style="page-break-inside:avoid;">${cxBr(cd.sr_close)}</div>`;
+            return cxWrap(`
+                ${cxHead('คำปฏิญาณและประวัตินักกีฬา')}
+                ${cxH('ประวัตินักกีฬาอาวุโส')}
+                ${sr}
+                ${cxH('คำกล่าวปฏิญาณตนของนักกีฬาอาวุโส')}
+                <div style="border:2px solid #000; border-radius:8px; padding:18px 24px; margin:12px 0; text-align:center; font-size:18pt; line-height:1.8; font-weight:600; page-break-inside:avoid;">
+                    “${cxBr(cd.oath)}”
+                </div>
+                ${cxH('ขอเชิญรับฟังประวัตินักกีฬาวิ่งคบเพลิง')}
+                ${torchHtml}`);
+        }
+
+        // =========================================================
+        // 3) บทพิธีกร พิธีเปิด
+        // =========================================================
+        function cxFormMc() {
+            const school = systemSettings.schoolName;
+            let f = cxSec('ข้อมูลงาน', 'fa-calendar-day')
+                + cxFld('x_date', 'วันที่จัดงาน', '', 'เช่น 2-3 ธันวาคม 2568')
+                + cxFld('x_venue', 'สถานที่', 'สนามกีฬา' + school)
+                + cxSec('พิธีกร', 'fa-microphone', 'พิธีกร 1 พูดแบบผู้ชาย (ผม/ครับ) พิธีกร 2 พูดแบบผู้หญิง (ดิฉัน/ค่ะ)')
+                + cxFld('mc1', 'พิธีกร 1 — ชื่อเล่น/ชื่อที่ใช้ในบท', 'ณัฐกร', '', 'col-md-4')
+                + cxFld('mc1_full', 'ชื่อ-สกุล (พร้อมคำนำหน้า)', '', '', 'col-md-5')
+                + cxFld('mc1_cls', 'ม.', '', 'เช่น 5', 'col-md-3')
+                + cxFld('mc2', 'พิธีกร 2 — ชื่อเล่น/ชื่อที่ใช้ในบท', 'ฐาปนีย์', '', 'col-md-4')
+                + cxFld('mc2_full', 'ชื่อ-สกุล (พร้อมคำนำหน้า)', '', '', 'col-md-5')
+                + cxFld('mc2_cls', 'ม.', '', 'เช่น 5', 'col-md-3')
+                + cxSec('ผู้ร่วมพิธี', 'fa-user-tie', 'ข้อมูลชุดเดียวกับเอกสารกำหนดการ/คำปฏิญาณ กรอกที่ไหนก็ใช้ร่วมกัน')
+                + cxFld('chairman', 'ชื่อประธานในพิธี', '', 'ระบุชื่อประธาน')
+                + cxFld('chairman_pos', 'ตำแหน่งประธานในพิธี', 'ประธานคณะกรรมการสถานศึกษาขั้นพื้นฐาน' + school)
+                + cxFld('reporter', 'ผู้กล่าวรายงาน', 'นางสุนิสา ใจใหญ่')
+                + cxFld('reporter_pos', 'ตำแหน่งผู้กล่าวรายงาน', 'ประธานจัดการแข่งขัน')
+                + cxFld('sr_name', 'นักกีฬาอาวุโส', 'นายธนะสิทธิ์ พรหมทอง')
+                + cxFld('closer', 'ผู้กล่าวปิดโครงการ (พิธีปิด)', '', 'ระบุชื่อ/ตำแหน่ง')
+                + cxSec('ขบวนนักกีฬา', 'fa-flag')
+                + cxFld('mj', 'คฑากรนำขบวน', '', '', 'col-md-4')
+                + cxFld('sign_school', 'ผู้ถือป้ายโรงเรียน', '', '', 'col-md-4')
+                + cxFld('flag_school', 'ผู้ถือธงโรงเรียน', '', '', 'col-md-4')
+                + cxFld('band_teachers', 'ครูผู้ฝึกซ้อมวงดุริยางค์', 'คุณครูกานต์มณี แก้วพวง และครูรัตนา สีฟ้า', '', 'col-12');
+            getActiveTeams().forEach(t => {
+                const k = 'pt_' + t.key + '_';
+                f += `<div class="col-12 mt-2"><div class="p-3 rounded-3 border" style="border-left:6px solid ${t.color} !important;"><div class="fw-bold mb-2">${cxEsc(t.name)}</div><div class="row g-2">`
+                    + cxFld(k + 'alias', 'ชื่อขบวน', '', '', 'col-md-6')
+                    + cxFld(k + 'leader', 'ประธานสี', '', '', 'col-md-4')
+                    + cxFld(k + 'level', 'ม.', '', 'เช่น 5', 'col-md-2')
+                    + cxFld(k + 'concept', 'คอนเซปต์ขบวน', '', '', 'col-md-8')
+                    + cxFld(k + 'count', 'จำนวนสมาชิก', '', '', 'col-md-4')
+                    + cxFld(k + 'sign', 'ผู้ถือป้ายคณะสี', '', '', 'col-md-6')
+                    + cxFld(k + 'flag', 'ผู้ถือธงคณะสี', '', '', 'col-md-6')
+                    + '</div></div></div>';
+            });
+            f += cxSec('ลำดับพิธีหลังกล่าวเปิด', 'fa-list-ol')
+                + cxList('mc_prog', [{ k: 'desc', w: 1, ph: 'รายการ เช่น การแสดงชุดการแสดงสี สีละไม่เกิน 10 นาที' }],
+                    [{ desc: 'การแสดงชุดการแสดงสี สีละไม่เกิน 10 นาที' }, {}, {}, {}, {}], 'เพิ่มรายการ')
+                + cxFld('close_time', 'เวลาพิธีปิด', '11.30', '', 'col-md-4')
+                + cxSec('กีฬาพื้นบ้าน', 'fa-people-roof')
+                + cxArea('folk_items', 'รายการกีฬาพื้นบ้าน (บรรทัดละรายการ)', '', 3)
+                + cxFld('folk_venue', 'สถานที่แข่งขัน', '', '', 'col-12')
+                + cxSec('กรีฑา', 'fa-person-running')
+                + cxFld('ath_narrator', 'ผู้บรรยายช่วงกรีฑา', '', '', 'col-md-6')
+                + cxFld('ath_venue', 'สถานที่แข่งขัน', 'ลู่ด้านหน้าเต็นท์อำนวยการ', '', 'col-md-6')
+                + cxList('ath_rows', [{ k: 'event', w: 3, ph: 'รายการ' }, { k: 'teams', w: 1, ph: 'กี่ทีม/สี' }, { k: 'people', w: 1, ph: 'ทีมละกี่คน' }],
+                    [{ event: 'กรีฑาระยะสั้น ๑๐๐ เมตร' }, { event: 'กรีฑาระยะสั้น ๒๐๐ เมตร' }, { event: 'กรีฑา ๔x๑๐๐ เมตร' }, { event: 'กรีฑา ๔x๔๐๐ เมตร' }], 'เพิ่มรายการกรีฑา')
+                + cxSec('กีฬาประเภทอื่นที่ต้องบรรยาย (ถ้ามี)', 'fa-futbol')
+                + cxList('mc_extra', [{ k: 'title', w: 2, ph: 'ชื่อกีฬา' }, { k: 'items', w: 3, area: true, ph: 'รายการ (บรรทัดละรายการ)' }, { k: 'venue', w: 2, ph: 'สถานที่' }], [], 'เพิ่มกีฬา');
+            return f;
+        }
+
+        function cxDocMc() {
+            const school = systemSettings.schoolName, year = systemSettings.academicYear, ev = systemSettings.eventName;
+            const S = cxEsc(school);
+            const teams = getActiveTeams();
+            const tw = cxTeamWord();
+            const m1 = cd.mc1 || 'พิธีกร 1', m2 = cd.mc2 || 'พิธีกร 2';
+            const L = (n, t) => `<div style="margin-bottom:10px; text-align:justify; page-break-inside:avoid;"><strong>(${cxEsc(n)})</strong> ${t}</div>`;
+            const D = (t) => `<div style="margin:8px 0 12px; color:#555; font-style:italic; font-size:14pt;">( ${t} )</div>`;
+            const DIV = (t) => `<div style="text-align:center; font-weight:bold; margin:22px 0 12px; border-top:1px dashed #666; border-bottom:1px dashed #666; padding:4px 0; page-break-after:avoid;">${t}</div>`;
+            const SP = (t) => `<div style="display:flex; gap:10px; margin-bottom:8px; page-break-inside:avoid;"><span style="flex:0 0 1.2em;">○</span><span style="text-align:justify;">${t}</span></div>`;
+            const BL = (arr) => `<ul style="margin:4px 0 10px; padding-left:1.6cm;">${arr.map(a => `<li>${a}</li>`).join('')}</ul>`;
+            const chair = cxDots(cd.chairman, 40), chairPos = cxEsc(cd.chairman_pos || '');
+            const reporter = cxDots(cd.reporter, 40), reporterPos = cxEsc(cd.reporter_pos || '');
+            const torch = (cd.torch || []).filter(t => (t.name || '').trim());
+            const torchTxt = torch.length ? torch.map((t, i) => `${i + 1}. ${cxEsc(t.name)}`).join(' ') : '.'.repeat(30);
+            let h = '';
+
+            // ----- ช่วงก่อนพิธี -----
+            h += cxHead('บทพิธีกร พิธีเปิดการแข่งขันกีฬาภายใน') + cxTitleBlock();
+            h += cxH('ช่วงก่อนพิธีการ');
+            h += D('เมื่อผู้เข้าร่วมงานมาพร้อม นักกีฬาเริ่มออกไปตั้งขบวน พิธีกรขึ้นสู่แท่นพูด');
+            h += L(m1, 'สวัสดีครับ') + L(m2, 'สวัสดีค่ะ ท่านผู้มีเกียรติทุกท่าน');
+            h += L(m1, `วันนี้นับเป็นวันดีวันหนึ่งนะครับ เป็นวันที่บรรยากาศสดใส สบาย ๆ เหมาะอย่างยิ่งสำหรับการออกกำลังกาย แข่งขันกีฬา เพื่อสร้างความสามัคคีให้เกิดขึ้นใน${S}ของเรา กระผม${cxDots(cd.mc1_full)} นักเรียนชั้นมัธยมศึกษาปีที่ ${cxDots(cd.mc1_cls, 6)}`);
+            h += L(m2, `ดิฉัน${cxDots(cd.mc2_full)} นักเรียนชั้นมัธยมศึกษาปีที่ ${cxDots(cd.mc2_cls, 6)} ในนาม${S} ยินดีต้อนรับท่านผู้มีเกียรติทุกท่านเข้าสู่งานแข่งขันกีฬาภายใน${S} ประจำปีการศึกษา ${year} ซึ่งการที่ทุกท่านได้สละเวลามาส่งแรงใจแรงเชียร์ให้กับบรรดานักกีฬา${S}ของเรา นับเป็นการแสดงน้ำใจที่งดงามอย่างยิ่งจริง ๆ นะคะ ดิฉันเชื่อว่ากีฬาภายในของโรงเรียนเราวันนี้ต้องดำเนินไปอย่างสนุกสนานบนฐานของความสามัคคีอย่างแน่นอนค่ะ`);
+            h += L(m1, 'ก่อนเข้าสู่ขั้นตอนพิธีการต่าง ๆ ผมขออนุญาตนำเรียนกำหนดการในวันนี้ดังนี้ครับ');
+            h += D('อ่านตามเอกสาร “กำหนดการพิธีเปิด” (แยกเป็นเอกสารต่างหาก)');
+
+            h += D('<strong>หากขบวนยังไม่เรียบร้อยให้พูดข้อมูลข้างล่างนี้รอเวลา</strong>');
+            h += L(m2, `ท่านผู้มีเกียรติคะ สำหรับกิจกรรมกีฬาสีหรือกีฬาภายในนับว่าเป็นกิจกรรมที่มีความสำคัญนะคะ เนื่องด้วยเป็นกิจกรรมที่มีความสนุกเพลิดเพลินและช่วยผ่อนคลายความเคร่งเครียดทางจิต รวมไปถึงส่งเสริมให้นักเรียนเรียนรู้ที่จะอยู่ภายใต้กติกาซึ่งถูกกำหนดร่วมกัน โดยมีจุดมุ่งหมายเพื่อการพักผ่อน การแข่งขัน ความเพลิดเพลิน และความสำเร็จ อย่างที่ทราบกันดีนะคะ กีฬาเป็นกิจกรรมที่ควบคู่กับการแข่งขันและระบบคะแนน เรียกได้ว่าเป็นกิจกรรมที่มีประโยชน์จริง ๆ นะคะคุณ${cxEsc(m1)}`);
+            h += L(m1, `เห็นด้วยอย่างยิ่งครับคุณ${cxEsc(m2)} กีฬาสีในโรงเรียนมีจุดประสงค์หลักเลยคือให้เด็กต่างห้องต่างชั้นเรียนได้มีโอกาสมาทำกิจกรรมรวมกันนอกเหนือจากการเรียน เพื่อสร้างความสามัคคีในหมู่คณะในโรงเรียนมากขึ้น และสามารถช่วยให้เราเห็นพฤติกรรมของแต่ละบุคคล ในส่วนของความรอบคอบในการทำงาน รู้จักค่าของเงิน ความสามัคคีที่ทำให้งานสำเร็จลุล่วงไปได้ด้วยดี การเห็นคุณค่าของการเสียสละ ฝึกให้เป็นคนมีความอดทนต่อความยากลำบาก สอนให้มีความระมัดระวังในขณะทำงาน และที่สำคัญคือช่วยส่งเสริมให้นักเรียนเรียนรู้ที่จะแบ่งเวลาครับ`);
+
+            // ----- บรรยายขบวน -----
+            h += DIV('บรรยายขบวน');
+            h += D('สังเกตขบวนว่าเรียบร้อยหรือยัง เมื่อเรียบร้อยแล้ว พิธีกรเริ่มพูด');
+            h += L(m1, `ขณะนี้ขบวนนักกีฬาของ${tw}คณะสี ประจำที่พร้อมเป็นที่เรียบร้อยแล้วนะครับ เชิญท่านผู้มีเกียรติทุกท่านร่วมชื่นชม ให้กำลังใจ ขบวนนักกีฬาที่กำลังจะเคลื่อนเข้าสู่สนามครับ`);
+            h += L(m2, `ขบวนนำโดยคฑากร ${cxDots(cd.mj, 30)}<br>และผู้ถือป้าย ${cxDots(cd.sign_school, 30)}<br>ผู้ถือธงโรงเรียน ${cxDots(cd.flag_school, 30)}<br>ตามมาด้วยวงดุริยางค์อันสง่างามของ${S} ฝึกซ้อมโดย${cxDots(cd.band_teachers, 25)} ขอเสียงปรบมือด้วยค่ะ`);
+            teams.forEach((t, i) => {
+                const k = 'pt_' + t.key + '_';
+                const first = i % 2 === 0;
+                const who = first ? m1 : m2;
+                const end = first ? 'ครับ' : 'ค่ะ';
+                const tn = cxEsc(t.name);
+                h += L(who, `สำหรับขบวน${tn}ในนาม “${cxDots(cd[k + 'alias'], 20)}” ภายใต้การนำของ ${cxDots(cd[k + 'leader'], 25)} นักเรียนชั้นมัธยมศึกษาปีที่ ${cxDots(cd[k + 'level'], 5)} ประธานสี วันนี้จัดขบวนมาในคอนเซปต์ ${cxDots(cd[k + 'concept'], 30)} ${tn}มีสมาชิกกว่า ${cxDots(cd[k + 'count'], 6)} ชีวิต นักกีฬาทุกคนท่าทางสง่างามมั่นใจ สมศักดิ์ศรีนักกีฬา${tn}${end}`
+                    + `<br><br>สำหรับที่นำขบวนมา<br>ผู้ถือป้าย${tn} ${cxDots(cd[k + 'sign'], 30)}<br>ผู้ถือธง${tn} ${cxDots(cd[k + 'flag'], 30)}`);
+            });
+            h += L(m1, `วันนี้ดูจากขบวนแล้ว เรียกได้ว่า${tw}สีมีความพร้อมอย่างยิ่ง สิ่งนี้สะท้อนให้เห็นถึงความสามัคคี ความตั้งใจ ทั้งยังแสดงให้เห็นซึ่งศักยภาพที่ไม่ยิ่งหย่อนไปกว่ากันเลยของ${tw}สี ไม่อยากจะจินตนาการเลยนะครับว่าตอนแข่งกีฬาจะดุเด็ดเผ็ดมันส์ขนาดไหน`);
+            h += DIV('ขบวนเข้าสู่สนาม เตรียมเข้าขั้นตอนพิธีการ');
+            h += L(m1, 'แต่ก่อนจะไปถึงส่วนของกิจกรรมต่าง ๆ ผมขออนุญาตนำสู่พิธีการครับ');
+            h += D(`${cxEsc(m1)} รับหน้าที่พิธีกรพิธีการ`);
+
+            // ----- ขั้นตอนพิธีการ -----
+            h += cxH(`ขั้นตอนพิธีเปิดการแข่งขันกีฬาภายในประจำปีการศึกษา ${year} ( ${cxEsc(ev)} )`);
+            h += SP('ประธานเดินทางมาถึงบริเวณพิธี ประธานจัดการแข่งขันนำคณะกรรมการจัดการแข่งขันเข้าแถว');
+            h += SP(`พิธีกรเชิญประธาน “เรียนเชิญท่านประธานในพิธี ${chair} ${chairPos} ประธานในพิธี ประจำ ณ แท่นยืนด้านหน้าเรียนเชิญครับ และขอเรียนเชิญคณะกรรมการจัดการแข่งขันยืนเรียงแถวเบื้องหลังท่านประธานครับ” ประธานขึ้นแท่นกล่าวเปิด`);
+            h += SP('เมื่อประธานยืนเรียบร้อยแล้ว พิธีกรสั่ง “ทั้งหมดตรง” บรรเลงเพลงมหาฤกษ์ 1 จบ');
+            h += SP('พิธีกรสั่ง “เชิญตัวแทนเชิญธงชาติ ธงโรงเรียน ธงคณะสี ประจำที่เสาธง เชิญครับ!”');
+            h += SP('พิธีกรสั่ง “นักกีฬาทั้งหมดซ้ายหัน เคารพธงชาติ ทั้งหมดตรง” บรรเลงเพลงชาติ 1 จบ<br><em style="color:#555;">( ธงชาติก่อน ตามด้วยธงโรงเรียน และธงประจำคณะสีตามลำดับ )</em>');
+            h += SP('เพลงจบพิธีกรสั่ง “ขวาหัน”');
+            h += SP(`“ลำดับต่อไปขอเรียนเชิญ ${reporter} ${reporterPos}กล่าวรายงานต่อประธานในพิธี ขอเรียนเชิญครับ”`);
+            h += SP(`ประธานในพิธีกล่าวให้โอวาทและกล่าวเปิดการแข่งขันกีฬาภายในประจำปีการศึกษา ${year} ( ${cxEsc(ev)} ) ( กล่าวจบบรรเลงเพลงมหาฤกษ์ 1 จบ ) ประธานและคณะกรรมการจัดการแข่งขันเดินออกจากสนาม`);
+            h += SP(`“ลำดับต่อไปจะเป็นพิธีนำกล่าวคำปฏิญาณโดยนักกีฬาอาวุโส เชิญตัวแทนผู้ถือธงประจำหน้าแท่นยืนด้านหน้าครับ” <em style="color:#555;">(แถวเป็นรูปครึ่งวงกลมต่อหน้านักกีฬาอาวุโส เพื่อให้นักกีฬาอาวุโสจับชายธง เมื่อผู้ถือธงประจำจุดแล้วกล่าวต่อ)</em> “ประวัตินักกีฬาอาวุโส ${cxDots(cd.sr_name, 30)}” <strong>* ดูใบประวัติ</strong>`);
+            h += SP(`นักกีฬาอาวุโสกล่าวคำปฏิญาณตน <em style="color:#555;">(เสร็จแล้วนักกีฬาอาวุโสเดินออก ผู้ถือธงย้อนไปประจำจุด จากนั้นเริ่มอ่านประวัตินักกีฬาวิ่งคบเพลิงทันที)</em> นักกีฬาวิ่งคบเพลิง ${torchTxt} <strong>* ดูใบประวัติ</strong>`);
+            h += SP('นักกีฬาวิ่งคบเพลิงวิ่งเข้าสนามทางทิศเหนือ ผ่านกองอำนวยการ (หยุดเคารพประธาน) และวิ่งตรงไปยังกระถางคบเพลิง แล้วเชิญคบเพลิงสู่กระถางคบเพลิง <strong>(** นัดหมายกับดุริยางค์ไว้ล่วงหน้าว่าคบเพลิงติดแล้วตีกลองขึ้นเพลงแล้วเดินออกจากสนามตามที่ซ้อม **)</strong>');
+            h += SP('ดุริยางค์บรรเลงเพลงนำขบวนนักกีฬาเคารพประธานและออกจากสนาม');
+            h += SP(`การแสดงพิธีเปิดโดยคณะสีต่าง ๆ ของ${S}`);
+            h += SP('ดำเนินการแข่งขันตามกำหนดการแข่งขัน');
+            const prog = (cd.mc_prog || []);
+            if (prog.length) {
+                h += `<div style="padding-left:1.4cm;">${prog.map((p, i) => `<div style="margin-bottom:4px; page-break-inside:avoid;">${i + 1}. ${(p.desc || '').trim() ? cxEsc(p.desc) : '.'.repeat(60)}</div>`).join('')}</div>`;
+            }
+            h += `<div style="margin:10px 0; font-weight:bold;">เวลา ${cxDots(cd.close_time, 8)} น. พิธีปิด</div>`;
+
+            // ----- เชียร์ลีดเดอร์ -----
+            const cheerTxt = teams.map(t => 'คณะ' + cxEsc(t.name)).join(' และ');
+            h += DIV('ขั้นตอนการบรรยายเชียร์ลีดเดอร์');
+            h += L(m2, `ลำดับต่อไปจะเป็นกิจกรรมแสดงเชียร์ลีดเดอร์ของ${tw}คณะสี เพื่อความฮึกเหิมและให้กำลังใจนักกีฬาให้ฮึดสู้ในการแข่งขัน`);
+            h += L(m1, `เชียร์ลีดเดอร์ของ${tw}สีมีสีหน้ามุ่งมั่นเอาจริง ฝึกซ้อมกันอย่างแข็งขัน ร่วมส่งแรงใจแรงเชียร์ให้เชียร์ลีดเดอร์${tw}สี หากทุกท่านพร้อมแล้ว ขอเชิญชมกิจกรรมเชียร์ลีดเดอร์จาก${cheerTxt}ได้ ณ บัดนี้ครับ`);
+
+            // ----- บรรยายกีฬา -----
+            const MATCH_NOTE = D('เมื่อการแข่งขันเริ่มขึ้น ให้บรรยายไปตามสภาพจริง โดยสังเกตดูสถานการณ์ แทรกอารมณ์ขันได้ตามสมควร แต่ระมัดระวังอย่าให้หยาบคายหรือสร้างความไม่พอใจให้แก่ผู้ฟัง');
+            h += DIV('ขั้นตอนการบรรยายกีฬา');
+            const folk = (cd.folk_items || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+            if (folk.length || (cd.folk_venue || '').trim()) {
+                h += cxH('กีฬาพื้นบ้าน');
+                h += L(m1, 'ลำดับต่อไป จะเป็นการแข่งขันกีฬาพื้นบ้าน ประกอบไปด้วย') + BL(folk.map(cxEsc));
+                h += L(m1, `เรียกได้ว่าความสนุกสนานจากการแข่งขันทุกรายการจะสามารถเรียกเสียงเฮจากกองเชียร์${tw}สีได้แน่นอนครับ เชียร์ให้สุดพลังเลยนะครับ`);
+                h += L(m2, `สำหรับกีฬาพื้นบ้านจะดำเนินการแข่งขันบริเวณ ${cxDots(cd.folk_venue, 30)} ขอให้${tw}คณะสีตรวจสอบความพร้อมของนักกีฬา เมื่อเรียบร้อยดีแล้วเชิญนักกีฬาเข้าประจำจุด เพื่อฟังท่านกรรมการตัดสินชี้แจงกติกา ก่อนดำเนินการแข่งขันต่อไปค่ะ`);
+                h += MATCH_NOTE;
+            }
+            const ath = (cd.ath_rows || []).filter(r => (r.event || '').trim());
+            if (ath.length) {
+                h += cxH(`กรีฑา (${cxEsc(m1)})`);
+                h += L(m1, `สวัสดีครับท่านผู้มีเกียรติทุกท่าน ผม${cxDots(cd.ath_narrator, 30)} จะมารับหน้าที่ผู้บรรยายกีฬาในช่วงนี้ครับ`);
+                h += L(m2, 'ลำดับต่อไป จะเป็นการแข่งขันกรีฑา โดยประกอบด้วย');
+                h += BL(ath.map(r => `${cxEsc(r.event)} แต่ละคณะสีส่งนักกีฬาสีละ ${cxDots(r.teams, 8)} ทีม ทีมละ ${cxDots(r.people, 6)} คน`));
+                h += L(m2, `สำหรับการแข่งขันกรีฑาจะดำเนินการแข่งขันบริเวณ${cxDots(cd.ath_venue, 25)}นี้ ขอให้${tw}คณะสีตรวจสอบความพร้อมของนักกีฬา เมื่อเรียบร้อยดีแล้วเชิญนักกีฬาเข้าประจำจุด เพื่อฟังท่านกรรมการผู้ตัดสินชี้แจงกติกา ก่อนดำเนินการแข่งขันต่อไปค่ะ`);
+                h += L(m2, 'นักกีฬาดูเพียบพร้อม กองเชียร์ก็ดูเข้มแข็งห้าวหาญ สีใดจะคว้าชัยชนะไปครองมาลุ้นกัน แม้บรรยากาศจะร้อนแรงสักเพียงไหน เชื่อว่ามิอาจเทียบความร้อนแรงของทั้งสองทีมได้ มาร่วมส่งแรงใจแรงเชียร์ให้สีที่ใช่ ทีมที่ชอบ กันค่ะ!!');
+                h += MATCH_NOTE;
+            }
+            (cd.mc_extra || []).filter(x => (x.title || '').trim()).forEach(x => {
+                const items = (x.items || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                h += cxH(cxEsc(x.title));
+                h += L(m1, `ลำดับต่อไป จะเป็นการแข่งขัน${cxEsc(x.title)}${items.length ? ' ประกอบไปด้วย' : ''}`) + (items.length ? BL(items.map(cxEsc)) : '');
+                h += L(m2, `สำหรับการแข่งขัน${cxEsc(x.title)}จะดำเนินการแข่งขันบริเวณ ${cxDots(x.venue, 30)} ขอให้${tw}คณะสีตรวจสอบความพร้อมของนักกีฬา เมื่อเรียบร้อยดีแล้วเชิญนักกีฬาเข้าประจำจุด เพื่อฟังท่านกรรมการตัดสินชี้แจงกติกา ก่อนดำเนินการแข่งขันต่อไปค่ะ`);
+                h += MATCH_NOTE;
+            });
+
+            // ----- พิธีปิด -----
+            h += DIV('พิธีปิดโครงการ');
+            h += L(m1, `และแล้วเราก็เดินทางมาถึงช่วงสุดท้ายของกิจกรรมแข่งขันกีฬาภายใน ประจำปี ${year} ในลำดับถัดไป จะเป็นพิธีปิดโครงการ ในการนี้ ขอเรียนเชิญ ${cxDots(cd.closer, 40)}`);
+            h += D('ผู้กล่าวปิดโครงการกล่าวจบ');
+            h += L(m2, `ขอบพระคุณคณะผู้บริหาร คณะครู และนักเรียนผู้ร่วมกิจกรรมทุกท่าน สำหรับดิฉัน ${cxDots(cd.mc2_full, 30)} นักเรียนชั้นมัธยมศึกษาปีที่ ${cxDots(cd.mc2_cls, 6)}`);
+            h += L(m1, `ผม${cxDots(cd.mc1_full, 30)} นักเรียนชั้นมัธยมศึกษาปีที่ ${cxDots(cd.mc1_cls, 6)}`);
+            h += L(m2, 'ขอยุติหน้าที่การเป็นพิธีกรเพียงเท่านี้ สวัสดีค่ะ') + L(m1, 'สวัสดีครับ');
+            return cxWrap(h);
         }
 
         window.printDocument = () => {
