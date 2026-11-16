@@ -1208,7 +1208,11 @@
                 }
             } catch (e) {
                 console.error(e);
-                Swal.fire({ icon: 'error', title: 'ออกลิงก์ไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' });
+                const denied = /permission/i.test(String(e && (e.code || e.message)));
+                Swal.fire({ icon: 'error', title: 'ออกลิงก์ไม่สำเร็จ',
+                    html: denied
+                        ? 'Firebase ไม่อนุญาตให้เขียนข้อมูลที่พาธ <b>mcLinks / mcData</b><br>ต้องเพิ่มกฎ (Rules) ของ Realtime Database ก่อน'
+                        : 'สาเหตุ: ' + cxEsc(String(e && (e.code || e.message) || e)) });
                 return;
             }
             const url = cxMcUrl(token);

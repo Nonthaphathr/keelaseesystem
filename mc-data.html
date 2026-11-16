@@ -243,7 +243,7 @@
                 Swal.fire({ icon: 'success', title: 'บันทึกเรียบร้อย', timer: 1400, showConfirmButton: false });
             } catch (e) {
                 console.error(e);
-                Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง' });
+                Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: String(e && (e.code || e.message) || e) });
             }
         };
 
@@ -263,7 +263,7 @@
             const t = (settings.teams || {})[teamKey] || {};
             let url;
             try { url = pageUrl(await ensureTeamToken(teamKey, renew)); }
-            catch (e) { Swal.fire({ icon: 'error', title: 'ออกลิงก์ไม่สำเร็จ' }); return; }
+            catch (e) { Swal.fire({ icon: 'error', title: 'ออกลิงก์ไม่สำเร็จ', text: String(e && (e.code || e.message) || e) }); return; }
             const r = await Swal.fire({
                 title: `ลิงก์สำหรับประธาน${esc(t.name || '')}`,
                 html: `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}" class="img-fluid border p-1 bg-white mb-2">
