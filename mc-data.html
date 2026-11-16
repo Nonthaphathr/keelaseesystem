@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เก็บข้อมูลสำหรับพิธีกร</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f4f7f6;
+            background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
+            background-size: 20px 20px;
+            padding-bottom: 60px;
+            min-height: 100vh;
+        }
+        h1, h2, h3, h4, h5, h6, .font-title { font-family: 'Kanit', sans-serif; }
+        .header-section {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 25px 20px 45px;
+            border-bottom-left-radius: 30px;
+            border-bottom-right-radius: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            margin-bottom: -25px;
+        }
+        .header-section img { height: 60px; margin-bottom: 10px; }
+        .form-card {
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: var(--card-shadow);
+            padding: 20px;
+            margin-bottom: 18px;
+        }
+        .form-card h6 { color: #203a43; border-bottom: 2px solid #e9eef0; padding-bottom: 8px; margin-bottom: 14px; }
+        .team-block { border: 1px solid #e0e0e0; border-left-width: 6px; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+        .save-bar {
+            position: sticky; bottom: 0; background: rgba(255,255,255,0.95); backdrop-filter: blur(6px);
+            padding: 12px 0; border-top: 1px solid #ddd; z-index: 20;
+        }
+        .link-box { word-break: break-all; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <div class="header-section text-center">
+        <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" id="headerLogo" alt="">
+        <h3 class="fw-bold mb-1" id="headerTitle">เก็บข้อมูลสำหรับพิธีกร</h3>
+        <p class="mb-0 opacity-75" id="headerSubtitle"></p>
+    </div>
+
+    <div class="container" style="max-width: 820px; position: relative; z-index: 15;">
+        <div id="state" class="form-card text-center mt-4">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2 mb-0 text-muted">กำลังโหลด...</p>
+        </div>
+        <div id="app" class="d-none"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+        import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
+            authDomain: "keelaseesystem.firebaseapp.com",
+            databaseURL: "https://keelaseesystem-default-rtdb.firebaseio.com",
+            projectId: "keelaseesystem",
+            storageBucket: "keelaseesystem.firebasestorage.app",
+            messagingSenderId: "434885983982",
+            appId: "1:434885983982:web:ffb751f1652abf2308fdff"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const token = new URLSearchParams(location.search).get('k');
+        let link = null, settings = { teams: {}, schoolName: 'โรงเรียนกระดุมทองวิทยา', eventName: 'กระดุมทองเกมส์', academicYear: '2568' };
+        let data = {};
+
+        // แสดงโลโก้ที่จำไว้จากครั้งก่อนทันที
+        try {
+            const kc = JSON.parse(localStorage.getItem('ksSettingsCache') || '{}') || {};
+            if (kc.schoolLogo) document.getElementById('headerLogo').src = kc.schoolLogo;
+        } catch (e) {}
+
+        // ----- โครงฟอร์ม (ข้อมูลบุคคล/คณะสี ไม่รวมข้อมูลกีฬา) -----
+        // key ต้องตรงกับที่ ceremony-docs.html ใช้
+        const MC_SECTIONS = [
+            { title: 'พิธีกร', icon: 'fa-microphone', fields: [
+                { k: 'mc1', l: 'พิธีกร 1 (ชาย) — ชื่อที่ใช้ในบท', w: 4, ph: 'เช่น ณัฐกร' },
+                { k: 'mc1_full', l: 'ชื่อ-สกุล (พร้อมคำนำหน้า)', w: 5 },
+                { k: 'mc1_cls', l: 'ชั้น ม.', w: 3, ph: 'เช่น 5' },
+                { k: 'mc2', l: 'พิธีกร 2 (หญิง) — ชื่อที่ใช้ในบท', w: 4, ph: 'เช่น ฐาปนีย์' },
+                { k: 'mc2_full', l: 'ชื่อ-สกุล (พร้อมคำนำหน้า)', w: 5 },
+                { k: 'mc2_cls', l: 'ชั้น ม.', w: 3, ph: 'เช่น 5' }
+            ] },
+            { title: 'ผู้ร่วมพิธี', icon: 'fa-user-tie', fields: [
+                { k: 'chairman', l: 'ประธานในพิธี', w: 6 },
+                { k: 'chairman_pos', l: 'ตำแหน่งประธานในพิธี', w: 6 },
+                { k: 'reporter', l: 'ผู้กล่าวรายงาน', w: 6 },
+                { k: 'reporter_pos', l: 'ตำแหน่งผู้กล่าวรายงาน', w: 6 },
+                { k: 'sr_name', l: 'นักกีฬาอาวุโส (ชื่อ-สกุล)', w: 6 },
+                { k: 'closer', l: 'ผู้กล่าวปิดโครงการ', w: 6 }
+            ] },
+            { title: 'ขบวนโรงเรียน', icon: 'fa-flag', fields: [
+                { k: 'mj', l: 'คฑากรนำขบวน', w: 4 },
+                { k: 'sign_school', l: 'ผู้ถือป้ายโรงเรียน', w: 4 },
+                { k: 'flag_school', l: 'ผู้ถือธงโรงเรียน', w: 4 },
+                { k: 'band_teachers', l: 'ครูผู้ฝึกซ้อมวงดุริยางค์', w: 12 }
+            ] },
+            { title: 'ประวัตินักกีฬาอาวุโส', icon: 'fa-medal', fields: [
+                { k: 'sr_pos', l: 'ตำแหน่ง', w: 6 },
+                { k: 'sr_org', l: 'สังกัด', w: 6 },
+                { k: 'sr_family', l: 'ครอบครัวและภูมิลำเนา', w: 12, area: true },
+                { k: 'sr_edu', l: 'ประวัติการศึกษา', w: 12, area: true },
+                { k: 'sr_sport', l: 'ประวัติการกีฬา', w: 12, area: true },
+                { k: 'sr_close', l: 'ข้อความสรุปท้ายประวัติ', w: 12, area: true }
+            ] }
+        ];
+        const TEAM_FIELDS = [
+            { k: 'alias', l: 'ชื่อขบวน', w: 6 },
+            { k: 'leader', l: 'ชื่อประธานสี', w: 4 },
+            { k: 'level', l: 'ชั้น ม.', w: 2, ph: 'เช่น 5' },
+            { k: 'concept', l: 'คอนเซปต์ขบวน', w: 8 },
+            { k: 'count', l: 'จำนวนสมาชิก (คน)', w: 4 },
+            { k: 'sign', l: 'ผู้ถือป้ายคณะสี', w: 6 },
+            { k: 'flag', l: 'ผู้ถือธงคณะสี', w: 6 }
+        ];
+        const LISTS = {
+            torch: { title: 'นักกีฬาวิ่งคบเพลิง', icon: 'fa-fire', add: 'เพิ่มนักกีฬาคบเพลิง',
+                cols: [{ k: 'name', w: 2, ph: 'ชื่อ-สกุล (พร้อมคำนำหน้า)' }, { k: 'bio', w: 5, area: true, ph: 'ประวัติ เช่น นักเรียนชั้น... บุตรของ... ผลงานด้านกีฬา...' }] },
+            award_teachers: { title: 'ครูผู้มอบรางวัล', icon: 'fa-user-graduate', add: 'เพิ่มครูผู้มอบรางวัล',
+                cols: [{ k: 'name', w: 3, ph: 'ชื่อ-สกุล (พร้อมคำนำหน้า)' }, { k: 'role', w: 2, ph: 'ตำแหน่ง (ถ้ามี)' }] }
+        };
+
+        const norm = (v) => (v && typeof v === 'object') ? Object.values(v) : v;
+        const activeTeams = () => Object.entries(settings.teams || {}).filter(([, t]) => t.active).map(([key, t]) => ({ key, ...t }));
+        const rand = () => Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+        const pageUrl = (k) => new URL('mc-data.html', location.href).origin + new URL('mc-data.html', location.href).pathname + '?k=' + k;
+
+        // ----- ตัวสร้างฟอร์ม -----
+        function field(attrs, f, val) {
+            const common = `class="form-control" ${attrs} data-orig="${esc(val ?? '')}" placeholder="${esc(f.ph || '')}"`;
+            return `<div class="col-md-${f.w || 6}"><label class="form-label fw-bold small mb-1">${f.l}</label>
+                ${f.area ? `<textarea rows="2" ${common}>${esc(val)}</textarea>` : `<input type="text" ${common} value="${esc(val)}">`}</div>`;
+        }
+        function rowHtml(key, r) {
+            const cols = LISTS[key].cols;
+            return `<div class="lrow d-flex gap-2 mb-2 align-items-start">
+                ${cols.map(c => c.area
+                    ? `<textarea rows="2" class="form-control form-control-sm" style="flex:${c.w}" data-c="${c.k}" placeholder="${esc(c.ph || '')}">${esc(r[c.k] || '')}</textarea>`
+                    : `<input type="text" class="form-control form-control-sm" style="flex:${c.w}" data-c="${c.k}" placeholder="${esc(c.ph || '')}" value="${esc(r[c.k] || '')}">`).join('')}
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.lrow').remove()"><i class="fas fa-trash"></i></button></div>`;
+        }
+        function listSection(key) {
+            const rows = (norm((data.shared || {})[key]) || []).filter(Boolean);
+            const L = LISTS[key];
+            return `<div class="form-card"><h6 class="fw-bold"><i class="fas ${L.icon} me-2"></i>${L.title}</h6>
+                <div id="L_${key}">${(rows.length ? rows : [{}]).map(r => rowHtml(key, r)).join('')}</div>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="addRow('${key}')"><i class="fas fa-plus me-1"></i>${L.add}</button></div>`;
+        }
+        window.addRow = (key) => document.getElementById('L_' + key).insertAdjacentHTML('beforeend', rowHtml(key, {}));
+        const collectList = (key) => [...document.querySelectorAll(`#L_${key} .lrow`)]
+            .map(row => Object.fromEntries([...row.querySelectorAll('[data-c]')].map(el => [el.dataset.c, el.value.trim()])))
+            .filter(r => Object.values(r).some(Boolean));
+
+        function teamBlock(t, withLinkTools) {
+            const td = (data.teams || {})[t.key] || {};
+            const filled = TEAM_FIELDS.filter(f => (td[f.k] || '').toString().trim()).length;
+            return `<div class="team-block" style="border-left-color:${esc(t.color)} !important;">
+                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                    <div class="fw-bold font-title"><span class="badge" style="background:${esc(t.color)};">&nbsp;</span> ${esc(t.name)}
+                        <span class="badge ${filled === TEAM_FIELDS.length ? 'bg-success' : 'bg-secondary'} ms-1">กรอกแล้ว ${filled}/${TEAM_FIELDS.length}</span></div>
+                    ${withLinkTools ? `<button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="showTeamLink('${t.key}')"><i class="fas fa-qrcode me-1"></i>ออกลิงก์ให้ประธานสี</button>` : ''}
+                </div>
+                <div class="row g-2">${TEAM_FIELDS.map(f => field(`data-tk="${t.key}" data-tf="${f.k}"`, f, td[f.k])).join('')}</div></div>`;
+        }
+
+        // ----- แสดงหน้าตามสิทธิ์ลิงก์ -----
+        function showState(html) {
+            const s = document.getElementById('state');
+            s.classList.remove('d-none'); s.innerHTML = html;
+            document.getElementById('app').classList.add('d-none');
+        }
+        function renderMc() {
+            document.getElementById('headerTitle').textContent = 'ข้อมูลสำหรับพิธีกร';
+            let h = `<div class="form-card"><div class="alert alert-info border-0 mb-0 small"><i class="fas fa-info-circle me-1"></i>
+                กรอกเฉพาะข้อมูลบุคคลและคณะสีที่ยังขาด (ไม่รวมข้อมูลกีฬา) ข้อมูลจะถูกนำไปใช้ในบทพิธีกรอัตโนมัติ
+                และสามารถออกลิงก์ให้ประธานสีของแต่ละคณะกรอกข้อมูลขบวนเองได้ที่หัวข้อ "ข้อมูลคณะสี"</div></div>`;
+            MC_SECTIONS.forEach(sec => {
+                h += `<div class="form-card"><h6 class="fw-bold"><i class="fas ${sec.icon} me-2"></i>${sec.title}</h6><div class="row g-2">
+                    ${sec.fields.map(f => field(`data-sk="${f.k}"`, f, (data.shared || {})[f.k])).join('')}</div></div>`;
+            });
+            h += `<div class="form-card"><h6 class="fw-bold"><i class="fas fa-palette me-2"></i>ข้อมูลคณะสี</h6>
+                <p class="small text-muted">กรอกเอง หรือกดปุ่ม "ออกลิงก์ให้ประธานสี" เพื่อส่งลิงก์/QR Code ให้ประธานสีกรอกต่อ (กดบันทึกก่อนออกลิงก์ เพื่อไม่ให้ข้อมูลที่พิมพ์ค้างไว้หาย)</p>
+                ${activeTeams().map(t => teamBlock(t, true)).join('') || '<div class="text-muted">ยังไม่มีคณะสีในระบบ</div>'}</div>`;
+            h += listSection('torch') + listSection('award_teachers');
+            h += `<div class="save-bar"><button class="btn btn-primary btn-lg w-100 rounded-pill" onclick="saveAll()"><i class="fas fa-save me-2"></i>บันทึกข้อมูล</button></div>`;
+            const a = document.getElementById('app'); a.innerHTML = h; a.classList.remove('d-none');
+            document.getElementById('state').classList.add('d-none');
+        }
+        function renderTeam(teamKey) {
+            const t = { key: teamKey, ...(settings.teams || {})[teamKey] };
+            if (!t.name) return showState('<i class="fas fa-triangle-exclamation text-warning fa-2x mb-2"></i><p class="mb-0">ไม่พบข้อมูลคณะสีนี้ กรุณาติดต่อพิธีกร</p>');
+            document.getElementById('headerTitle').textContent = `ข้อมูลขบวน ${t.name}`;
+            const td = (data.teams || {})[teamKey] || {};
+            const h = `<div class="form-card"><div class="alert alert-info border-0 mb-3 small"><i class="fas fa-info-circle me-1"></i>
+                สำหรับประธานสี ${esc(t.name)} กรุณากรอกข้อมูลขบวนด้านล่าง ข้อมูลนี้พิธีกรจะใช้อ่านบรรยายขบวน แก้ไขภายหลังได้ด้วยลิงก์เดิม</div>
+                <div class="team-block mb-0" style="border-left-color:${esc(t.color)} !important;"><div class="row g-2">
+                ${TEAM_FIELDS.map(f => field(`data-tk="${teamKey}" data-tf="${f.k}"`, f, td[f.k])).join('')}</div></div></div>
+                <div class="save-bar"><button class="btn btn-primary btn-lg w-100 rounded-pill" onclick="saveAll()"><i class="fas fa-save me-2"></i>บันทึกข้อมูล</button></div>`;
+            const a = document.getElementById('app'); a.innerHTML = h; a.classList.remove('d-none');
+            document.getElementById('state').classList.add('d-none');
+        }
+
+        // ----- บันทึก -----
+        window.saveAll = async () => {
+            const upd = {};
+            const now = Date.now();
+            // เขียนเฉพาะช่องที่ผู้ใช้แก้ไข เพื่อไม่ให้ทับข้อมูลที่อีกฝ่าย (พิธีกร/ประธานสี) เพิ่งกรอกไว้
+            document.querySelectorAll('[data-sk]').forEach(el => { if (el.value.trim() !== el.dataset.orig.trim()) upd['shared/' + el.dataset.sk] = el.value.trim(); });
+            document.querySelectorAll('[data-tk]').forEach(el => { if (el.value.trim() !== el.dataset.orig.trim()) upd[`teams/${el.dataset.tk}/${el.dataset.tf}`] = el.value.trim(); });
+            if (link.role === 'mc') {
+                Object.keys(LISTS).forEach(k => { const arr = collectList(k); upd['shared/' + k] = arr.length ? arr : null; });
+                upd['meta/mc'] = { updatedAt: now };
+            } else {
+                upd['meta/team_' + link.teamKey] = { updatedAt: now };
+            }
+            try {
+                await update(ref(db, 'mcData'), upd);
+                const snap = await get(ref(db, 'mcData')); data = snap.val() || {};
+                document.querySelectorAll('[data-orig]').forEach(el => { el.dataset.orig = el.value.trim(); });
+                Swal.fire({ icon: 'success', title: 'บันทึกเรียบร้อย', timer: 1400, showConfirmButton: false });
+            } catch (e) {
+                console.error(e);
+                Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง' });
+            }
+        };
+
+        // ----- ออกลิงก์ให้ประธานสี (เฉพาะหน้าพิธีกร) -----
+        async function ensureTeamToken(teamKey, renew = false) {
+            let tk = (data.teamTokens || {})[teamKey];
+            if (tk && !renew) return tk;
+            if (tk && renew) await set(ref(db, 'mcLinks/' + tk), null);
+            const t = (settings.teams || {})[teamKey] || {};
+            tk = rand();
+            await set(ref(db, 'mcLinks/' + tk), { role: 'team', teamKey, teamName: t.name || '', createdAt: Date.now() });
+            await set(ref(db, 'mcData/teamTokens/' + teamKey), tk);
+            data.teamTokens = { ...(data.teamTokens || {}), [teamKey]: tk };
+            return tk;
+        }
+        window.showTeamLink = async (teamKey, renew = false) => {
+            const t = (settings.teams || {})[teamKey] || {};
+            let url;
+            try { url = pageUrl(await ensureTeamToken(teamKey, renew)); }
+            catch (e) { Swal.fire({ icon: 'error', title: 'ออกลิงก์ไม่สำเร็จ' }); return; }
+            const r = await Swal.fire({
+                title: `ลิงก์สำหรับประธาน${esc(t.name || '')}`,
+                html: `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}" class="img-fluid border p-1 bg-white mb-2">
+                    <div class="link-box border rounded p-2 bg-light mb-2" id="linkBox">${esc(url)}</div>
+                    <small class="text-muted">ส่งลิงก์หรือให้สแกน QR Code ได้เลย ประธานสีกรอกได้เฉพาะข้อมูลของคณะตัวเอง</small>`,
+                showCancelButton: true, showDenyButton: true,
+                confirmButtonText: '<i class="fas fa-copy"></i> คัดลอกลิงก์',
+                denyButtonText: 'สร้างลิงก์ใหม่ (ยกเลิกลิงก์เดิม)',
+                cancelButtonText: 'ปิด'
+            });
+            if (r.isConfirmed) {
+                try { await navigator.clipboard.writeText(url); } catch (e) { prompt('คัดลอกลิงก์นี้', url); }
+                Swal.fire({ icon: 'success', title: 'คัดลอกแล้ว', timer: 1000, showConfirmButton: false });
+            } else if (r.isDenied) {
+                showTeamLink(teamKey, true);
+            }
+        };
+
+        // ----- เริ่มต้น -----
+        (async function init() {
+            if (!token) return showState('<i class="fas fa-link-slash text-danger fa-2x mb-2"></i><p class="mb-0">ลิงก์ไม่ถูกต้อง กรุณาขอลิงก์ใหม่จากพิธีกรหรือครูผู้ดูแล</p>');
+            try {
+                const [lk, st, dt] = await Promise.all([get(ref(db, 'mcLinks/' + token)), get(ref(db, 'settings')), get(ref(db, 'mcData'))]);
+                link = lk.val();
+                const s = st.val();
+                if (s) { settings = { ...settings, ...s }; if (s.teams) settings.teams = s.teams; }
+                data = dt.val() || {};
+                document.getElementById('headerSubtitle').textContent = `${settings.eventName} ประจำปีการศึกษา ${settings.academicYear}`;
+                if (settings.schoolLogo) document.getElementById('headerLogo').src = settings.schoolLogo;
+                if (!link) return showState('<i class="fas fa-link-slash text-danger fa-2x mb-2"></i><p class="mb-0">ลิงก์นี้ไม่ถูกต้องหรือถูกยกเลิกแล้ว กรุณาขอลิงก์ใหม่</p>');
+                if (link.role === 'mc') renderMc(); else if (link.role === 'team') renderTeam(link.teamKey);
+                else showState('<p class="mb-0">ลิงก์ไม่ถูกต้อง</p>');
+            } catch (e) {
+                console.error(e);
+                showState('<i class="fas fa-wifi text-danger fa-2x mb-2"></i><p class="mb-0">โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง</p>');
+            }
+        })();
+    </script>
+</body>
+</html>

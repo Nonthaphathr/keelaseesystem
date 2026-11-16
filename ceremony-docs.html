@@ -269,6 +269,17 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="p-3 rounded-4 border bg-light d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                    <div>
+                        <div class="fw-bold"><i class="fas fa-qrcode text-primary me-2"></i>ลิงก์/QR Code เก็บข้อมูลสำหรับพิธีกร</div>
+                        <small class="text-muted">พิธีกรกรอกรายชื่อบุคคลและข้อมูลคณะสีที่ยังขาด (ไม่รวมข้อมูลกีฬา) และออกลิงก์ให้ประธานสีกรอกต่อได้</small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary btn-sm rounded-pill px-3" onclick="showMcLink()"><i class="fas fa-link me-1"></i>ออกลิงก์ / QR</button>
+                        <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="cxPullRemote()"><i class="fas fa-cloud-arrow-down me-1"></i>ดึงข้อมูลที่กรอกแล้ว</button>
+                    </div>
+                </div>
                     </div>
                 </div>
             </div>
@@ -383,7 +394,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+        import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -1156,7 +1167,10 @@
             s.classList.add('fade-in');
             document.getElementById('extraTitle').textContent = 'ขั้นตอนที่ 2: กรอกข้อมูล — ' + EXTRA_TITLES[type];
             const forms = { opening_schedule: cxFormSchedule, opening_mc: cxFormMc, oath: cxFormOath, athlete_bio: cxFormBio };
-            document.getElementById('extraForm').innerHTML = forms[type]();
+            const pullBar = `<div class="col-12"><div class="alert alert-info border-0 py-2 mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <small><i class="fas fa-qrcode me-1"></i>ข้อมูลที่พิธีกร/ประธานสีกรอกผ่านลิงก์ ดึงมาใส่ฟอร์มนี้ได้</small>
+                <button type="button" class="btn btn-sm btn-primary rounded-pill" onclick="cxPullRemote()"><i class="fas fa-cloud-arrow-down me-1"></i>ดึงข้อมูล</button></div></div>`;
+            document.getElementById('extraForm').innerHTML = pullBar + forms[type]();
             saveCd();
             Object.keys(cxEditors).forEach(cxRenderList);
         }
@@ -1176,6 +1190,66 @@
             if (arr.length <= 1) return arr.join('');
             return arr.slice(0, -1).join(' ') + ' และ' + arr[arr.length - 1];
         }
+
+        // ----- ลิงก์/QR เก็บข้อมูลสำหรับพิธีกร + ดึงข้อมูลที่กรอกผ่านลิงก์ -----
+        const cxRand = () => Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+        const cxMcUrl = (k) => { const u = new URL('mc-data.html', location.href); return u.origin + u.pathname + '?k=' + k; };
+
+        window.showMcLink = async (renew = false) => {
+            let token;
+            try {
+                const snap = await get(ref(db, 'mcData/mcToken'));
+                token = snap.val();
+                if (!token || renew) {
+                    if (token) await set(ref(db, 'mcLinks/' + token), null);
+                    token = cxRand();
+                    await set(ref(db, 'mcLinks/' + token), { role: 'mc', createdAt: Date.now() });
+                    await set(ref(db, 'mcData/mcToken'), token);
+                }
+            } catch (e) {
+                console.error(e);
+                Swal.fire({ icon: 'error', title: 'ออกลิงก์ไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' });
+                return;
+            }
+            const url = cxMcUrl(token);
+            const r = await Swal.fire({
+                title: 'ลิงก์สำหรับพิธีกร',
+                html: `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}" class="img-fluid border p-1 bg-white mb-2">
+                    <div class="border rounded p-2 bg-light mb-2" style="word-break:break-all; font-size:0.85rem;">${cxEsc(url)}</div>
+                    <small class="text-muted">ส่งให้พิธีกร — ในหน้านั้นพิธีกรออกลิงก์ให้ประธานสีแต่ละคณะได้เอง</small>`,
+                showCancelButton: true, showDenyButton: true,
+                confirmButtonText: '<i class="fas fa-copy"></i> คัดลอกลิงก์',
+                denyButtonText: 'สร้างลิงก์ใหม่ (ยกเลิกลิงก์เดิม)',
+                cancelButtonText: 'ปิด'
+            });
+            if (r.isConfirmed) {
+                try { await navigator.clipboard.writeText(url); } catch (e) { prompt('คัดลอกลิงก์นี้', url); }
+                Swal.fire({ icon: 'success', title: 'คัดลอกแล้ว', timer: 1000, showConfirmButton: false });
+            } else if (r.isDenied) {
+                showMcLink(true);
+            }
+        };
+
+        window.cxPullRemote = async () => {
+            let d;
+            try { d = (await get(ref(db, 'mcData'))).val(); }
+            catch (e) { Swal.fire({ icon: 'error', title: 'ดึงข้อมูลไม่สำเร็จ' }); return; }
+            if (!d || (!d.shared && !d.teams)) { Swal.fire({ icon: 'info', title: 'ยังไม่มีข้อมูลที่กรอกผ่านลิงก์' }); return; }
+            const toArr = (v) => (v && typeof v === 'object') ? Object.values(v) : v;
+            let n = 0;
+            Object.entries(d.shared || {}).forEach(([k, v]) => {
+                v = toArr(v);
+                if (Array.isArray(v)) { v = v.filter(Boolean); if (!v.length) return; }
+                else if (!String(v ?? '').trim()) return;
+                cd[k] = v; n++;
+            });
+            Object.entries(d.teams || {}).forEach(([tk, o]) => Object.entries(o || {}).forEach(([f, v]) => {
+                if (String(v ?? '').trim()) { cd[`pt_${tk}_${f}`] = v; n++; }
+            }));
+            saveCd();
+            if (EXTRA_TYPES.includes(selectedDocType)) openExtra(selectedDocType);
+            Swal.fire({ icon: 'success', title: `ดึงข้อมูลแล้ว ${n} รายการ`, text: 'ข้อมูลที่กรอกผ่านลิงก์จะแทนที่ค่าเดิมในช่องที่ตรงกัน', timer: 2200, showConfirmButton: false });
+        };
 
         function cxFooter() {
             return `<div style="text-align:center; font-size:10pt; margin-top:40px; color:#666; border-top:1px solid #ddd; padding-top:10px;">
