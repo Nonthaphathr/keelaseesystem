@@ -341,7 +341,7 @@
                 <ul class="navbar-nav ms-auto align-items-lg-center gap-2 py-2 py-lg-0">
                     <li class="nav-item"><button class="btn btn-sm btn-light w-100 px-3" onclick="showPage('dashboard')"><i class="fas fa-home me-1"></i> หน้าหลัก</button></li>
                     <li class="nav-item">
-                        <a href="register.html" target="_blank" class="btn btn-sm btn-outline-warning border-0 w-100 text-start text-lg-center">
+                        <a href="#" onclick="openRegAdmin(); return false;" class="btn btn-sm btn-outline-warning border-0 w-100 text-start text-lg-center">
                             <i class="fas fa-user-edit me-1"></i> ระบบลงทะเบียน
                         </a>
                     </li>
@@ -878,6 +878,24 @@
                     </div>
 
                     <div class="setting-section">
+                        <h6><i class="fas fa-address-book me-2"></i>รายชื่อนักเรียน/ครู (สำหรับช่วยเติมชื่ออัตโนมัติในระบบลงทะเบียน)</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">นักเรียน <span class="badge bg-secondary" id="peopleCountS">0</span></label>
+                                <input type="file" class="form-control form-control-sm" id="peopleFileS" accept=".xlsx,.xls,.csv,.txt" onchange="importPeople('students', this)">
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="clearPeople('students')">ล้างรายชื่อนักเรียน</button>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold">ครู <span class="badge bg-secondary" id="peopleCountT">0</span></label>
+                                <input type="file" class="form-control form-control-sm" id="peopleFileT" accept=".xlsx,.xls,.csv,.txt" onchange="importPeople('teachers', this)">
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="clearPeople('teachers')">ล้างรายชื่อครู</button>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-2">รองรับ .xlsx .xls .csv .txt — แถวแรกเป็นหัวตาราง เช่น คำนำหน้า / ชื่อ / นามสกุล (หรือ ชื่อ-สกุล) / ชั้น / ห้อง / ตำแหน่ง ถ้าไม่มีหัวตาราง ใช้คอลัมน์แรกเป็นชื่อ การนำเข้าจะแทนที่รายชื่อเดิม ·
+                            <a href="#" onclick="downloadPeopleSample(); return false;">ดาวน์โหลดไฟล์ตัวอย่าง</a></small>
+                    </div>
+
+                    <div class="setting-section">
                         <h6><i class="fas fa-lock me-2"></i>รหัสผ่านระบบ</h6>
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -963,6 +981,7 @@
         }
     });
     onAuthStateChanged(auth, (user) => { authReady = !!user; });
+    const authWait = new Promise((res) => { const un = onAuthStateChanged(auth, (u) => { if (u) { un(); res(); } }); setTimeout(res, 8000); });
 
     // ===== แก้บั๊ก: ช่องกรอก SweetAlert ที่ซ้อนบน Bootstrap modal พิมพ์ไม่ได้ =====
     // Bootstrap modal มีระบบล็อกโฟกัส (focus trap) ที่จะแย่งโฟกัสกลับเข้า modal เสมอ
@@ -1212,6 +1231,7 @@
 
     // ===== แสดง Modal ตั้งค่า =====
     window.showSettings = async () => {
+        setTimeout(() => window.refreshPeopleCounts && window.refreshPeopleCounts(), 600);
         const { value: pass } = await Swal.fire({
             title: 'ใส่รหัสผ่านเพื่อตั้งค่าระบบ',
             input: 'password',
@@ -1581,11 +1601,121 @@
         });
     };
 
+    // ===== ระบบลงทะเบียนนักกีฬา: หน้าครู + นำเข้ารายชื่อ =====
+    const regRand = () => Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+    window.openRegAdmin = async () => {
+        try {
+            await authWait;
+            let t = (await get(ref(db, 'registry/viewToken'))).val();
+            if (!t || !(await get(ref(db, 'regLinks/' + t))).exists()) {
+                t = regRand();
+                await set(ref(db, 'regLinks/' + t), { role: 'view', createdAt: Date.now() });
+                await set(ref(db, 'registry/viewToken'), t);
+            }
+            const base = location.href.substring(0, location.href.lastIndexOf('/'));
+            window.open(`${base}/register-admin.html?k=${t}`, '_blank');
+        } catch (e) {
+            Swal.fire({ icon: 'error', title: 'เปิดหน้าลงทะเบียนไม่สำเร็จ', text: String((e && (e.code || e.message)) || e) + ' — ตรวจสอบ Firebase Rules (regLinks, registry)' });
+        }
+    };
+    const PEOPLE_KEY = { students: 'peopleCountS', teachers: 'peopleCountT' };
+    async function refreshPeopleCounts() {
+        try {
+            const v = (await get(ref(db, 'registry/people'))).val() || {};
+            const len = (x) => Array.isArray(x) ? x.filter(Boolean).length : Object.keys(x || {}).length;
+            document.getElementById('peopleCountS').textContent = len(v.students);
+            document.getElementById('peopleCountT').textContent = len(v.teachers);
+        } catch (e) {}
+    }
+    window.refreshPeopleCounts = refreshPeopleCounts;
+    async function readTextFile(file) {
+        const buf = await file.arrayBuffer();
+        let t = new TextDecoder('utf-8').decode(buf);
+        if (t.includes('\uFFFD')) t = new TextDecoder('windows-874').decode(buf);
+        return t.replace(/^\uFEFF/, '');
+    }
+    function parseRows(text) {
+        const delim = text.includes('\t') ? '\t' : ',';
+        return text.split(/\r?\n/).filter(l => l.trim()).map(l => {
+            const out = []; let cur = '', q = false;
+            for (const ch of l) { if (ch === '"') q = !q; else if (ch === delim && !q) { out.push(cur); cur = ''; } else cur += ch; }
+            out.push(cur); return out.map(x => x.trim());
+        });
+    }
+    function rowsToPeople(rows, kind) {
+        rows = rows.map(r => r.map(c => String(c ?? '').trim())).filter(r => r.some(Boolean));
+        if (!rows.length) return [];
+        const head = rows[0], has = (re) => head.findIndex(h => re.test(h));
+        const iFull = has(/ชื่อ\s*[-–]?\s*(สกุล|นามสกุล)|ชื่อเต็ม|^name$/i);
+        const iPre = has(/คำนำหน้า|^prefix/i);
+        const iLast = has(/^(นามสกุล|สกุล|last)/i);
+        const iFirst = head.findIndex((h, i) => /^(ชื่อ|ชื่อจริง|first)$/i.test(h) && i !== iFull);
+        const iCls = has(/ชั้น|ห้อง|class|ตำแหน่ง|กลุ่มสาระ|หมายเหตุ/i);
+        const iRoom = has(/^ห้อง|room/i);
+        const iPos = has(/ตำแหน่ง|กลุ่มสาระ/i);
+        const hasHead = iFull >= 0 || iFirst >= 0;
+        const body = hasHead ? rows.slice(1) : rows;
+        const seen = new Set(), out = [];
+        body.forEach(r => {
+            let n;
+            if (!hasHead) n = r[0];
+            else if (iFull >= 0) n = (iPre >= 0 && r[iPre] && !r[iFull].startsWith(r[iPre]) ? r[iPre] : '') + r[iFull];
+            else n = (iPre >= 0 ? r[iPre] : '') + r[iFirst] + (iLast >= 0 ? ' ' + r[iLast] : '');
+            n = (n || '').replace(/\s+/g, ' ').trim();
+            if (!n) return;
+            let c = '';
+            if (hasHead) {
+                if (kind === 'teachers') c = iPos >= 0 ? r[iPos] : '';
+                else { const cl = [];
+                    const iClass = head.findIndex(h => /ชั้น|class/i.test(h));
+                    if (iClass >= 0 && r[iClass]) cl.push(r[iClass]);
+                    if (iRoom >= 0 && r[iRoom] && iRoom !== iClass) cl.push('/' + r[iRoom]);
+                    c = cl.join('').replace(/^ม\.?/, 'ม.'); }
+            } else c = r[1] || '';
+            if (seen.has(n)) return; seen.add(n); out.push({ n, c });
+        });
+        return out;
+    }
+    window.importPeople = async (kind, input) => {
+        const file = input.files && input.files[0]; if (!file) return;
+        try {
+            let rows;
+            if (/\.(xlsx|xls)$/i.test(file.name)) {
+                const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+                rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+            } else rows = parseRows(await readTextFile(file));
+            const list = rowsToPeople(rows, kind);
+            if (!list.length) { Swal.fire({ icon: 'warning', title: 'ไม่พบรายชื่อในไฟล์', text: 'ตรวจสอบหัวตาราง/คอลัมน์ แล้วลองใหม่' }); return; }
+            const ok = await Swal.fire({ icon: 'question', title: `นำเข้า ${list.length} รายชื่อ`, html: `ตัวอย่าง: ${list.slice(0, 3).map(p => p.n + (p.c ? ' (' + p.c + ')' : '')).join(', ')}<br><small>จะแทนที่รายชื่อ${kind === 'students' ? 'นักเรียน' : 'ครู'}เดิม</small>`, showCancelButton: true, confirmButtonText: 'นำเข้า', cancelButtonText: 'ยกเลิก' });
+            if (!ok.isConfirmed) { input.value = ''; return; }
+            await authWait;
+            await set(ref(db, 'registry/people/' + kind), list);
+            input.value = '';
+            Swal.fire({ icon: 'success', title: 'นำเข้าสำเร็จ', text: `${list.length} รายชื่อ`, timer: 1500, showConfirmButton: false });
+            refreshPeopleCounts();
+        } catch (e) {
+            console.error(e);
+            Swal.fire({ icon: 'error', title: 'นำเข้าไม่สำเร็จ', text: String((e && (e.code || e.message)) || e) });
+        }
+    };
+    window.clearPeople = async (kind) => {
+        const ok = await Swal.fire({ icon: 'warning', title: 'ล้างรายชื่อ?', showCancelButton: true, confirmButtonText: 'ล้าง', cancelButtonText: 'ยกเลิก' });
+        if (!ok.isConfirmed) return;
+        try { await authWait; await set(ref(db, 'registry/people/' + kind), null); refreshPeopleCounts(); }
+        catch (e) { Swal.fire({ icon: 'error', title: 'ล้างไม่สำเร็จ', text: String(e.code || e.message || e) }); }
+    };
+    window.downloadPeopleSample = () => {
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['คำนำหน้า', 'ชื่อ', 'นามสกุล', 'ชั้น', 'ห้อง'], ['เด็กชาย', 'สมชาย', 'ใจดี', 'ม.1', '1']]), 'นักเรียน');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['ชื่อ-สกุล', 'ตำแหน่ง'], ['นายสมศักดิ์ รักเรียน', 'ครูกลุ่มสาระฯ ภาษาไทย']]), 'ครู');
+        XLSX.writeFile(wb, 'ตัวอย่างรายชื่อ.xlsx');
+    };
+
     // ===== QR Code =====
     window.showQRCode = () => {
         const currentUrl = window.location.href;
         const path = currentUrl.substring(0, currentUrl.lastIndexOf('/'));
-        const registerUrl = `${path}/register.html`;
+        const registerUrl = `${path}/register-admin.html`;
 
         const html = `
             <div class="row g-3">
@@ -1598,10 +1728,10 @@
                 </div>
                 <div class="col-12 col-md-6">
                     <div class="p-3 border rounded bg-white h-100 shadow-sm border-warning">
-                        <h6 class="fw-bold text-warning-emphasis mb-2">2. จุดลงทะเบียนนักกีฬา</h6>
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(registerUrl)}" class="img-fluid mb-2 border bg-white p-1">
-                        <p class="small text-muted mb-2">ให้นักเรียนสแกนเพื่อกรอกชื่อ</p>
-                        <a href="${registerUrl}" target="_blank" class="btn btn-sm btn-outline-dark w-100">เปิดหน้าลงทะเบียน</a>
+                        <h6 class="fw-bold text-warning-emphasis mb-2">2. ระบบลงทะเบียนนักกีฬา</h6>
+                        <div class="py-4"><i class="fas fa-user-edit fa-4x text-warning"></i></div>
+                        <p class="small text-muted mb-2">ลิงก์/QR แยกตามคณะสี ออกได้จากหน้าจัดการลงทะเบียน (สำหรับครู)</p>
+                        <button type="button" class="btn btn-sm btn-outline-dark w-100" onclick="openRegAdmin()">เปิดหน้าจัดการลงทะเบียน</button>
                     </div>
                 </div>
             </div>

@@ -191,20 +191,26 @@
             box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
             z-index: 100;
         }
+
+        #sugBox { position: fixed; z-index: 3000; background: #fff; border: 1px solid #cfd8dc; border-radius: 12px;
+                  box-shadow: 0 10px 30px rgba(0,0,0,.2); max-height: 260px; overflow-y: auto; }
+        #sugBox .sug-item { padding: 10px 14px; display: flex; justify-content: space-between; gap: 10px; align-items: center; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+        #sugBox .sug-item:last-child { border-bottom: 0; }
+        #sugBox .sug-item:hover, #sugBox .sug-item:active { background: #e8f4f8; }
     </style>
 </head>
 <body>
 
     <div class="header-section text-center">
-        <a href="index.html" class="teacher-btn"><i class="fas fa-user-shield me-1"></i> สำหรับครูผู้รับผิดชอบ</a>
         <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" height="60" class="mb-3 animate__animated animate__fadeInDown" id="headerLogo">
         <h3 class="fw-bold mb-1 animate__animated animate__fadeInUp" id="headerTitle">ลงทะเบียนนักกีฬา</h3>
         <p class="mb-0 opacity-75 fw-light animate__animated animate__fadeInUp" id="headerSubtitle">กระดุมทองเกมส์ 2568</p>
+        <div id="teamPill" class="mt-2"></div>
     </div>
 
     <div class="container" style="margin-top: -20px;">
         
-        <div class="filter-container animate__animated animate__fadeIn">
+        <div class="filter-container animate__animated animate__fadeIn d-none" id="filterBox">
             <div class="row g-2">
                 <div class="col-6">
                     <label class="small text-muted mb-1 fw-bold"><i class="fas fa-filter me-1"></i> ชนิดกีฬา</label>
@@ -218,6 +224,7 @@
                         <option value="all">ทั้งหมด</option>
                         <option value="wait" selected>⏳ รอแข่งขัน</option>
                         <option value="done">✅ แข่งจบแล้ว</option>
+                        <option value="empty">📝 ยังไม่ได้ลงชื่อ</option>
                     </select>
                 </div>
             </div>
@@ -247,7 +254,7 @@
                     <div class="alert alert-primary border-0 shadow-sm d-flex align-items-center mb-4">
                         <i class="fas fa-info-circle fa-2x me-3"></i>
                         <div>
-                            <strong>คำแนะนำ:</strong> พิมพ์ชื่อ-นามสกุล ของนักกีฬาให้ครบถ้วน แล้วกดปุ่ม "บันทึกข้อมูล" ด้านล่าง
+                            <strong>คำแนะนำ:</strong> พิมพ์ชื่อสักสองสามตัวอักษร แล้วแตะชื่อจากรายการที่ขึ้นมา (หรือพิมพ์เองให้ครบ) จากนั้นกด "บันทึกข้อมูล" ด้านล่าง
                         </div>
                     </div>
 
@@ -266,9 +273,12 @@
         </div>
     </div>
 
+    <div id="sugBox" style="display:none;"></div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-        import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+        import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -282,42 +292,30 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const authReady = signInAnonymously(getAuth(app)).catch((e) => { console.warn('anonymous sign-in failed', e); });
 
+        const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const token = new URLSearchParams(location.search).get('k');
+        let myTeam = null;                 // คณะสีของลิงก์นี้
         let allMatches = [];
         let currentMatchId = null;
-        let tempPlayers = {}; // {team1: [], team2: [], ...}
+        let tempPlayers = [];              // รายชื่อนักกีฬาของคณะนี้ (ในรายการที่เปิดอยู่)
+        let tempCoaches = [];              // รายชื่อครูผู้ควบคุม
+        let people = { students: [], teachers: [] };
         let systemSettings = {
             schoolName: 'โรงเรียนกระดุมทองวิทยา',
             eventName: 'กระดุมทองเกมส์',
             academicYear: '2568',
-            schoolLogo: 'https://nonthaphathr.github.io/uploadimg/logoschool.png',
             teams: {
                 'team1': { name: 'สีเหลือง', color: '#ffc107', active: true },
                 'team2': { name: 'สีฟ้า', color: '#2196f3', active: true }
             },
             sports: {
-                'football': 'ฟุตบอล 7 คน',
-                'volleyball': 'วอลเลย์บอล',
-                'beach_volleyball': 'วอลเลย์บอลชายหาด',
-                'esports': 'E-Sports ROV',
-                'petanque': 'เปตอง',
-                'athletics': 'กรีฑา',
-                'sepaktakraw': 'เซปักตะกร้อ',
-                'folksport': 'กีฬาพื้นบ้าน',
-                'cheer': 'ประกวดกองเชียร์ฯ'
+                'football': 'ฟุตบอล 7 คน', 'volleyball': 'วอลเลย์บอล', 'beach_volleyball': 'วอลเลย์บอลชายหาด',
+                'esports': 'E-Sports ROV', 'petanque': 'เปตอง', 'athletics': 'กรีฑา',
+                'sepaktakraw': 'เซปักตะกร้อ', 'folksport': 'กีฬาพื้นบ้าน', 'cheer': 'ประกวดกองเชียร์ฯ'
             }
         };
-
-        // โหลดการตั้งค่าจาก Firebase
-        onValue(ref(db, 'settings'), (snap) => {
-            const data = snap.val();
-            if (data) {
-                systemSettings = { ...systemSettings, ...data };
-                if (data.teams) systemSettings.teams = data.teams;
-                if (data.sports) systemSettings.sports = data.sports;
-                updateHeaderUI();
-            }
-        }, { onlyOnce: true });
 
         // แสดงโลโก้ที่จำไว้จากครั้งก่อนทันที (ไม่ให้โลโก้เก่าค้างระหว่างรอ Firebase)
         try {
@@ -326,10 +324,17 @@
             if (kc.eventName) document.getElementById('headerSubtitle').textContent = `${kc.eventName} ${kc.academicYear || ''}`;
         } catch (e) {}
 
+        function showMessage(icon, text) {
+            document.getElementById('filterBox').classList.add('d-none');
+            document.getElementById('matchList').innerHTML = `
+                <div class="text-center mt-5 p-5 bg-white rounded-4 shadow-sm">
+                    <i class="fas ${icon} fa-3x text-muted mb-3"></i>
+                    <p class="mb-0">${text}</p>
+                </div>`;
+        }
+
         function updateHeaderUI() {
-            if (systemSettings.schoolLogo) {
-                document.getElementById('headerLogo').src = systemSettings.schoolLogo;
-            }
+            if (systemSettings.schoolLogo) document.getElementById('headerLogo').src = systemSettings.schoolLogo;
             try {
                 localStorage.setItem('ksSettingsCache', JSON.stringify({
                     schoolLogo: systemSettings.schoolLogo, eventName: systemSettings.eventName,
@@ -338,57 +343,62 @@
             } catch (e) {}
             document.getElementById('headerTitle').textContent = 'ลงทะเบียนนักกีฬา';
             document.getElementById('headerSubtitle').textContent = `${systemSettings.eventName} ${systemSettings.academicYear}`;
-        }
-
-        function getActiveTeams() {
-            return Object.keys(systemSettings.teams)
-                .filter(key => systemSettings.teams[key].active)
-                .map(key => ({ key, ...systemSettings.teams[key] }));
-        }
-
-        function getTeamByKey(key) {
-            return systemSettings.teams[key] || { name: key, color: '#999', active: false };
+            const t = systemSettings.teams[myTeam];
+            if (t) document.getElementById('teamPill').innerHTML =
+                `<span class="badge rounded-pill px-3 py-2 fs-6" style="background:${esc(t.color)}; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.4);"><i class="fas fa-circle me-2"></i>${esc(t.name)}</span>`;
         }
 
         window.getSportName = (k) => systemSettings.sports[k] || k;
 
         function formatThaiDate(dateStr) {
-            if(!dateStr) return 'ไม่ระบุวันที่';
+            if (!dateStr) return 'ไม่ระบุวันที่';
             const date = new Date(dateStr);
             const months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-            const day = date.getDate();
-            const month = months[date.getMonth()];
-            const year = date.getFullYear() + 543;
-            return `${day} ${month} ${year}`;
+            return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear() + 543}`;
         }
 
-        // โหลดรายการแข่งขัน
-        onValue(ref(db, 'matches'), (snap) => {
-            const data = snap.val();
-            if (data) {
-                allMatches = Object.keys(data).map(k => ({...data[k], id: k}))
-                                     .sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
-                
-                updateFilterDropdown();
-                renderMatches();
-            } else {
-                document.getElementById('matchList').innerHTML = `
-                    <div class="text-center mt-5 p-5 bg-white rounded-4 shadow-sm">
-                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-                        <h5>ยังไม่มีรายการแข่งขัน</h5>
-                        <p class="text-muted">โปรดรอครูผู้ดูแลเพิ่มรายการในระบบหลัก</p>
-                    </div>`;
+        // ===== เริ่มต้น: ตรวจลิงก์ → โหลดข้อมูล =====
+        (async function init() {
+            if (!token) return showMessage('fa-link-slash', 'ต้องเข้าผ่านลิงก์/QR Code ของคณะสีตัวเอง<br><small class="text-muted">ขอลิงก์ได้จากครูผู้รับผิดชอบ</small>');
+            try {
+                await authReady;
+                const lk = (await get(ref(db, 'regLinks/' + token))).val();
+                if (!lk || lk.role !== 'team') return showMessage('fa-link-slash', 'ลิงก์นี้ไม่ถูกต้องหรือถูกยกเลิกแล้ว<br><small class="text-muted">กรุณาขอลิงก์ใหม่จากครูผู้รับผิดชอบ</small>');
+                myTeam = lk.teamKey;
+
+                const s = (await get(ref(db, 'settings'))).val();
+                if (s) { systemSettings = { ...systemSettings, ...s }; if (s.teams) systemSettings.teams = s.teams; if (s.sports) systemSettings.sports = s.sports; }
+                if (!systemSettings.teams[myTeam]) return showMessage('fa-link-slash', 'ไม่พบคณะสีของลิงก์นี้ กรุณาติดต่อครูผู้รับผิดชอบ');
+                updateHeaderUI();
+
+                // รายชื่อสำหรับช่วยกรอก (ถ้าแอดมินนำเข้าไว้)
+                get(ref(db, 'registry/people')).then(sn => {
+                    const v = sn.val() || {};
+                    const arr = (x) => (x && typeof x === 'object') ? Object.values(x) : [];
+                    people.students = arr(v.students); people.teachers = arr(v.teachers);
+                    buildIndex();
+                }).catch(() => {});
+
+                document.getElementById('filterBox').classList.remove('d-none');
+                onValue(ref(db, 'matches'), (snap) => {
+                    const data = snap.val();
+                    allMatches = data ? Object.keys(data).map(k => ({ ...data[k], id: k }))
+                        .filter(m => (m.teams || ['team1', 'team2']).includes(myTeam))   // เห็นเฉพาะรายการที่คณะนี้แข่ง
+                        .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)) : [];
+                    updateFilterDropdown();
+                    renderMatches();
+                });
+            } catch (e) {
+                console.error(e);
+                showMessage('fa-wifi', 'โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง');
             }
-        });
+        })();
 
         function updateFilterDropdown() {
             const select = document.getElementById('filterSport');
             const currentVal = select.value;
             const sports = [...new Set(allMatches.map(m => m.sport))];
-            select.innerHTML = '<option value="all">ทั้งหมด</option>';
-            sports.forEach(s => {
-                select.innerHTML += `<option value="${s}">${getSportName(s)}</option>`;
-            });
+            select.innerHTML = '<option value="all">ทั้งหมด</option>' + sports.map(s => `<option value="${esc(s)}">${esc(getSportName(s))}</option>`).join('');
             select.value = currentVal;
         }
 
@@ -396,210 +406,171 @@
             const filterSport = document.getElementById('filterSport').value;
             const filterStatus = document.getElementById('filterStatus').value;
             const container = document.getElementById('matchList');
-            container.innerHTML = '';
 
             const filtered = allMatches.filter(m => {
-                const matchSport = (filterSport === 'all' || m.sport === filterSport);
-                let matchStatus = true;
-                if (filterStatus === 'wait') matchStatus = (m.status !== 'done');
-                else if (filterStatus === 'done') matchStatus = (m.status === 'done');
-                return matchSport && matchStatus;
+                const okSport = (filterSport === 'all' || m.sport === filterSport);
+                let okStatus = true;
+                if (filterStatus === 'wait') okStatus = (m.status !== 'done');
+                else if (filterStatus === 'done') okStatus = (m.status === 'done');
+                else if (filterStatus === 'empty') okStatus = !((m.players || {})[myTeam] || []).filter(x => x).length;
+                return okSport && okStatus;
             });
 
-            if(filtered.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center mt-4 p-4 text-muted animate__animated animate__fadeIn">
-                        <i class="fas fa-search fa-2x mb-2 opacity-50"></i>
-                        <p>ไม่พบรายการแข่งขันตามเงื่อนไข</p>
-                    </div>`;
-                return;
-            }
+            if (allMatches.length === 0) return showMessage('fa-calendar-times', 'ยังไม่มีรายการแข่งขันของคณะสีนี้<br><small class="text-muted">โปรดรอครูผู้ดูแลเพิ่มรายการในระบบหลัก</small>'), document.getElementById('filterBox').classList.remove('d-none');
+            if (filtered.length === 0) { container.innerHTML = `<div class="text-center mt-4 p-4 text-muted"><i class="fas fa-search fa-2x mb-2 opacity-50"></i><p>ไม่พบรายการแข่งขันตามเงื่อนไข</p></div>`; return; }
 
-            let lastDate = '';
-
+            const team = systemSettings.teams[myTeam];
+            let lastDate = '', html = '';
             filtered.forEach((m, index) => {
-                const players = m.players || {};
-                const teams = m.teams || ['team1', 'team2'];
-                const delay = index * 0.05;
+                const count = ((m.players || {})[myTeam] || []).filter(x => x).length;
+                const coachCount = ((m.coaches || {})[myTeam] || []).filter(x => x).length;
                 const isDone = m.status === 'done';
-
-                // แสดง Date Header
                 if (m.date !== lastDate) {
                     lastDate = m.date;
-                    container.innerHTML += `
-                        <div class="date-divider animate__animated animate__fadeIn">
-                            <span class="date-badge">
-                                <i class="far fa-calendar-alt me-2 text-warning"></i> ${formatThaiDate(m.date)}
-                            </span>
-                        </div>
-                    `;
+                    html += `<div class="date-divider"><span class="date-badge"><i class="far fa-calendar-alt me-2 text-warning"></i> ${formatThaiDate(m.date)}</span></div>`;
                 }
-
-                const statusBadge = isDone 
-                    ? '<span class="badge bg-success ms-2"><i class="fas fa-check-circle me-1"></i>จบแล้ว</span>' 
+                const statusBadge = isDone
+                    ? '<span class="badge bg-success ms-2"><i class="fas fa-check-circle me-1"></i>จบแล้ว</span>'
                     : '<span class="badge bg-secondary ms-2 text-white-50"><i class="fas fa-hourglass-half me-1"></i>รอแข่ง</span>';
-
-                const cardClass = isDone ? 'match-card done-match' : 'match-card';
-                const iconClass = isDone ? 'fas fa-check' : 'fas fa-running';
-
-                // สร้าง Team Badges พร้อมจำนวนนักกีฬา
-                let teamBadgesHtml = '';
-                teams.forEach(teamKey => {
-                    const team = getTeamByKey(teamKey);
-                    const count = (players[teamKey] || []).filter(x => x).length;
-                    const hasPlayers = count > 0;
-                    teamBadgesHtml += `
-                        <span class="team-badge-mini ${hasPlayers ? '' : 'opacity-50'}" 
-                              style="background-color: ${team.color}20; color: ${team.color}; border-color: ${team.color};">
-                            <i class="fas fa-user me-1"></i>${team.name}: ${count}
-                        </span>
-                    `;
-                });
-
-                container.innerHTML += `
-                    <div class="${cardClass} p-3 d-flex align-items-center slide-up" style="animation-delay: ${delay}s" onclick="openRegister('${m.id}')">
-                        <div class="sport-badge me-3">
-                            <i class="${iconClass}"></i>
-                        </div>
+                html += `
+                    <div class="${isDone ? 'match-card done-match' : 'match-card'} p-3 d-flex align-items-center slide-up" style="animation-delay:${index * 0.03}s" onclick="openRegister('${m.id}')">
+                        <div class="sport-badge me-3"><i class="${isDone ? 'fas fa-check' : 'fas fa-running'}"></i></div>
                         <div class="flex-grow-1">
                             <div class="d-flex justify-content-between align-items-start flex-wrap">
-                                <h5 class="fw-bold mb-1 text-dark">${getSportName(m.sport)}</h5>
+                                <h5 class="fw-bold mb-1 text-dark">${esc(getSportName(m.sport))}</h5>
                                 <div class="mb-1">${statusBadge}</div>
                             </div>
-                            <div class="small text-muted mb-2"><i class="far fa-clock me-1"></i>${m.time} น. | ${m.category}</div>
-                            
+                            <div class="small text-muted mb-2"><i class="far fa-clock me-1"></i>${esc(m.time)} น. | ${esc(m.category)}</div>
                             <div class="d-flex gap-1 flex-wrap">
-                                ${teamBadgesHtml}
+                                <span class="team-badge-mini ${count ? '' : 'opacity-50'}" style="background-color:${esc(team.color)}20; color:${esc(team.color)}; border-color:${esc(team.color)};">
+                                    <i class="fas fa-user me-1"></i>นักกีฬา: ${count}</span>
+                                <span class="team-badge-mini ${coachCount ? '' : 'opacity-50'}" style="background-color:#6c757d20; color:#555; border-color:#999;">
+                                    <i class="fas fa-chalkboard-teacher me-1"></i>ครู: ${coachCount}</span>
                             </div>
                         </div>
-                        <div class="text-secondary ps-3 opacity-50">
-                            <i class="fas fa-chevron-right fa-lg"></i>
-                        </div>
-                    </div>
-                `;
+                        <div class="text-secondary ps-3 opacity-50"><i class="fas fa-chevron-right fa-lg"></i></div>
+                    </div>`;
             });
-        }
+            container.innerHTML = html;
+        };
 
+        // ===== ฟอร์มลงทะเบียน (เฉพาะคณะของลิงก์นี้) =====
         window.openRegister = (id) => {
             currentMatchId = id;
             const m = allMatches.find(x => x.id === id);
-            
             document.getElementById('modalSportName').innerText = getSportName(m.sport);
             document.getElementById('modalCategory').innerText = m.category;
-            
-            const badge = document.getElementById('modalStatusBadge');
-            if(m.status === 'done') {
-                badge.classList.remove('d-none');
-            } else {
-                badge.classList.add('d-none');
-            }
-            
-            // โหลด Players จาก Firebase
-            const players = m.players || {};
-            const teams = m.teams || ['team1', 'team2'];
-            
-            tempPlayers = {};
-            teams.forEach(teamKey => {
-                tempPlayers[teamKey] = [...(players[teamKey] || [])];
-                if(tempPlayers[teamKey].length === 0) tempPlayers[teamKey].push('');
-            });
-
-            renderTeamInputs(teams);
-
+            document.getElementById('modalStatusBadge').classList.toggle('d-none', m.status !== 'done');
+            tempPlayers = [...(((m.players || {})[myTeam]) || [])];
+            tempCoaches = [...(((m.coaches || {})[myTeam]) || [])];
+            if (!tempPlayers.length) tempPlayers.push('');
+            if (!tempCoaches.length) tempCoaches.push('');
+            renderTeamInputs();
             new bootstrap.Modal(document.getElementById('regModal')).show();
         };
 
-        function renderTeamInputs(teams) {
-            const container = document.getElementById('teamInputsContainer');
-            container.innerHTML = '';
-
-            const colClass = teams.length === 2 ? 'col-12 col-md-6' : (teams.length === 3 ? 'col-12 col-md-4' : 'col-12 col-lg-3 col-md-6');
-
-            teams.forEach(teamKey => {
-                const team = getTeamByKey(teamKey);
-                const players = tempPlayers[teamKey] || [];
-
-                let playersHtml = '';
-                players.forEach((name, idx) => {
-                    playersHtml += `
-                        <div class="d-flex gap-2 mb-2 animate__animated animate__fadeIn">
-                            <div class="input-group">
-                                <span class="input-group-text bg-white border text-muted">${idx+1}</span>
-                                <input type="text" class="form-control player-input bg-white" 
-                                       value="${name}" placeholder="ชื่อ-นามสกุล..."
-                                       oninput="updateTemp('${teamKey}', ${idx}, this.value)">
-                            </div>
-                            ${players.length > 1 ? `
-                                <button class="btn btn-outline-danger border-0" onclick="removeInput('${teamKey}', ${idx})">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>` : ''}
-                        </div>
-                    `;
-                });
-
-                container.innerHTML += `
-                    <div class="${colClass}">
-                        <div class="team-box h-100" style="border-left: 5px solid ${team.color};">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h5 class="fw-bold m-0 text-dark">
-                                    <i class="fas fa-circle me-2" style="color: ${team.color};"></i>${team.name}
-                                </h5>
-                                <button class="btn btn-sm btn-light fw-bold border" 
-                                        style="color: ${team.color}; border-color: ${team.color};"
-                                        onclick="addInput('${teamKey}')">
-                                    <i class="fas fa-plus"></i> เพิ่ม
-                                </button>
-                            </div>
-                            <div id="list_${teamKey}" class="d-flex flex-column gap-2">
-                                ${playersHtml}
-                            </div>
-                        </div>
+        function listHtml(kind, arr) {
+            const ph = kind === 'p' ? 'ชื่อ-นามสกุล (พิมพ์แล้วเลือกจากรายการ)' : 'ชื่อครู (พิมพ์แล้วเลือกจากรายการ)';
+            return arr.map((name, idx) => `
+                <div class="d-flex gap-2 mb-2">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border text-muted">${idx + 1}</span>
+                        <input type="text" class="form-control player-input bg-white" value="${esc(name)}" placeholder="${ph}" autocomplete="off"
+                               data-kind="${kind}" data-idx="${idx}"
+                               oninput="onNameInput(this)" onfocus="onNameInput(this)" onblur="hideSug()">
                     </div>
-                `;
-            });
+                    ${arr.length > 1 ? `<button class="btn btn-outline-danger border-0" onclick="removeInput('${kind}', ${idx})"><i class="fas fa-trash-alt"></i></button>` : ''}
+                </div>`).join('');
         }
 
-        window.addInput = (teamKey) => {
-            if(!tempPlayers[teamKey]) tempPlayers[teamKey] = [];
-            tempPlayers[teamKey].push('');
-            const m = allMatches.find(x => x.id === currentMatchId);
-            renderTeamInputs(m.teams || ['team1', 'team2']);
-        };
+        function renderTeamInputs() {
+            const team = systemSettings.teams[myTeam];
+            const box = (title, icon, kind, arr) => `
+                <div class="col-12 ${kind === 'p' ? 'col-lg-7' : 'col-lg-5'}">
+                    <div class="team-box h-100" style="border-left:5px solid ${esc(team.color)};">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold m-0 text-dark"><i class="fas ${icon} me-2" style="color:${esc(team.color)};"></i>${title}</h5>
+                            <button class="btn btn-sm btn-light fw-bold border" style="color:${esc(team.color)}; border-color:${esc(team.color)};" onclick="addInput('${kind}')">
+                                <i class="fas fa-plus"></i> เพิ่ม</button>
+                        </div>
+                        <div class="d-flex flex-column gap-2">${listHtml(kind, arr)}</div>
+                    </div>
+                </div>`;
+            document.getElementById('teamInputsContainer').innerHTML =
+                box(`นักกีฬา ${esc(team.name)}`, 'fa-user', 'p', tempPlayers) +
+                box('ครูผู้ควบคุม/ผู้ฝึกสอน', 'fa-chalkboard-teacher', 'c', tempCoaches);
+        }
 
-        window.removeInput = (teamKey, idx) => {
-            if(tempPlayers[teamKey]) {
-                tempPlayers[teamKey].splice(idx, 1);
-            }
-            const m = allMatches.find(x => x.id === currentMatchId);
-            renderTeamInputs(m.teams || ['team1', 'team2']);
-        };
-
-        window.updateTemp = (teamKey, idx, val) => {
-            if(!tempPlayers[teamKey]) tempPlayers[teamKey] = [];
-            tempPlayers[teamKey][idx] = val;
-        };
+        const arrOf = (k) => k === 'p' ? tempPlayers : tempCoaches;
+        window.addInput = (k) => { arrOf(k).push(''); renderTeamInputs(); };
+        window.removeInput = (k, idx) => { arrOf(k).splice(idx, 1); if (!arrOf(k).length) arrOf(k).push(''); renderTeamInputs(); };
 
         window.savePlayers = () => {
-            const cleanPlayers = {};
-            Object.keys(tempPlayers).forEach(teamKey => {
-                cleanPlayers[teamKey] = tempPlayers[teamKey].filter(n => n.trim() !== '');
-            });
-
-            update(ref(db, `matches/${currentMatchId}`), {
-                players: cleanPlayers
-            }).then(() => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'บันทึกเรียบร้อย!',
-                    text: 'รายชื่อถูกส่งเข้าระบบกลางแล้ว',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
+            const clean = (a) => [...new Set(a.map(n => n.trim()).filter(Boolean))];
+            const m = allMatches.find(x => x.id === currentMatchId);
+            const players = clean(tempPlayers), coaches = clean(tempCoaches);
+            // เขียนเฉพาะข้อมูลของคณะตัวเอง ไม่แตะข้อมูลของคณะอื่น
+            Promise.all([
+                set(ref(db, `matches/${currentMatchId}/players/${myTeam}`), players),
+                set(ref(db, `matches/${currentMatchId}/coaches/${myTeam}`), coaches)
+            ]).then(() => {
+                Swal.fire({ icon: 'success', title: 'บันทึกเรียบร้อย!', text: 'รายชื่อถูกส่งเข้าระบบกลางแล้ว', timer: 1500, showConfirmButton: false });
                 bootstrap.Modal.getInstance(document.getElementById('regModal')).hide();
             }).catch(err => {
-                Swal.fire('Error', 'เกิดข้อผิดพลาดในการบันทึก', 'error');
+                console.error(err);
+                Swal.fire('บันทึกไม่สำเร็จ', String(err && (err.code || err.message) || err), 'error');
             });
         };
+
+        // ===== ช่วยกรอกชื่อ (Suggest) =====
+        const PREFIX = /^(เด็กชาย|เด็กหญิง|ด\.ช\.|ด\.ญ\.|นางสาว|น\.ส\.|นาย|นาง|ครู|คุณครู|อาจารย์|ว่าที่ร้อยตรี)/;
+        const norm = (s) => String(s || '').toLowerCase().replace(/\s+/g, '').replace(PREFIX, '');
+        let idx = { all: [], teachers: [] };
+        function buildIndex() {
+            idx.teachers = people.teachers.filter(p => p && p.n).map(p => ({ ...p, key: norm(p.n), kind: 't' }));
+            idx.all = people.students.filter(p => p && p.n).map(p => ({ ...p, key: norm(p.n), kind: 's' })).concat(idx.teachers);
+        }
+        const sugBox = document.getElementById('sugBox');
+        let sugTarget = null;
+        window.hideSug = () => { setTimeout(() => { sugBox.style.display = 'none'; sugTarget = null; }, 150); };
+
+        window.onNameInput = (el) => {
+            const k = el.dataset.kind, i = +el.dataset.idx;
+            arrOf(k)[i] = el.value;
+            const q = norm(el.value);
+            const pool = k === 'p' ? idx.all : idx.teachers;
+            if (q.length < 1 || !pool.length) { sugBox.style.display = 'none'; return; }
+            const taken = new Set(arrOf(k).map(norm));
+            const hits = pool.filter(p => p.key.includes(q) && !(taken.has(p.key) && p.key !== q))
+                .map(p => ({ p, s: p.key.startsWith(q) ? 0 : 1 }))
+                .sort((a, b) => a.s - b.s || a.p.key.length - b.p.key.length)
+                .slice(0, 8).map(x => x.p);
+            if (!hits.length) { sugBox.style.display = 'none'; return; }
+            sugTarget = el;
+            sugBox.innerHTML = hits.map((p, n) => `<div class="sug-item" data-n="${n}"><span>${esc(p.n)}</span>
+                <small class="text-muted">${p.kind === 't' ? '<i class="fas fa-chalkboard-teacher me-1"></i>' : ''}${esc(p.c || '')}</small></div>`).join('');
+            sugBox._hits = hits;
+            const r = el.getBoundingClientRect();
+            sugBox.style.left = r.left + 'px'; sugBox.style.top = (r.bottom + 2) + 'px'; sugBox.style.width = r.width + 'px';
+            sugBox.style.display = 'block';
+        };
+        // เลือกรายการ (ใช้ pointerdown เพื่อไม่ให้ช่องกรอกเสียโฟกัสก่อน)
+        sugBox.addEventListener('pointerdown', (e) => {
+            const item = e.target.closest('.sug-item');
+            if (!item || !sugTarget) return;
+            e.preventDefault();
+            const p = sugBox._hits[+item.dataset.n];
+            const k = sugTarget.dataset.kind, i = +sugTarget.dataset.idx;
+            arrOf(k)[i] = p.n;
+            const wasLast = i === arrOf(k).length - 1;
+            sugBox.style.display = 'none'; sugTarget = null;
+            if (wasLast) arrOf(k).push('');
+            renderTeamInputs();
+            // โฟกัสช่องถัดไปเพื่อกรอกคนต่อไปได้ทันที
+            const next = document.querySelector(`input[data-kind="${k}"][data-idx="${wasLast ? i + 1 : i}"]`);
+            if (next) next.focus();
+        });
+        document.addEventListener('scroll', () => { sugBox.style.display = 'none'; }, true);
     </script>
 </body>
 </html>

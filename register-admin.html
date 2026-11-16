@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จัดการลงทะเบียนนักกีฬา (สำหรับครู)</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        :root { --primary-gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364); --card-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        body {
+            font-family: 'Sarabun', sans-serif; background-color: #f4f7f6;
+            background-image: radial-gradient(#e0e0e0 1px, transparent 1px); background-size: 20px 20px;
+            padding-bottom: 60px; min-height: 100vh;
+        }
+        h1, h2, h3, h4, h5, h6, .font-title { font-family: 'Kanit', sans-serif; }
+        .header-section {
+            background: var(--primary-gradient); color: white; padding: 25px 20px 45px;
+            border-bottom-left-radius: 30px; border-bottom-right-radius: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2); margin-bottom: -25px;
+        }
+        .header-section img { height: 60px; margin-bottom: 10px; }
+        .form-card { background: #fff; border-radius: 18px; box-shadow: var(--card-shadow); padding: 20px; margin-bottom: 18px; }
+        .team-card { border: 1px solid #e0e0e0; border-left-width: 6px; border-radius: 14px; padding: 14px; height: 100%; background: #fff; }
+        .match-row { border: 1px solid #eceff1; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: #fff; cursor: pointer; }
+        .match-row:hover { box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+        .chip { display: inline-block; font-size: .8rem; padding: 2px 10px; border-radius: 20px; border: 1px solid; margin: 2px 4px 2px 0; white-space: nowrap; }
+        .chip.ok { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
+        .chip.miss { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
+        .link-box { word-break: break-all; font-size: .85rem; }
+        textarea.tpl { font-family: 'Sarabun', sans-serif; font-size: 1rem; line-height: 1.55; }
+    </style>
+</head>
+<body>
+    <div class="header-section text-center">
+        <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" id="headerLogo" alt="">
+        <h3 class="fw-bold mb-1">จัดการลงทะเบียนนักกีฬา</h3>
+        <p class="mb-0 opacity-75" id="headerSubtitle">สำหรับครูผู้รับผิดชอบ</p>
+    </div>
+
+    <div class="container" style="max-width: 980px; position: relative; z-index: 15;">
+        <div id="state" class="form-card text-center mt-4">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2 mb-0 text-muted">กำลังโหลด...</p>
+        </div>
+
+        <div id="app" class="d-none mt-4">
+            <div class="form-card">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-link text-primary me-2"></i>ลิงก์ลงทะเบียนแยกตามคณะสี</h6>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="shareThisPage()"><i class="fas fa-share-nodes me-1"></i>แชร์หน้านี้ให้ครู</button>
+                        <button class="btn btn-sm btn-outline-success rounded-pill" onclick="downloadCsv()"><i class="fas fa-file-csv me-1"></i>ดาวน์โหลดรายชื่อ (CSV)</button>
+                    </div>
+                </div>
+                <div class="row g-3" id="teamCards"></div>
+                <small class="text-muted d-block mt-2">แต่ละคณะสีเห็นและแก้ไขได้เฉพาะรายการของคณะตัวเอง ไม่เห็นข้อมูลของอีกสี</small>
+            </div>
+
+            <div class="form-card">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-clipboard-list text-primary me-2"></i>ข้อมูลการลงทะเบียน</h6>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <select id="fSport" class="form-select form-select-sm" style="width:auto" onchange="renderList()"></select>
+                        <select id="fTeam" class="form-select form-select-sm" style="width:auto" onchange="renderList()"></select>
+                        <div class="form-check form-switch pt-1">
+                            <input class="form-check-input" type="checkbox" id="fMiss" onchange="renderList()">
+                            <label class="form-check-label small" for="fMiss">เฉพาะที่ยังไม่ครบ</label>
+                        </div>
+                    </div>
+                </div>
+                <div id="matchList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ข้อความ Template -->
+    <div class="modal fade" id="tplModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-message me-2"></i>ข้อความเชิญ / ติดตามการลงทะเบียน</h5>
+                    <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="btn-group w-100 mb-3">
+                        <input type="radio" class="btn-check" name="tplType" id="tplInvite" value="invite" checked onchange="genTpl()">
+                        <label class="btn btn-outline-primary" for="tplInvite"><i class="fas fa-bullhorn me-1"></i>ข้อความเชิญลงทะเบียน</label>
+                        <input type="radio" class="btn-check" name="tplType" id="tplFollow" value="follow" onchange="genTpl()">
+                        <label class="btn btn-outline-primary" for="tplFollow"><i class="fas fa-bell me-1"></i>ข้อความติดตาม</label>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4"><label class="form-label small fw-bold mb-1">คณะสี</label><select id="tplTeam" class="form-select form-select-sm" onchange="genTpl()"></select></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold mb-1">กำหนดส่ง</label><input id="tplDeadline" class="form-control form-control-sm" placeholder="เช่น วันที่ 25 พ.ย. 2569" oninput="genTpl()"></div>
+                        <div class="col-md-4"><label class="form-label small fw-bold mb-1">ผู้ประสานงาน/เบอร์ติดต่อ</label><input id="tplContact" class="form-control form-control-sm" placeholder="เช่น ครูนนท์ 08x-xxx-xxxx" oninput="genTpl()"></div>
+                    </div>
+                    <textarea id="tplText" class="form-control tpl" rows="14"></textarea>
+                    <small class="text-muted">แก้ไขข้อความในกล่องได้ก่อนคัดลอก (เปลี่ยนตัวเลือกด้านบนจะสร้างข้อความใหม่)</small>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+                    <a id="tplLine" class="btn btn-success" target="_blank" rel="noopener"><i class="fab fa-line me-1"></i>ส่งทาง LINE</a>
+                    <button class="btn btn-primary" onclick="copyTpl()"><i class="fas fa-copy me-1"></i>คัดลอกข้อความ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+        import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
+            authDomain: "keelaseesystem.firebaseapp.com",
+            databaseURL: "https://keelaseesystem-default-rtdb.firebaseio.com",
+            projectId: "keelaseesystem",
+            storageBucket: "keelaseesystem.firebasestorage.app",
+            messagingSenderId: "434885983982",
+            appId: "1:434885983982:web:ffb751f1652abf2308fdff"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const authReady = signInAnonymously(getAuth(app)).catch((e) => { console.warn('anonymous sign-in failed', e); });
+
+        const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const token = new URLSearchParams(location.search).get('k');
+        let settings = { schoolName: 'โรงเรียนกระดุมทองวิทยา', eventName: 'กระดุมทองเกมส์', academicYear: '2568', teams: {}, sports: {} };
+        let matches = [];
+        let teamTokens = {};
+        const expanded = new Set();
+
+        try {
+            const kc = JSON.parse(localStorage.getItem('ksSettingsCache') || '{}') || {};
+            if (kc.schoolLogo) document.getElementById('headerLogo').src = kc.schoolLogo;
+        } catch (e) {}
+
+        const sportName = (k) => settings.sports[k] || k;
+        const activeTeams = () => Object.entries(settings.teams || {}).filter(([, t]) => t.active).map(([key, t]) => ({ key, ...t }));
+        const teamName = (k) => (settings.teams[k] || {}).name || k;
+        const teamsOf = (m) => (m.teams || ['team1', 'team2']);
+        const names = (m, k) => (((m.players || {})[k]) || []).filter(Boolean);
+        const coaches = (m, k) => (((m.coaches || {})[k]) || []).filter(Boolean);
+        const thaiDate = (d) => { if (!d) return ''; const x = new Date(d); return `${x.getDate()}/${x.getMonth() + 1}/${x.getFullYear() + 543}`; };
+        const mLabel = (m) => `${sportName(m.sport)} ${m.category || ''}`.trim();
+        const rand = () => Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+        const regUrl = (t) => { const u = new URL('register.html', location.href); u.searchParams.set('k', t); return u.href; };
+
+        function stat(tk) {
+            const mine = matches.filter(m => teamsOf(m).includes(tk));
+            const missing = mine.filter(m => names(m, tk).length === 0);
+            return { total: mine.length, done: mine.length - missing.length, missing };
+        }
+
+        function showState(html) {
+            const s = document.getElementById('state'); s.classList.remove('d-none'); s.innerHTML = html;
+            document.getElementById('app').classList.add('d-none');
+        }
+
+        // ===== แสดงผล =====
+        function renderTeams() {
+            document.getElementById('teamCards').innerHTML = activeTeams().map(t => {
+                const st = stat(t.key); const pct = st.total ? Math.round(st.done * 100 / st.total) : 0;
+                return `<div class="col-md-6"><div class="team-card" style="border-left-color:${esc(t.color)};">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="fw-bold font-title"><i class="fas fa-circle me-1" style="color:${esc(t.color)}"></i>${esc(t.name)}</div>
+                        <span class="badge ${st.total && st.done === st.total ? 'bg-success' : 'bg-secondary'}">${st.done}/${st.total} รายการ</span>
+                    </div>
+                    <div class="progress mb-2" style="height:8px;"><div class="progress-bar" style="width:${pct}%; background:${esc(t.color)};"></div></div>
+                    <div class="d-flex gap-1 flex-wrap">
+                        <button class="btn btn-sm btn-primary rounded-pill" onclick="showTeamLink('${t.key}')"><i class="fas fa-qrcode me-1"></i>ลิงก์/QR</button>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="openTpl('${t.key}','invite')"><i class="fas fa-bullhorn me-1"></i>ข้อความเชิญ</button>
+                        <button class="btn btn-sm btn-outline-warning rounded-pill" onclick="openTpl('${t.key}','follow')"><i class="fas fa-bell me-1"></i>ติดตาม</button>
+                    </div></div></div>`;
+            }).join('') || '<div class="text-muted">ยังไม่มีคณะสีในระบบ</div>';
+        }
+
+        function renderFilters() {
+            const sSel = document.getElementById('fSport'), tSel = document.getElementById('fTeam');
+            const sv = sSel.value, tv = tSel.value;
+            sSel.innerHTML = '<option value="all">ทุกกีฬา</option>' + [...new Set(matches.map(m => m.sport))].map(s => `<option value="${esc(s)}">${esc(sportName(s))}</option>`).join('');
+            tSel.innerHTML = '<option value="all">ทุกคณะสี</option>' + activeTeams().map(t => `<option value="${t.key}">${esc(t.name)}</option>`).join('');
+            sSel.value = sv || 'all'; tSel.value = tv || 'all';
+        }
+
+        window.renderList = () => {
+            const fs = document.getElementById('fSport').value, ft = document.getElementById('fTeam').value, onlyMiss = document.getElementById('fMiss').checked;
+            let html = '', last = '';
+            matches.filter(m => (fs === 'all' || m.sport === fs) && (ft === 'all' || teamsOf(m).includes(ft))).forEach(m => {
+                const ts = teamsOf(m).filter(k => ft === 'all' || k === ft);
+                if (onlyMiss && !ts.some(k => names(m, k).length === 0)) return;
+                if (m.date !== last) { last = m.date; html += `<div class="fw-bold text-secondary mt-3 mb-1"><i class="far fa-calendar-alt me-1"></i>${thaiDate(m.date)}</div>`; }
+                const open = expanded.has(m.id);
+                html += `<div class="match-row" onclick="toggleRow('${m.id}')">
+                    <div class="d-flex justify-content-between flex-wrap gap-1">
+                        <div><strong>${esc(sportName(m.sport))}</strong> <span class="text-muted">${esc(m.category || '')}</span>
+                            <small class="text-muted ms-2"><i class="far fa-clock"></i> ${esc(m.time)} น.</small></div>
+                        <div>${ts.map(k => { const n = names(m, k).length; const t = settings.teams[k] || {};
+                            return `<span class="chip ${n ? 'ok' : 'miss'}"><i class="fas fa-circle me-1" style="color:${esc(t.color || '#999')}; font-size:.6rem"></i>${esc(teamName(k))}: ${n ? n + ' คน' : 'ยังไม่ลงชื่อ'}</span>`; }).join('')}</div>
+                    </div>
+                    ${open ? `<div class="row g-2 mt-2">${ts.map(k => `<div class="col-md-6"><div class="small border rounded p-2 bg-light">
+                        <div class="fw-bold mb-1">${esc(teamName(k))}</div>
+                        ${names(m, k).length ? '<ol class="mb-1 ps-3">' + names(m, k).map(n => `<li>${esc(n)}</li>`).join('') + '</ol>' : '<div class="text-muted">— ยังไม่มีรายชื่อ —</div>'}
+                        <div class="text-muted"><i class="fas fa-chalkboard-teacher me-1"></i>ครู: ${coaches(m, k).length ? coaches(m, k).map(esc).join(', ') : '-'}</div>
+                    </div></div>`).join('')}</div>` : ''}
+                </div>`;
+            });
+            document.getElementById('matchList').innerHTML = html || '<div class="text-center text-muted py-4">ไม่พบรายการ</div>';
+        };
+        window.toggleRow = (id) => { expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderList(); };
+
+        // ===== ลิงก์/QR แยกสี =====
+        async function ensureTeamToken(tk, renew) {
+            let t = teamTokens[tk];
+            if (t && !renew) return t;
+            await authReady;
+            if (t && renew) await set(ref(db, 'regLinks/' + t), null);
+            t = rand();
+            await set(ref(db, 'regLinks/' + t), { role: 'team', teamKey: tk, teamName: teamName(tk), createdAt: Date.now() });
+            await set(ref(db, 'registry/teamTokens/' + tk), t);
+            teamTokens[tk] = t;
+            return t;
+        }
+        async function qrDialog(title, url, extra = {}) {
+            return Swal.fire({
+                title, showCancelButton: true, cancelButtonText: 'ปิด',
+                confirmButtonText: '<i class="fas fa-copy"></i> คัดลอกลิงก์',
+                showDenyButton: !!extra.deny, denyButtonText: extra.deny || '',
+                html: `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}" class="img-fluid border p-1 bg-white mb-2">
+                    <div class="link-box border rounded p-2 bg-light mb-2">${esc(url)}</div>${extra.note ? `<small class="text-muted">${extra.note}</small>` : ''}`
+            });
+        }
+        async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { prompt('คัดลอกข้อความนี้', t); return false; } }
+        window.showTeamLink = async (tk, renew = false) => {
+            let url;
+            try { url = regUrl(await ensureTeamToken(tk, renew)); }
+            catch (e) { Swal.fire({ icon: 'error', title: 'ออกลิงก์ไม่สำเร็จ', text: String(e && (e.code || e.message) || e) }); return; }
+            const r = await qrDialog(`ลิงก์ลงทะเบียน ${teamName(tk)}`, url, { deny: 'สร้างลิงก์ใหม่ (ยกเลิกลิงก์เดิม)', note: 'ส่งให้เฉพาะสมาชิก/ครูที่ปรึกษาของคณะนี้ — คณะอื่นไม่เห็นข้อมูลกัน' });
+            if (r.isConfirmed) { await copyText(url); Swal.fire({ icon: 'success', title: 'คัดลอกแล้ว', timer: 900, showConfirmButton: false }); }
+            else if (r.isDenied) showTeamLink(tk, true);
+        };
+        window.shareThisPage = async () => {
+            const url = location.href;
+            const r = await qrDialog('ลิงก์หน้านี้ (สำหรับครู)', url, { note: 'ผู้ที่มีลิงก์นี้ดูข้อมูลและออกลิงก์ลงทะเบียนของทุกสีได้ ส่งให้เฉพาะครูผู้รับผิดชอบ' });
+            if (r.isConfirmed) { await copyText(url); Swal.fire({ icon: 'success', title: 'คัดลอกแล้ว', timer: 900, showConfirmButton: false }); }
+        };
+
+        // ===== ข้อความ Template =====
+        let tplModal;
+        window.openTpl = async (tk, type) => {
+            const sel = document.getElementById('tplTeam');
+            sel.innerHTML = activeTeams().map(t => `<option value="${t.key}">${esc(t.name)}</option>`).join('') + '<option value="all">ทุกคณะสี (สรุปติดตาม)</option>';
+            sel.value = tk || (activeTeams()[0] || {}).key;
+            document.getElementById(type === 'follow' ? 'tplFollow' : 'tplInvite').checked = true;
+            try {
+                const p = JSON.parse(localStorage.getItem('regTplPrefs') || '{}');
+                document.getElementById('tplDeadline').value = p.deadline || ''; document.getElementById('tplContact').value = p.contact || '';
+            } catch (e) {}
+            // เตรียมลิงก์ทุกสีไว้ก่อน เพื่อใส่ในข้อความได้ทันที
+            try { for (const t of activeTeams()) await ensureTeamToken(t.key, false); } catch (e) { console.warn(e); }
+            tplModal = tplModal || new bootstrap.Modal(document.getElementById('tplModal'));
+            tplModal.show(); genTpl();
+        };
+        function buildTpl(type, tk, deadline, contact) {
+            const ev = `${settings.eventName} ประจำปีการศึกษา ${settings.academicYear}`;
+            const dl = deadline ? `📌 กำหนดส่ง: ${deadline}\n` : '';
+            const ct = contact ? `📞 สอบถาม: ${contact}\n` : '';
+            if (tk === 'all') {
+                let t = `📣 สรุปติดตามการลงทะเบียนนักกีฬา\n${ev}\n\n`;
+                activeTeams().forEach(tm => {
+                    const st = stat(tm.key);
+                    t += `● ${tm.name}: ลงแล้ว ${st.done}/${st.total} รายการ${st.missing.length ? ` (ค้าง ${st.missing.length})` : ' ✅ ครบ'}\n`;
+                    st.missing.slice(0, 15).forEach(m => { t += `   - ${mLabel(m)} (${thaiDate(m.date)} ${m.time} น.)\n`; });
+                    if (st.missing.length > 15) t += `   … และอีก ${st.missing.length - 15} รายการ\n`;
+                });
+                return t + `\n${dl}${ct}`.trimEnd();
+            }
+            const link = teamTokens[tk] ? regUrl(teamTokens[tk]) : '(ยังไม่ได้ออกลิงก์)';
+            const st = stat(tk), nm = teamName(tk);
+            if (type === 'invite') {
+                const mine = matches.filter(m => teamsOf(m).includes(tk));
+                const lines = [...new Set(mine.map(mLabel))];
+                return `📢 เชิญลงทะเบียนนักกีฬา ${ev}\nคณะ${nm}\n\n` +
+                    `เรียน คณะครู/ผู้ปกครอง/นักเรียนคณะ${nm}\nขอเชิญกรอกรายชื่อนักกีฬา (และครูผู้ควบคุม) ในแต่ละรายการแข่งขัน ผ่านลิงก์ด้านล่าง\n\n` +
+                    `👉 ${link}\n\n` +
+                    `💡 พิมพ์ชื่อสักสองสามตัวอักษร ระบบจะแสดงรายชื่อให้เลือก\n` +
+                    `🏅 รายการที่ต้องลงทะเบียน (${st.total} รายการ):\n${lines.slice(0, 25).map(l => `   • ${l}`).join('\n')}${lines.length > 25 ? `\n   … และอื่น ๆ` : ''}\n\n` +
+                    `${dl}${ct}ลิงก์นี้ใช้ได้เฉพาะคณะ${nm} ขอบคุณครับ/ค่ะ 🙏`;
+            }
+            if (!st.missing.length) return `✅ คณะ${nm} ลงทะเบียนนักกีฬาครบทุกรายการแล้ว (${st.done}/${st.total})\nขอบคุณทุกท่านที่ให้ความร่วมมือ 🙏\n\nหากต้องการแก้ไขรายชื่อ เข้าที่ลิงก์เดิมได้ตลอด:\n${link}`;
+            return `⏰ แจ้งติดตามการลงทะเบียนนักกีฬา\n${ev}\nคณะ${nm}\n\n` +
+                `ขณะนี้ลงทะเบียนแล้ว ${st.done} จาก ${st.total} รายการ\nยังไม่ได้ลงชื่อ ${st.missing.length} รายการ:\n` +
+                st.missing.slice(0, 25).map((m, i) => `${i + 1}. ${mLabel(m)} (${thaiDate(m.date)} ${m.time} น.)`).join('\n') +
+                `${st.missing.length > 25 ? `\n… และอีก ${st.missing.length - 25} รายการ` : ''}\n\n` +
+                `👉 กรอกต่อได้ที่ ${link}\n\n${dl}${ct}รบกวนดำเนินการโดยเร็ว ขอบคุณครับ/ค่ะ 🙏`;
+        }
+        window.genTpl = () => {
+            const type = document.querySelector('input[name=tplType]:checked').value;
+            const tk = document.getElementById('tplTeam').value;
+            const deadline = document.getElementById('tplDeadline').value.trim(), contact = document.getElementById('tplContact').value.trim();
+            try { localStorage.setItem('regTplPrefs', JSON.stringify({ deadline, contact })); } catch (e) {}
+            const text = buildTpl(tk === 'all' ? 'follow' : type, tk, deadline, contact);
+            document.getElementById('tplText').value = text;
+            document.getElementById('tplLine').href = 'https://line.me/R/msg/text/?' + encodeURIComponent(text);
+        };
+        window.copyTpl = async () => {
+            const t = document.getElementById('tplText').value;
+            document.getElementById('tplLine').href = 'https://line.me/R/msg/text/?' + encodeURIComponent(t);
+            if (await copyText(t)) Swal.fire({ icon: 'success', title: 'คัดลอกข้อความแล้ว', timer: 1000, showConfirmButton: false });
+        };
+
+        // ===== ดาวน์โหลด CSV =====
+        window.downloadCsv = () => {
+            const q = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+            const rows = [['วันที่', 'เวลา', 'กีฬา', 'รุ่น', 'คณะสี', 'ลำดับ', 'ชื่อนักกีฬา', 'ครูผู้ควบคุม']];
+            matches.forEach(m => teamsOf(m).forEach(k => {
+                const ns = names(m, k), cs = coaches(m, k).join(', ');
+                if (!ns.length) rows.push([thaiDate(m.date), m.time, sportName(m.sport), m.category, teamName(k), '', '(ยังไม่ลงชื่อ)', cs]);
+                ns.forEach((n, i) => rows.push([thaiDate(m.date), m.time, sportName(m.sport), m.category, teamName(k), i + 1, n, cs]));
+            }));
+            const blob = new Blob(['﻿' + rows.map(r => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `รายชื่อนักกีฬา_${settings.eventName}_${settings.academicYear}.csv`; a.click(); URL.revokeObjectURL(a.href);
+        };
+
+        // ===== เริ่มต้น =====
+        (async function init() {
+            if (!token) return showState('<i class="fas fa-link-slash text-danger fa-2x mb-2"></i><p class="mb-0">ต้องเข้าผ่านลิงก์ของครูผู้รับผิดชอบ<br><small class="text-muted">เปิดจากเมนู "ระบบลงทะเบียน" ในหน้าหลักของระบบ</small></p>');
+            try {
+                await authReady;
+                const lk = (await get(ref(db, 'regLinks/' + token))).val();
+                if (!lk || lk.role !== 'view') return showState('<i class="fas fa-link-slash text-danger fa-2x mb-2"></i><p class="mb-0">ลิงก์ไม่ถูกต้องหรือถูกยกเลิกแล้ว</p>');
+                const s = (await get(ref(db, 'settings'))).val();
+                if (s) { settings = { ...settings, ...s }; if (s.teams) settings.teams = s.teams; if (s.sports) settings.sports = s.sports; }
+                if (settings.schoolLogo) document.getElementById('headerLogo').src = settings.schoolLogo;
+                document.getElementById('headerSubtitle').textContent = `${settings.eventName} ประจำปีการศึกษา ${settings.academicYear}`;
+                teamTokens = (await get(ref(db, 'registry/teamTokens'))).val() || {};
+                document.getElementById('state').classList.add('d-none');
+                document.getElementById('app').classList.remove('d-none');
+                onValue(ref(db, 'matches'), (snap) => {
+                    const d = snap.val();
+                    matches = d ? Object.keys(d).map(k => ({ ...d[k], id: k })).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)) : [];
+                    renderTeams(); renderFilters(); renderList();
+                });
+            } catch (e) {
+                console.error(e);
+                showState('<i class="fas fa-wifi text-danger fa-2x mb-2"></i><p class="mb-0">โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชหน้านี้อีกครั้ง</p>');
+            }
+        })();
+    </script>
+</body>
+</html>
