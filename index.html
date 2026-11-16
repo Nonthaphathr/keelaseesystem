@@ -3451,7 +3451,7 @@
     window.downloadMatchTemplate = () => {
         const teams = getActiveTeams().map(t => t.name);
         const sports = Object.entries(systemSettings.sports || {});
-        const head = ['ชื่อกีฬา', 'รุ่น/ประเภท', 'วันที่', 'เวลา', 'สถานที่', 'วิธีตัดสิน', 'จำนวน Set', 'คณะสีที่แข่ง'];
+        const head = ['ชื่อกีฬา', 'รุ่น/ประเภท', 'วันที่', 'เวลา', 'สถานที่', 'วิธีตัดสิน', 'จำนวน Set', 'คณะสีที่แข่ง', 'หมายเหตุ'];
         const d = new Date().toISOString().slice(0, 10);
         const ex = [
             [sports[0] ? sports[0][1] : 'ฟุตบอล', 'ชาย ม.ต้น', d, '09:00', 'สนามกีฬากลาง', 'ลงคะแนนรอบเดียว', '', ''],
@@ -3462,7 +3462,7 @@
         const n = Math.max(sports.length, Object.keys(TPL_METHODS).length, teams.length, 6);
         const mk = Object.keys(TPL_METHODS);
         const guide = [['ชื่อกีฬาที่ใช้ได้', 'วิธีตัดสินที่ใช้ได้', 'จำนวน Set ที่ใช้ได้', 'คณะสีที่ใช้ได้', 'คำอธิบาย']];
-        const notes = ['• ชื่อกีฬา: ต้องตรงกับในระบบ (หรือใช้รหัสกีฬา) ถ้ายังไม่มีให้เพิ่มที่ตั้งค่าระบบก่อน',
+        const notes = ['• ชื่อกีฬา/คณะสี: ถ้ายังไม่มีในระบบ จะถูกเพิ่มให้อัตโนมัติเมื่อนำเข้า (ยืนยันก่อนบันทึก)',
             '• วันที่: พิมพ์เป็น 2025-12-03 หรือ 3/12/2568 (ปี พ.ศ. หรือ ค.ศ. ก็ได้)',
             '• เวลา: พิมพ์เป็น 09:00 หรือ 9.30',
             '• จำนวน Set: ใช้เฉพาะวิธีตัดสินแบบ Set (3, 5 หรือ 7) เว้นว่าง = 3',
@@ -3510,10 +3510,15 @@
             const sports = systemSettings.sports || {}, teamsAll = getActiveTeams();
             const sportKey = (x) => { x = String(x).trim(); if (!x) return ''; if (sports[x]) return x; return Object.keys(sports).find(k => sports[k] === x || sports[k].replace(/\s+/g, '') === x.replace(/\s+/g, '')) || ''; };
             const good = [], bad = [];
+            const newSports = {}, newTeams = {};   // ชื่อ -> key ที่ยังไม่มีในระบบ จะสร้างให้เมื่อยืนยัน
+            const COLORS = { 'เหลือง': '#FFC107', 'ฟ้า': '#03A9F4', 'เขียว': '#4CAF50', 'น้ำเงิน': '#1565C0', 'แดง': '#E53935', 'ชมพู': '#EC407A', 'ส้ม': '#FF9800', 'ม่วง': '#8E24AA', 'ขาว': '#BDBDBD', 'ดำ': '#424242' };
+            const slug = () => 'sp_' + Date.now().toString(36).slice(-4) + '_' + Object.keys(newSports).length;
             rows.forEach((r, i) => {
                 const line = i + 2, err = [];
-                const sp = sportKey(r['ชื่อกีฬา'] || r['รหัสกีฬา'] || '');
-                if (!sp) err.push('ไม่พบกีฬาในระบบ "' + (r['ชื่อกีฬา'] || '') + '"');
+                const spName = String(r['ชื่อกีฬา'] || r['รหัสกีฬา'] || '').trim();
+                let sp = sportKey(spName);
+                if (!sp && spName) { if (!newSports[spName]) newSports[spName] = slug(); sp = newSports[spName]; }
+                if (!sp) err.push('ไม่มีชื่อกีฬา');
                 const cat = String(r['รุ่น/ประเภท'] ?? '').trim(); if (!cat) err.push('ไม่มีรุ่น/ประเภท');
                 const date = tplDate(r['วันที่']); if (!date) err.push('วันที่ไม่ถูกต้อง');
                 const time = tplTime(r['เวลา']); if (!time) err.push('เวลาไม่ถูกต้อง');
@@ -3524,29 +3529,43 @@
                 const tt = String(r['คณะสีที่แข่ง'] ?? '').trim();
                 if (tt) {
                     const parts = tt.split(/[,،、/]+/).map(x => x.trim()).filter(Boolean);
-                    const ks = parts.map(p => (teamsAll.find(t => t.name === p || t.key === p) || {}).key);
-                    if (ks.some(k => !k)) err.push('ชื่อคณะสีไม่ถูกต้อง "' + tt + '"'); else teamKeys = [...new Set(ks)];
+                    const ks = parts.map(p => {
+                        const f = teamsAll.find(t => t.name === p || t.key === p); if (f) return f.key;
+                        if (!newTeams[p]) { const cn = Object.keys(COLORS).find(c => p.includes(c)); newTeams[p] = { key: 'team' + (Object.keys(systemSettings.teams || {}).length + Object.keys(newTeams).length + 1) + '_' + Date.now().toString().slice(-4), name: p, color: COLORS[cn] || '#9E9E9E', active: true }; }
+                        return newTeams[p].key; });
+                    teamKeys = [...new Set(ks)];
                 }
                 if (teamKeys.length < 2) err.push('ต้องมีอย่างน้อย 2 คณะสี');
                 if (err.length) { if (Object.values(r).some(v => String(v).trim())) bad.push(`แถว ${line}: ${err.join(', ')}`); return; }
+                const noteTxt = String(r['หมายเหตุ'] ?? '').trim();
                 let sc = parseInt(r['จำนวน Set']); if (![3, 5, 7].includes(sc)) sc = 3;
                 const scores = {}, players = {}; teamKeys.forEach(k => { scores[k] = 0; players[k] = []; });
                 const m = { sport: sp, category: cat, date, time, location: String(r['สถานที่'] ?? '').trim(), status: 'wait', scores, winner: 'none', scoringMethod: method,
-                    details: {}, referees: sp === 'cheer' ? ['', '', '', '', ''] : [''], athleteSign: '', note: '', players, teams: teamKeys, createdAt: new Date().toISOString() };
+                    details: {}, referees: sp === 'cheer' ? ['', '', '', '', ''] : [''], athleteSign: '', note: noteTxt, players, teams: teamKeys, createdAt: new Date().toISOString() };
                 if (method === 'score_set' || method === 'win_set') m.setCount = sc;
                 good.push(m);
             });
             const esc2 = (t) => String(t).replace(/</g, '&lt;');
+            const rev = Object.fromEntries(Object.entries(newSports).map(([n, k]) => [k, n]));
+            const sportLabel = (k) => esc2(rev[k] || getSportName(k));
+            const addInfo = (Object.keys(newSports).length || Object.keys(newTeams).length)
+                ? `<div class="alert alert-info py-2 mt-2 mb-0">จะเพิ่มลงในตั้งค่าระบบด้วย:${Object.keys(newSports).length ? '<br>🏅 กีฬาใหม่: ' + Object.keys(newSports).map(esc2).join(', ') : ''}${Object.keys(newTeams).length ? '<br>🎨 คณะสีใหม่: ' + Object.keys(newTeams).map(esc2).join(', ') : ''}</div>` : '';
             const r = await Swal.fire({
                 icon: bad.length ? 'warning' : 'question', title: `นำเข้า ${good.length} รายการ`, width: 640,
-                html: `<div class="text-start small">${good.slice(0, 5).map(m => `• ${esc2(getSportName(m.sport))} ${esc2(m.category)} — ${m.date} ${m.time} น.${m.location ? ' @' + esc2(m.location) : ''}`).join('<br>')}${good.length > 5 ? `<br>… และอีก ${good.length - 5} รายการ` : ''}
-                    ${bad.length ? `<hr><b class="text-danger">ข้ามไป ${bad.length} แถว (ข้อมูลไม่ถูกต้อง):</b><br><div style="max-height:150px;overflow:auto">${bad.slice(0, 30).map(esc2).join('<br>')}</div>` : ''}
+                html: `<div class="text-start small">${good.slice(0, 5).map(m => `• ${sportLabel(m.sport)} ${esc2(m.category)} — ${m.date} ${m.time} น.${m.location ? ' @' + esc2(m.location) : ''}`).join('<br>')}${good.length > 5 ? `<br>… และอีก ${good.length - 5} รายการ` : ''}
+                    ${addInfo}${bad.length ? `<hr><b class="text-danger">ข้ามไป ${bad.length} แถว (ข้อมูลไม่ถูกต้อง):</b><br><div style="max-height:150px;overflow:auto">${bad.slice(0, 30).map(esc2).join('<br>')}</div>` : ''}
                     <hr>รายการเดิมในระบบจะไม่ถูกลบ</div>`,
                 showCancelButton: true, confirmButtonText: 'นำเข้า', cancelButtonText: 'ยกเลิก', showConfirmButton: good.length > 0
             });
             if (!r.isConfirmed) { event.target.value = ''; return; }
             await authWait;
+            if (Object.keys(newSports).length) {
+                const up = {}; Object.entries(newSports).forEach(([n, k]) => { up[k] = n; systemSettings.sports[k] = n; });
+                await update(ref(db, 'settings/sports'), up);
+            }
+            for (const t of Object.values(newTeams)) { const o = { name: t.name, color: t.color, active: true }; systemSettings.teams[t.key] = o; await set(ref(db, 'settings/teams/' + t.key), o); }
             for (const m of good) await push(ref(db, 'matches'), m);
+            try { updateSportDropdown(); updateScheduleDropdowns(); renderTeamSummaryCards(); } catch (e) {}
             event.target.value = '';
             Swal.fire({ icon: 'success', title: 'นำเข้าสำเร็จ', text: `เพิ่ม ${good.length} รายการ`, timer: 1800, showConfirmButton: false });
         } catch (e) {
