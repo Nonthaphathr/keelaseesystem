@@ -69,6 +69,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
         import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -81,6 +82,8 @@
         };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        // ล็อกอินแบบไม่ระบุตัวตน (กฎของฐานข้อมูลต้องมี auth ก่อนเขียน)
+        const authReady = signInAnonymously(getAuth(app)).catch((e) => { console.warn('anonymous sign-in failed', e); });
 
         const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const token = new URLSearchParams(location.search).get('k');
@@ -237,6 +240,7 @@
                 upd['meta/team_' + link.teamKey] = { updatedAt: now };
             }
             try {
+                await authReady;
                 await update(ref(db, 'mcData'), upd);
                 const snap = await get(ref(db, 'mcData')); data = snap.val() || {};
                 document.querySelectorAll('[data-orig]').forEach(el => { el.dataset.orig = el.value.trim(); });
@@ -262,7 +266,7 @@
         window.showTeamLink = async (teamKey, renew = false) => {
             const t = (settings.teams || {})[teamKey] || {};
             let url;
-            try { url = pageUrl(await ensureTeamToken(teamKey, renew)); }
+            try { await authReady; url = pageUrl(await ensureTeamToken(teamKey, renew)); }
             catch (e) { Swal.fire({ icon: 'error', title: 'ออกลิงก์ไม่สำเร็จ', text: String(e && (e.code || e.message) || e) }); return; }
             const r = await Swal.fire({
                 title: `ลิงก์สำหรับประธาน${esc(t.name || '')}`,
@@ -286,6 +290,7 @@
         (async function init() {
             if (!token) return showState('<i class="fas fa-link-slash text-danger fa-2x mb-2"></i><p class="mb-0">ลิงก์ไม่ถูกต้อง กรุณาขอลิงก์ใหม่จากพิธีกรหรือครูผู้ดูแล</p>');
             try {
+                await authReady;
                 const [lk, st, dt] = await Promise.all([get(ref(db, 'mcLinks/' + token)), get(ref(db, 'settings')), get(ref(db, 'mcData'))]);
                 link = lk.val();
                 const s = st.val();
