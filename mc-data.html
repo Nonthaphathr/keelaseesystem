@@ -147,7 +147,7 @@
         };
 
         const norm = (v) => (v && typeof v === 'object') ? Object.values(v) : v;
-        const activeTeams = () => Object.entries(settings.teams || {}).filter(([, t]) => t.active).map(([key, t]) => ({ key, ...t }));
+        const activeTeams = () => Object.entries(settings.teams || {}).filter(([, t]) => t.active).map(([key, t], i) => ({ key, i, ...t })).sort((a, b) => (Number.isFinite(+a.order) ? +a.order : 999) - (Number.isFinite(+b.order) ? +b.order : 999) || a.i - b.i);
         const rand = () => Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
         const pageUrl = (k) => new URL('mc-data.html', location.href).origin + new URL('mc-data.html', location.href).pathname + '?k=' + k;
 

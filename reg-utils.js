@@ -96,7 +96,7 @@ export function attachSuggest(box, getPool, onPick) {
     let target = null, hits = [];
     const key = normName;
     const show = (el) => {
-        const q = key(el.value), pool = getPool() || [];
+        const q = key(el.value), pool = getPool(el) || [];
         if (q.length < 1 || !pool.length) { box.style.display = 'none'; return; }
         hits = pool.filter(p => key(p.n).includes(q) && key(p.n) !== q)
             .map(p => ({ p, s: key(p.n).startsWith(q) ? 0 : 1 }))

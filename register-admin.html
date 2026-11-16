@@ -165,7 +165,7 @@
         } catch (e) {}
 
         const sportName = (k) => settings.sports[k] || k;
-        const activeTeams = () => Object.entries(settings.teams || {}).filter(([, t]) => t.active).map(([key, t]) => ({ key, ...t }));
+        const activeTeams = () => Object.entries(settings.teams || {}).filter(([, t]) => t.active).map(([key, t], i) => ({ key, i, ...t })).sort((a, b) => (Number.isFinite(+a.order) ? +a.order : 999) - (Number.isFinite(+b.order) ? +b.order : 999) || a.i - b.i);
         const teamName = (k) => (settings.teams[k] || {}).name || k;
         const teamsOf = (m) => (m.teams || ['team1', 'team2']);
         const names = (m, k) => (((m.players || {})[k]) || []).filter(Boolean);

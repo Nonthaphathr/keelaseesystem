@@ -375,6 +375,13 @@
         } catch (e) { window.__ksCache = {}; }
     </script>
 
+    <div id="sugBox" style="display:none;"></div>
+    <style>
+        #sugBox { position: fixed; z-index: 3000; background: #fff; border: 1px solid #cfd8dc; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.2); max-height: 260px; overflow-y: auto; }
+        #sugBox .sug-item { padding: 10px 14px; display: flex; justify-content: space-between; gap: 10px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+        #sugBox .sug-item:hover { background: #e8f4f8; }
+    </style>
+
     <div class="container py-4">
         
         <div id="page-dashboard" class="page-section active">
@@ -956,6 +963,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, update, remove, set, get, runTransaction } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+    import { attachSuggest } from "./reg-utils.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -1035,8 +1043,12 @@
     };
 
     // ===== Helper Functions สำหรับ Teams =====
+    // ลำดับทีมตามช่อง "ลำดับการแสดงผล" (order) ถ้าไม่ได้ตั้งไว้ใช้ลำดับเดิม
+    window.sortedTeamEntries = () => Object.entries(systemSettings.teams || {})
+        .map((e, i) => ({ e, i, o: Number.isFinite(+e[1].order) && e[1].order !== undefined && e[1].order !== null ? +e[1].order : 999 }))
+        .sort((a, b) => a.o - b.o || a.i - b.i).map(x => x.e);
     window.getActiveTeams = () => {
-        return Object.entries(systemSettings.teams || {})
+        return sortedTeamEntries()
             .filter(([key, team]) => team.active)
             .map(([key, team]) => ({ key, ...team }));
     };
@@ -1243,15 +1255,27 @@
     // ===== แสดง Modal ตั้งค่า =====
     window.showSettings = async () => {
         setTimeout(() => window.refreshPeopleCounts && window.refreshPeopleCounts(), 600);
-        const { value: pass } = await Swal.fire({
-            title: 'ใส่รหัสผ่านเพื่อตั้งค่าระบบ',
-            input: 'password',
-            inputPlaceholder: 'รหัสผ่าน...',
-            showCancelButton: true,
-            confirmButtonText: 'เข้าสู่ระบบ',
-            cancelButtonText: 'ยกเลิก'
-        });
-        
+        // จำการปลดล็อกไว้ 3 ชั่วโมง (ผูกกับรหัสผ่านปัจจุบัน ถ้าเปลี่ยนรหัสต้องใส่ใหม่)
+        const pwTag = btoa(unescape(encodeURIComponent(String(systemSettings.password || ''))));
+        let unlocked = false;
+        try {
+            const u = JSON.parse(localStorage.getItem('ksSettingsUnlock') || 'null');
+            unlocked = !!u && u.p === pwTag && (Date.now() - u.t) < 3 * 60 * 60 * 1000;
+        } catch (e) {}
+        let pass = unlocked ? systemSettings.password : undefined;
+        if (!unlocked) {
+            ({ value: pass } = await Swal.fire({
+                title: 'ใส่รหัสผ่านเพื่อตั้งค่าระบบ',
+                input: 'password',
+                inputPlaceholder: 'รหัสผ่าน...',
+                footer: 'ใส่ครั้งเดียว ใช้ได้ต่อเนื่อง 3 ชั่วโมง',
+                showCancelButton: true,
+                confirmButtonText: 'เข้าสู่ระบบ',
+                cancelButtonText: 'ยกเลิก'
+            }));
+            if (pass === systemSettings.password) { try { localStorage.setItem('ksSettingsUnlock', JSON.stringify({ t: Date.now(), p: pwTag })); } catch (e) {} }
+        }
+
         if (pass === systemSettings.password) {
             document.getElementById('settingSchoolName').value = systemSettings.schoolName;
             document.getElementById('settingEventName').value = systemSettings.eventName;
@@ -1292,7 +1316,8 @@
         }
         
         let html = '';
-        Object.entries(teams).forEach(([key, team]) => {
+        const ordered = sortedTeamEntries();
+        ordered.forEach(([key, team], pos) => {
             const statusBadge = team.active 
                 ? '<span class="badge bg-success">ใช้งาน</span>' 
                 : '<span class="badge bg-secondary">ปิดใช้งาน</span>';
@@ -1307,6 +1332,11 @@
                         </div>
                     </div>
                     <div class="d-flex gap-2 align-items-center">
+                        <span class="badge bg-light text-dark border" title="ลำดับการแสดงผล">#${pos + 1}</span>
+                        <div class="btn-group btn-group-sm" title="ลำดับการแสดงผล">
+                            <button class="btn btn-outline-secondary" ${pos === 0 ? 'disabled' : ''} onclick="moveTeam('${key}', -1)"><i class="fas fa-arrow-up"></i></button>
+                            <button class="btn btn-outline-secondary" ${pos === ordered.length - 1 ? 'disabled' : ''} onclick="moveTeam('${key}', 1)"><i class="fas fa-arrow-down"></i></button>
+                        </div>
                         ${statusBadge}
                         <button class="btn btn-sm btn-outline-primary" onclick="editTeam('${key}')">
                             <i class="fas fa-edit"></i>
@@ -1349,9 +1379,18 @@
 
         if (formValues) {
             const teamKey = 'team' + (Object.keys(systemSettings.teams).length + 1) + '_' + Date.now().toString().slice(-4);
-            systemSettings.teams[teamKey] = { name: formValues.name, color: formValues.color, active: true };
+            systemSettings.teams[teamKey] = { name: formValues.name, color: formValues.color, active: true, order: Object.keys(systemSettings.teams).length };
             renderTeamManagement();
         }
+    };
+
+    window.moveTeam = (key, dir) => {
+        const keys = sortedTeamEntries().map(e => e[0]);
+        const i = keys.indexOf(key), j = i + dir;
+        if (i < 0 || j < 0 || j >= keys.length) return;
+        [keys[i], keys[j]] = [keys[j], keys[i]];
+        keys.forEach((k, n) => { systemSettings.teams[k].order = n; });
+        renderTeamManagement();
     };
 
     window.editTeam = (key) => {
@@ -1371,7 +1410,7 @@
         
         if (!name) { Swal.fire({ icon: 'warning', title: 'กรุณากรอกชื่อทีม' }); return; }
         
-        systemSettings.teams[key] = { name, color, active };
+        systemSettings.teams[key] = { ...(systemSettings.teams[key] || {}), name, color, active };
         renderTeamManagement();
         bootstrap.Modal.getInstance(document.getElementById('teamManagementModal')).hide();
         Swal.fire({ icon: 'success', title: 'บันทึกเรียบร้อย', timer: 1000, showConfirmButton: false });
@@ -1502,6 +1541,7 @@
             updateSportDropdown();
             updateScheduleDropdowns();
             renderTeamSummaryCards();
+            normalizeMatchTeams(); renderMatchList();
             Swal.fire({ icon: 'success', title: 'บันทึกการตั้งค่าเรียบร้อย', timer: 1500, showConfirmButton: false });
             bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
         }).catch((error) => {
@@ -1758,7 +1798,7 @@
 
     // เรียงทีมในแต่ละรายการให้ลำดับเดียวกันทั้งระบบ (ตามลำดับในตั้งค่าทีม) ไม่ให้สลับซ้าย-ขวาตามลำดับที่เคยบันทึก
     function normalizeMatchTeams() {
-        const order = Object.keys(systemSettings.teams || {});
+        const order = sortedTeamEntries().map(e => e[0]);
         const pos = (k) => { const i = order.indexOf(k); return i < 0 ? 999 : i; };
         allMatchesArray.forEach(m => { if (Array.isArray(m.teams)) m.teams = [...m.teams].sort((a, b) => pos(a) - pos(b)); });
     }
@@ -1819,6 +1859,30 @@
             Swal.fire({ icon: 'success', title: 'แก้ไขเรียบร้อย', text: `ปรับ ${Object.keys(upd).length ? new Set(Object.keys(upd).map(p => p.split('/')[1])).size : 0} รายการ`, timer: 2000, showConfirmButton: false });
         } catch (e) { Swal.fire({ icon: 'error', title: 'แก้ไขไม่สำเร็จ', text: String((e && (e.code || e.message)) || e) }); }
     };
+
+    // ===== Suggest ชื่อ: กรรมการ -> รายชื่อครู, ตัวแทนนักกีฬา -> รายชื่อนักเรียน =====
+    let peopleCache = null;
+    async function ensurePeople() {
+        if (peopleCache) return;
+        peopleCache = { students: [], teachers: [] };
+        try {
+            await authWait;
+            const v = (await get(ref(db, 'registry/people'))).val() || {};
+            const a = (x) => (x && typeof x === 'object') ? Object.values(x).filter(p => p && p.n) : [];
+            peopleCache = { students: a(v.students), teachers: a(v.teachers) };
+        } catch (e) { peopleCache = null; }
+    }
+    const sugBoxEl = document.getElementById('sugBox');
+    const sugger = attachSuggest(sugBoxEl, (el) => !peopleCache ? [] : (el.id === 'athleteSign' ? peopleCache.students : peopleCache.teachers),
+        (el, p) => { el.value = p.n; });
+    const sugBound = new WeakSet();
+    document.addEventListener('focusin', (e) => {
+        const el = e.target;
+        if (!el || !el.id || !(el.id === 'athleteSign' || el.id.startsWith('refInput_'))) return;
+        if (!sugBound.has(el)) { sugBound.add(el); sugger.bind(el); }
+        ensurePeople();
+    });
+    document.addEventListener('scroll', () => { sugBoxEl.style.display = 'none'; }, true);
 
     // ===== โหลดรายการแข่งขัน =====
     function loadMatches() {
