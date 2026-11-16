@@ -184,6 +184,16 @@
         .slide-up { animation: slideUp 0.5s ease forwards; opacity: 0; transform: translateY(20px); }
         @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
 
+        .hub-card { background: #fff; border-radius: 22px; padding: 26px 22px; box-shadow: 0 10px 30px rgba(0,0,0,.10); cursor: pointer; height: 100%;
+                    border: 2px solid transparent; transition: all .25s; position: relative; overflow: hidden; }
+        .hub-card:hover { transform: translateY(-6px); box-shadow: 0 18px 40px rgba(0,0,0,.16); }
+        .hub-card .hub-ico { width: 72px; height: 72px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; color: #fff; margin-bottom: 14px; }
+        .hub-card.sport { border-color: #ffe0b2; } .hub-card.sport .hub-ico { background: linear-gradient(135deg, #ff9800, #f57c00); }
+        .hub-card.parade { border-color: #bbdefb; } .hub-card.parade .hub-ico { background: linear-gradient(135deg, #42a5f5, #1565c0); }
+        .hub-card h4 { font-weight: 700; margin-bottom: 4px; }
+        .hub-stat { font-size: .95rem; font-weight: 600; margin-top: 12px; }
+        .hub-card .progress { height: 10px; border-radius: 10px; }
+
         .modal-footer-fixed {
             position: sticky;
             bottom: 0;
@@ -206,11 +216,35 @@
         <h3 class="fw-bold mb-1 animate__animated animate__fadeInUp" id="headerTitle">ลงทะเบียนนักกีฬา</h3>
         <p class="mb-0 opacity-75 fw-light animate__animated animate__fadeInUp" id="headerSubtitle">กระดุมทองเกมส์ 2568</p>
         <div id="teamPill" class="mt-2"></div>
-        <button id="paradeBtn" class="btn btn-light btn-sm rounded-pill mt-2 fw-bold d-none" onclick="openParade()"><i class="fas fa-flag me-1 text-warning"></i>ข้อมูลขบวนพาเหรด</button>
+
     </div>
 
     <div class="container" style="margin-top: -20px;">
         
+        <div id="landing" class="d-none pt-4 pb-5">
+            <p class="text-center text-muted mb-4">เลือกส่วนที่ต้องการกรอก</p>
+            <div class="row g-4 justify-content-center">
+                <div class="col-md-6 col-lg-5"><div class="hub-card sport" onclick="showSport()">
+                    <div class="hub-ico"><i class="fas fa-person-running"></i></div>
+                    <h4>ลงทะเบียนนักกีฬา</h4>
+                    <div class="text-muted">กรอกรายชื่อนักกีฬาและครูผู้ควบคุมในแต่ละรายการแข่งขัน</div>
+                    <div class="hub-stat" id="hubSportStat">กำลังโหลด...</div>
+                    <div class="progress mt-2"><div class="progress-bar bg-warning" id="hubSportBar" style="width:0%"></div></div>
+                    <button class="btn btn-warning w-100 fw-bold rounded-pill mt-3">เข้าไปกรอก <i class="fas fa-arrow-right ms-1"></i></button>
+                </div></div>
+                <div class="col-md-6 col-lg-5"><div class="hub-card parade" onclick="openParade()">
+                    <div class="hub-ico"><i class="fas fa-flag"></i></div>
+                    <h4>ข้อมูลขบวนพาเหรด</h4>
+                    <div class="text-muted">ชื่อขบวน ประธานสี คอนเซปต์ ผู้ถือป้ายและธง (พิธีกรใช้อ่านบรรยายขบวน)</div>
+                    <div class="hub-stat" id="hubParadeStat">กำลังโหลด...</div>
+                    <div class="progress mt-2"><div class="progress-bar bg-primary" id="hubParadeBar" style="width:0%"></div></div>
+                    <button class="btn btn-primary w-100 fw-bold rounded-pill mt-3">เข้าไปกรอก <i class="fas fa-arrow-right ms-1"></i></button>
+                </div></div>
+            </div>
+        </div>
+
+        <div id="sportView">
+        <button class="btn btn-light border rounded-pill mb-2 mt-3 d-none" id="backHub" onclick="showHub()"><i class="fas fa-arrow-left me-1"></i> กลับหน้าเลือกส่วน</button>
         <div class="filter-container animate__animated animate__fadeIn d-none" id="filterBox">
             <div class="row g-2">
                 <div class="col-6">
@@ -236,6 +270,7 @@
                 <div class="spinner-border text-secondary mb-3" role="status"></div>
                 <p>กำลังเชื่อมต่อข้อมูล...</p>
             </div>
+        </div>
         </div>
 
     </div>
@@ -345,7 +380,18 @@
             if (kc.eventName) document.getElementById('headerSubtitle').textContent = `${kc.eventName} ${kc.academicYear || ''}`;
         } catch (e) {}
 
+        let curView = 'init';
+        function setView(v) {
+            curView = v;
+            document.getElementById('landing').classList.toggle('d-none', v !== 'hub');
+            document.getElementById('sportView').classList.toggle('d-none', v === 'hub');
+            document.getElementById('backHub').classList.toggle('d-none', v !== 'sport');
+        }
+        window.showHub = () => { setView('hub'); updateHub(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+        window.showSport = () => { setView('sport'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
         function showMessage(icon, text) {
+            if (curView !== 'hub') setView(curView === 'sport' ? 'sport' : 'msg');
             document.getElementById('filterBox').classList.add('d-none');
             document.getElementById('matchList').innerHTML = `
                 <div class="text-center mt-5 p-5 bg-white rounded-4 shadow-sm">
@@ -391,7 +437,6 @@
                 if (s) { systemSettings = { ...systemSettings, ...s }; if (s.teams) systemSettings.teams = s.teams; if (s.sports) systemSettings.sports = s.sports; }
                 if (!systemSettings.teams[myTeam]) return showMessage('fa-link-slash', 'ไม่พบคณะสีของลิงก์นี้ กรุณาติดต่อครูผู้รับผิดชอบ');
                 updateHeaderUI();
-                document.getElementById('paradeBtn').classList.remove('d-none');
 
                 // รายชื่อสำหรับช่วยกรอก (ถ้าแอดมินนำเข้าไว้)
                 get(ref(db, 'registry/people')).then(sn => {
@@ -402,6 +447,8 @@
                 }).catch(() => {});
 
                 document.getElementById('filterBox').classList.remove('d-none');
+                setView('hub');
+                refreshMc();
                 onValue(ref(db, 'matches'), (snap) => {
                     const data = snap.val();
                     allMatches = data ? Object.keys(data).map(k => ({ ...data[k], id: k }))
@@ -409,6 +456,7 @@
                         .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)) : [];
                     updateFilterDropdown();
                     renderMatches();
+                    updateHub();
                 });
             } catch (e) {
                 console.error(e);
@@ -579,6 +627,17 @@
 
         // ===== ข้อมูลขบวนพาเหรด (เชื่อมกับแบบฟอร์มพิธีกร: mcData/teams/{คณะสี}) =====
         let mcCache = {};
+        async function refreshMc() { try { await authReady; mcCache = (await get(ref(db, 'mcData'))).val() || {}; } catch (e) {} updateHub(); }
+        function updateHub() {
+            const done = allMatches.filter(m => ((m.players || {})[myTeam] || []).filter(Boolean).length).length;
+            const tot = allMatches.length, pct = tot ? Math.round(done * 100 / tot) : 0;
+            document.getElementById('hubSportStat').innerHTML = tot ? `ลงชื่อแล้ว <b>${done}/${tot}</b> รายการ` : 'ยังไม่มีรายการแข่งขัน';
+            document.getElementById('hubSportBar').style.width = pct + '%';
+            const td = (mcCache.teams || {})[myTeam] || {};
+            const f = TEAM_PARADE_FIELDS.filter(x => String(td[x.k] ?? '').trim()).length;
+            document.getElementById('hubParadeStat').innerHTML = `กรอกแล้ว <b>${f}/${TEAM_PARADE_FIELDS.length}</b> ช่อง`;
+            document.getElementById('hubParadeBar').style.width = Math.round(f * 100 / TEAM_PARADE_FIELDS.length) + '%';
+        }
         const sugP = attachSuggest(document.getElementById('sugBox'), () => idx.all,
             (el, p) => { el.value = p.n; checkParade(); });
         function paradeOverlay() {
@@ -596,7 +655,7 @@
             return groups;
         };
         window.openParade = async () => {
-            try { await authReady; mcCache = (await get(ref(db, 'mcData'))).val() || {}; } catch (e) { mcCache = {}; }
+            await refreshMc();
             const td = (mcCache.teams || {})[myTeam] || {};
             document.getElementById('paradeTeamName').textContent = (systemSettings.teams[myTeam] || {}).name || '';
             document.getElementById('paradeFields').innerHTML = TEAM_PARADE_FIELDS.map(f => `<div class="col-md-${f.w}">
@@ -619,6 +678,7 @@
             try {
                 await authReady; await update(ref(db, 'mcData'), upd);
                 bootstrap.Modal.getInstance(document.getElementById('paradeModal')).hide();
+                refreshMc();
                 Swal.fire({ icon: 'success', title: 'บันทึกข้อมูลขบวนแล้ว', timer: 1400, showConfirmButton: false });
             } catch (e) { Swal.fire('บันทึกไม่สำเร็จ', String(e && (e.code || e.message) || e), 'error'); }
         };

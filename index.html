@@ -1920,18 +1920,19 @@
                     <td class="text-center teams-cell" style="line-height: 1.8;">${getMatchTeamsHTML(m)}</td>
                     <td class="text-center"><span class="badge bg-light text-dark border">${scoreDisplay}</span></td>
                     <td class="text-center">${winnerDisplay}</td>
-                    <td class="text-end">
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="fas fa-copy"></i></button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#" onclick="copyMatchText('${m.id}', 'schedule')">คัดลอกกำหนดการ</a></li>
-                                <li><a class="dropdown-item" href="#" onclick="copyMatchText('${m.id}', 'result')">คัดลอกผลการแข่งขัน</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="#" onclick="editMatchDetails('${m.id}')">แก้ไขรายละเอียด</a></li>
-                            </ul>
-                            <button class="btn btn-outline-dark" onclick="openMatch('${m.id}')"><i class="fas fa-edit"></i></button>
-                            <button class="btn btn-outline-danger" onclick="deleteMatch('${m.id}')"><i class="fas fa-trash"></i></button>
-                            ${m.status === 'done' ? `<button class="btn btn-danger" onclick="previewReport('${m.id}')"><i class="fas fa-print"></i></button>` : ''}
+                    <td class="text-end" style="min-width: 190px;">
+                        <div class="d-grid gap-1">
+                            <button class="btn btn-sm btn-warning fw-bold text-start" onclick="editMatchDetails('${m.id}')"><i class="fas fa-pen-to-square me-1"></i> แก้ไขรายละเอียดรายการแข่งขัน</button>
+                            <button class="btn btn-sm btn-dark text-start" onclick="openMatch('${m.id}')"><i class="fas fa-flag-checkered me-1"></i> ลงผล / ผู้เล่น / กรรมการ</button>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" title="คัดลอกข้อความ"><i class="fas fa-copy"></i> คัดลอก</button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" onclick="copyMatchText('${m.id}', 'schedule')">คัดลอกกำหนดการ</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="copyMatchText('${m.id}', 'result')">คัดลอกผลการแข่งขัน</a></li>
+                                </ul>
+                                ${m.status === 'done' ? `<button class="btn btn-outline-danger" onclick="previewReport('${m.id}')" title="พิมพ์รายงาน"><i class="fas fa-print"></i></button>` : ''}
+                                <button class="btn btn-outline-danger" onclick="deleteMatch('${m.id}')" title="ลบรายการ"><i class="fas fa-trash"></i></button>
+                            </div>
                         </div>
                     </td>
                 </tr>`;
