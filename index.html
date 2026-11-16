@@ -782,6 +782,15 @@
                                     <small class="d-block mt-1">Reset สำหรับปีใหม่</small>
                                 </div>
                             </div>
+                            <div class="col-12">
+                                <div class="border rounded p-2 bg-light d-flex flex-wrap align-items-center gap-2">
+                                    <div class="me-auto"><strong><i class="fas fa-table me-1 text-success"></i>นำเข้ารายการแข่งขันด้วย Template</strong>
+                                        <small class="d-block text-muted">กรอกกีฬา รุ่น วันที่ เวลา สถานที่ ในไฟล์ .xlsx แล้วนำเข้า — เพิ่มต่อจากรายการเดิม ไม่ลบข้อมูลเดิม</small></div>
+                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="downloadMatchTemplate()"><i class="fas fa-download me-1"></i>ดาวน์โหลด Template</button>
+                                    <button type="button" class="btn btn-sm btn-success" onclick="document.getElementById('matchTplInput').click()"><i class="fas fa-upload me-1"></i>นำเข้าจาก Template</button>
+                                    <input type="file" id="matchTplInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importMatchTemplate(event)">
+                                </div>
+                            </div>
                         </div>
                         <div class="alert alert-warning small mt-3 mb-0">
                             <i class="fas fa-exclamation-triangle me-1"></i> <strong>คำเตือน:</strong> การล้างข้อมูลจะลบรายการแข่งขันทั้งหมด แต่จะเก็บการตั้งค่าระบบไว้
@@ -3434,6 +3443,115 @@
             console.error('Import Error:', error);
             event.target.value = '';
             Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: error.message || 'ไม่สามารถนำเข้าข้อมูลได้' });
+        }
+    };
+
+    // ===== Template นำเข้ารายการแข่งขัน (เพิ่มต่อ ไม่ลบของเดิม) =====
+    const TPL_METHODS = { 'ลงคะแนนเป็น Set': 'score_set', 'ชนะ/แพ้เป็น Set': 'win_set', 'ลงคะแนนรอบเดียว': 'score_once', 'ชนะ/แพ้รอบเดียว': 'win_once', 'จัดอันดับ': 'rank' };
+    window.downloadMatchTemplate = () => {
+        const teams = getActiveTeams().map(t => t.name);
+        const sports = Object.entries(systemSettings.sports || {});
+        const head = ['ชื่อกีฬา', 'รุ่น/ประเภท', 'วันที่', 'เวลา', 'สถานที่', 'วิธีตัดสิน', 'จำนวน Set', 'คณะสีที่แข่ง'];
+        const d = new Date().toISOString().slice(0, 10);
+        const ex = [
+            [sports[0] ? sports[0][1] : 'ฟุตบอล', 'ชาย ม.ต้น', d, '09:00', 'สนามกีฬากลาง', 'ลงคะแนนรอบเดียว', '', ''],
+            [sports[1] ? sports[1][1] : 'วอลเลย์บอล', 'หญิง ม.ปลาย', d, '10:30', 'โรงยิม', 'ชนะ/แพ้เป็น Set', 3, teams.slice(0, 2).join(', ')],
+        ];
+        const ws = XLSX.utils.aoa_to_sheet([head, ...ex]);
+        ws['!cols'] = [{ wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 8 }, { wch: 20 }, { wch: 20 }, { wch: 11 }, { wch: 30 }];
+        const n = Math.max(sports.length, Object.keys(TPL_METHODS).length, teams.length, 6);
+        const mk = Object.keys(TPL_METHODS);
+        const guide = [['ชื่อกีฬาที่ใช้ได้', 'วิธีตัดสินที่ใช้ได้', 'จำนวน Set ที่ใช้ได้', 'คณะสีที่ใช้ได้', 'คำอธิบาย']];
+        const notes = ['• ชื่อกีฬา: ต้องตรงกับในระบบ (หรือใช้รหัสกีฬา) ถ้ายังไม่มีให้เพิ่มที่ตั้งค่าระบบก่อน',
+            '• วันที่: พิมพ์เป็น 2025-12-03 หรือ 3/12/2568 (ปี พ.ศ. หรือ ค.ศ. ก็ได้)',
+            '• เวลา: พิมพ์เป็น 09:00 หรือ 9.30',
+            '• จำนวน Set: ใช้เฉพาะวิธีตัดสินแบบ Set (3, 5 หรือ 7) เว้นว่าง = 3',
+            '• คณะสีที่แข่ง: คั่นด้วยลูกน้ำ เว้นว่าง = ทุกคณะสี (อย่างน้อย 2 คณะ)',
+            '• แถวตัวอย่างสองแถวแรก ลบหรือแก้ทับได้'];
+        const setOpts = [3, 5, 7];
+        for (let i = 0; i < Math.max(n, notes.length); i++)
+            guide.push([sports[i] ? sports[i][1] + ' (' + sports[i][0] + ')' : '', mk[i] || '', setOpts[i] || '', teams[i] || '', notes[i] || '']);
+        const wsG = XLSX.utils.aoa_to_sheet(guide);
+        wsG['!cols'] = [{ wch: 26 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 70 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'รายการแข่งขัน');
+        XLSX.utils.book_append_sheet(wb, wsG, 'คำแนะนำ');
+        XLSX.writeFile(wb, 'Template_นำเข้ารายการแข่งขัน.xlsx');
+    };
+    function tplDate(v) {
+        if (v === '' || v == null) return '';
+        if (v instanceof Date) return v.toISOString().slice(0, 10);
+        if (typeof v === 'number') { const o = XLSX.SSF.parse_date_code(v); if (!o) return ''; return `${o.y}-${String(o.m).padStart(2, '0')}-${String(o.d).padStart(2, '0')}`; }
+        const t = String(v).trim();
+        let m = t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+        let y, mo, d;
+        if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; }
+        else if ((m = t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/))) { d = +m[1]; mo = +m[2]; y = +m[3]; }
+        else return '';
+        if (y > 2400) y -= 543;
+        if (mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+        return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+    function tplTime(v) {
+        if (v === '' || v == null) return '';
+        if (v instanceof Date) return `${String(v.getHours()).padStart(2, '0')}:${String(v.getMinutes()).padStart(2, '0')}`;
+        if (typeof v === 'number' && v >= 0 && v < 1) { const mins = Math.round(v * 1440); return `${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`; }
+        const m = String(v).trim().replace(/\s*น\.?$/, '').match(/^(\d{1,2})[:.](\d{2})/);
+        if (!m || +m[1] > 23 || +m[2] > 59) return '';
+        return `${m[1].padStart(2, '0')}:${m[2]}`;
+    }
+    window.importMatchTemplate = async (event) => {
+        const file = event.target.files[0]; if (!file) return;
+        try {
+            const wb = XLSX.read(await file.arrayBuffer());
+            const sh = wb.Sheets['รายการแข่งขัน'] || wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sh, { defval: '', raw: true });
+            if (!rows.length) throw new Error('ไม่พบข้อมูลในไฟล์');
+            const sports = systemSettings.sports || {}, teamsAll = getActiveTeams();
+            const sportKey = (x) => { x = String(x).trim(); if (!x) return ''; if (sports[x]) return x; return Object.keys(sports).find(k => sports[k] === x || sports[k].replace(/\s+/g, '') === x.replace(/\s+/g, '')) || ''; };
+            const good = [], bad = [];
+            rows.forEach((r, i) => {
+                const line = i + 2, err = [];
+                const sp = sportKey(r['ชื่อกีฬา'] || r['รหัสกีฬา'] || '');
+                if (!sp) err.push('ไม่พบกีฬาในระบบ "' + (r['ชื่อกีฬา'] || '') + '"');
+                const cat = String(r['รุ่น/ประเภท'] ?? '').trim(); if (!cat) err.push('ไม่มีรุ่น/ประเภท');
+                const date = tplDate(r['วันที่']); if (!date) err.push('วันที่ไม่ถูกต้อง');
+                const time = tplTime(r['เวลา']); if (!time) err.push('เวลาไม่ถูกต้อง');
+                const mtxt = String(r['วิธีตัดสิน'] ?? '').trim();
+                const method = TPL_METHODS[mtxt] || (Object.values(TPL_METHODS).includes(mtxt) ? mtxt : (mtxt === '' ? 'score_once' : ''));
+                if (!method) err.push('วิธีตัดสินไม่ถูกต้อง "' + mtxt + '"');
+                let teamKeys = teamsAll.map(t => t.key);
+                const tt = String(r['คณะสีที่แข่ง'] ?? '').trim();
+                if (tt) {
+                    const parts = tt.split(/[,،、/]+/).map(x => x.trim()).filter(Boolean);
+                    const ks = parts.map(p => (teamsAll.find(t => t.name === p || t.key === p) || {}).key);
+                    if (ks.some(k => !k)) err.push('ชื่อคณะสีไม่ถูกต้อง "' + tt + '"'); else teamKeys = [...new Set(ks)];
+                }
+                if (teamKeys.length < 2) err.push('ต้องมีอย่างน้อย 2 คณะสี');
+                if (err.length) { if (Object.values(r).some(v => String(v).trim())) bad.push(`แถว ${line}: ${err.join(', ')}`); return; }
+                let sc = parseInt(r['จำนวน Set']); if (![3, 5, 7].includes(sc)) sc = 3;
+                const scores = {}, players = {}; teamKeys.forEach(k => { scores[k] = 0; players[k] = []; });
+                const m = { sport: sp, category: cat, date, time, location: String(r['สถานที่'] ?? '').trim(), status: 'wait', scores, winner: 'none', scoringMethod: method,
+                    details: {}, referees: sp === 'cheer' ? ['', '', '', '', ''] : [''], athleteSign: '', note: '', players, teams: teamKeys, createdAt: new Date().toISOString() };
+                if (method === 'score_set' || method === 'win_set') m.setCount = sc;
+                good.push(m);
+            });
+            const esc2 = (t) => String(t).replace(/</g, '&lt;');
+            const r = await Swal.fire({
+                icon: bad.length ? 'warning' : 'question', title: `นำเข้า ${good.length} รายการ`, width: 640,
+                html: `<div class="text-start small">${good.slice(0, 5).map(m => `• ${esc2(getSportName(m.sport))} ${esc2(m.category)} — ${m.date} ${m.time} น.${m.location ? ' @' + esc2(m.location) : ''}`).join('<br>')}${good.length > 5 ? `<br>… และอีก ${good.length - 5} รายการ` : ''}
+                    ${bad.length ? `<hr><b class="text-danger">ข้ามไป ${bad.length} แถว (ข้อมูลไม่ถูกต้อง):</b><br><div style="max-height:150px;overflow:auto">${bad.slice(0, 30).map(esc2).join('<br>')}</div>` : ''}
+                    <hr>รายการเดิมในระบบจะไม่ถูกลบ</div>`,
+                showCancelButton: true, confirmButtonText: 'นำเข้า', cancelButtonText: 'ยกเลิก', showConfirmButton: good.length > 0
+            });
+            if (!r.isConfirmed) { event.target.value = ''; return; }
+            await authWait;
+            for (const m of good) await push(ref(db, 'matches'), m);
+            event.target.value = '';
+            Swal.fire({ icon: 'success', title: 'นำเข้าสำเร็จ', text: `เพิ่ม ${good.length} รายการ`, timer: 1800, showConfirmButton: false });
+        } catch (e) {
+            console.error(e); event.target.value = '';
+            Swal.fire({ icon: 'error', title: 'นำเข้าไม่สำเร็จ', text: String((e && (e.code || e.message)) || e) });
         }
     };
 
