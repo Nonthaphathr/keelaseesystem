@@ -1114,6 +1114,7 @@
             renderTeamSummaryCards();
             renderTeamManagement();
             if (window.updateOrphanBanner) updateOrphanBanner();
+            if (allMatchesArray.length) { normalizeMatchTeams(); renderMatchList(); }
         }, { onlyOnce: true });
     }
 
@@ -1755,6 +1756,13 @@
         new bootstrap.Modal(document.getElementById('qrModal')).show();
     };
 
+    // เรียงทีมในแต่ละรายการให้ลำดับเดียวกันทั้งระบบ (ตามลำดับในตั้งค่าทีม) ไม่ให้สลับซ้าย-ขวาตามลำดับที่เคยบันทึก
+    function normalizeMatchTeams() {
+        const order = Object.keys(systemSettings.teams || {});
+        const pos = (k) => { const i = order.indexOf(k); return i < 0 ? 999 : i; };
+        allMatchesArray.forEach(m => { if (Array.isArray(m.teams)) m.teams = [...m.teams].sort((a, b) => pos(a) - pos(b)); });
+    }
+
     // ===== ซ่อมรายการที่อ้างอิงทีมที่ไม่มีในระบบ (เช่น team1/team2 หลังลบทีมเดิม) =====
     function findOrphanKeys() {
         const exist = systemSettings.teams || {};
@@ -1820,6 +1828,7 @@
             allMatchesData = data || {};
             if(data) {
                 allMatchesArray = Object.keys(data).map(k => ({...data[k], id: k}));
+                normalizeMatchTeams();
                 allMatchesArray.sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
             } else {
                 allMatchesArray = [];
