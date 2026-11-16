@@ -346,6 +346,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a href="#" onclick="openJudgeLinks(); return false;" class="btn btn-sm btn-outline-info border-0 w-100 text-start text-lg-center">
+                            <i class="fas fa-gavel me-1"></i> ลิงก์กรรมการ
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a href="ceremony-docs.html" target="_blank" class="btn btn-sm btn-outline-primary border-0 w-100 text-start text-lg-center">
                             <i class="fas fa-file-invoice me-1"></i> สร้างเอกสารพิธีการ
                         </a>
@@ -611,6 +616,43 @@
             <div class="modal-content">
                 <div class="modal-header"><h5 class="modal-title">QR Code เข้าระบบ</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="judgeLinkModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title"><i class="fas fa-gavel me-2"></i>ออกลิงก์กรรมการตัดสินผล</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <div class="row g-2 mb-2">
+                                <div class="col-7"><label class="form-label small mb-1">ชนิดกีฬา</label><select id="jlSport" class="form-select form-select-sm" onchange="jlRender()"></select></div>
+                                <div class="col-5"><label class="form-label small mb-1">วันที่</label><select id="jlDate" class="form-select form-select-sm" onchange="jlRender()"></select></div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <div class="form-check small"><input class="form-check-input" type="checkbox" id="jlAll" onchange="jlToggleAll(this.checked)"><label class="form-check-label" for="jlAll">เลือกทั้งหมดที่แสดง</label></div>
+                                <div class="form-check small"><input class="form-check-input" type="checkbox" id="jlHideDone" onchange="jlRender()"><label class="form-check-label" for="jlHideDone">ซ่อนรายการที่จบแล้ว</label></div>
+                            </div>
+                            <div id="jlList" class="border rounded" style="max-height:48vh; overflow-y:auto;"></div>
+                            <div class="small text-muted mt-1" id="jlCount"></div>
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label small mb-1">ตัวอย่างข้อความ (แก้ไขได้ก่อนคัดลอก)</label>
+                            <textarea id="jlText" class="form-control" rows="16" style="font-size:.88rem; background:#fafafa;"></textarea>
+                            <div class="form-check small mt-2"><input class="form-check-input" type="checkbox" id="jlShowTeams" checked onchange="jlBuild()"><label class="form-check-label" for="jlShowTeams">แสดงคู่แข่งขัน</label></div>
+                            <div class="form-check small"><input class="form-check-input" type="checkbox" id="jlShowPlace" checked onchange="jlBuild()"><label class="form-check-label" for="jlShowPlace">แสดงวันเวลา/สนาม</label></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                    <button type="button" class="btn btn-primary" onclick="jlCopy()"><i class="fas fa-copy me-1"></i> คัดลอกข้อความ</button>
+                </div>
             </div>
         </div>
     </div>
@@ -3408,6 +3450,67 @@
         text += `----------------------------\n${eventTag}`;
         document.getElementById('copyPreviewText').value = text;
         new bootstrap.Modal(document.getElementById('copyPreviewModal')).show();
+    };
+
+    // ===== ออกลิงก์กรรมการตัดสินผล =====
+    const esc2 = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let jlChecked = new Set();
+    const jlSorted = () => allMatchesArray.slice().sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+    const jlVisible = () => {
+        const sp = document.getElementById('jlSport').value, dt = document.getElementById('jlDate').value;
+        const hide = document.getElementById('jlHideDone').checked;
+        return jlSorted().filter(m => (sp === 'all' || m.sport === sp) && (dt === 'all' || m.date === dt) && !(hide && m.status === 'done'));
+    };
+    window.openJudgeLinks = () => {
+        const sports = [...new Set(allMatchesArray.map(m => m.sport))];
+        const dates = [...new Set(allMatchesArray.map(m => m.date).filter(Boolean))].sort();
+        document.getElementById('jlSport').innerHTML = '<option value="all">ทุกชนิดกีฬา</option>' + sports.map(k => `<option value="${esc2(k)}">${esc2(getSportName(k))}</option>`).join('');
+        document.getElementById('jlDate').innerHTML = '<option value="all">ทุกวัน</option>' + dates.map(d => `<option value="${d}">${formatDateThai(d)}</option>`).join('');
+        jlChecked = new Set();
+        document.getElementById('jlHideDone').checked = true;
+        jlRender();
+        new bootstrap.Modal(document.getElementById('judgeLinkModal')).show();
+    };
+    window.jlRender = () => {
+        const list = jlVisible();
+        document.getElementById('jlList').innerHTML = list.length ? list.map(m => `
+            <label class="d-flex align-items-start gap-2 p-2 border-bottom" style="cursor:pointer;">
+                <input class="form-check-input mt-1" type="checkbox" ${jlChecked.has(m.id) ? 'checked' : ''} onchange="jlTick('${m.id}', this.checked)">
+                <span class="small"><b>${esc2(getSportName(m.sport))}</b> (${esc2(m.category || '')}) ${m.status === 'done' ? '<span class="badge bg-success">จบแล้ว</span>' : ''}<br>
+                <span class="text-muted">${getMatchTeamsText(m)} • ${formatDateThai(m.date)} ${esc2(m.time || '')} น.</span></span>
+            </label>`).join('') : '<div class="text-center text-muted p-4">ไม่มีรายการตามตัวกรอง</div>';
+        document.getElementById('jlAll').checked = list.length > 0 && list.every(m => jlChecked.has(m.id));
+        jlBuild();
+    };
+    window.jlTick = (id, on) => { on ? jlChecked.add(id) : jlChecked.delete(id); jlRender(); };
+    window.jlToggleAll = (on) => { jlVisible().forEach(m => on ? jlChecked.add(m.id) : jlChecked.delete(m.id)); jlRender(); };
+    window.jlBuild = () => {
+        const picked = jlSorted().filter(m => jlChecked.has(m.id));
+        document.getElementById('jlCount').innerText = `เลือกแล้ว ${picked.length} รายการ`;
+        const showTeams = document.getElementById('jlShowTeams').checked, showPlace = document.getElementById('jlShowPlace').checked;
+        const base = location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '') + 'judge.html?m=';
+        const eventTag = `#${(systemSettings.eventName || '').replace(/\s+/g, '')}${systemSettings.academicYear || ''}`;
+        if (!picked.length) { document.getElementById('jlText').value = ''; return; }
+        let t = `📋 ลิงก์กรรมการตัดสินผล ${systemSettings.eventName || ''} ${systemSettings.academicYear || ''}\nกดลิงก์ของรายการที่รับผิดชอบเพื่อลงผล (บันทึกอัตโนมัติ)\n`;
+        const bySport = {};
+        picked.forEach(m => (bySport[m.sport] = bySport[m.sport] || []).push(m));
+        Object.entries(bySport).forEach(([sp, ms]) => {
+            t += `\n🏆 ${getSportName(sp)}\n`;
+            ms.forEach(m => {
+                t += `▫️ ${m.category || ''}`;
+                if (showTeams) t += ` ${getMatchTeamsText(m)}`;
+                t += '\n';
+                if (showPlace) t += `   ⏰ ${formatDateThai(m.date)} ${m.time || ''} น. 📍 ${m.location || '-'}\n`;
+                t += `   🔗 ${base}${m.id}\n`;
+            });
+        });
+        t += `\n${eventTag}`;
+        document.getElementById('jlText').value = t;
+    };
+    window.jlCopy = () => {
+        const el = document.getElementById('jlText');
+        if (!el.value.trim()) { Swal.fire({ icon: 'info', title: 'ยังไม่ได้เลือกรายการ' }); return; }
+        navigator.clipboard.writeText(el.value).then(() => Swal.fire({ icon: 'success', title: 'คัดลอกแล้ว', timer: 1000, showConfirmButton: false }));
     };
 
     window.copyFromPreview = () => {

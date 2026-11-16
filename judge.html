@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>กรรมการตัดสินผล</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background: #eef2f7; }
+        .head { background: linear-gradient(135deg, #1a237e, #3949ab); color: #fff; padding: 16px 0; }
+        .head h1 { font-family: 'Kanit', sans-serif; font-size: 1.25rem; margin: 0; }
+        .card { border: 0; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+        .team-score { text-align: center; padding: 14px 6px; border-radius: 14px; background: #fff; border: 3px solid #ccc; }
+        .team-score .num { font-family: 'Kanit', sans-serif; font-size: 2.6rem; line-height: 1.1; }
+        .big-btn { font-size: 1.4rem; font-weight: 700; padding: 18px 0; border: 0; color: #fff; border-radius: 14px; }
+        input[type=number] { text-align: center; }
+    </style>
+</head>
+<body>
+<div class="head"><div class="container" style="max-width:640px;">
+    <div class="small opacity-75" id="evName">กรรมการตัดสินผล</div>
+    <h1 id="title">กำลังโหลด...</h1>
+</div></div>
+
+<div class="container py-3" style="max-width:640px;">
+    <div id="info" class="small text-muted mb-2"></div>
+    <div id="scoreBoard" class="row g-2 mb-3"></div>
+    <div class="card"><div class="card-body" id="controls"><div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div></div></div>
+    <div id="footerBtns" class="mt-3 d-grid gap-2"></div>
+    <div class="text-center text-muted small mt-4">บันทึกอัตโนมัติทุกครั้งที่แก้ไข • ลิงก์นี้ใช้ลงผลเฉพาะรายการนี้</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+import { getDatabase, ref, onValue, update, runTransaction } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+
+const app = initializeApp({
+    apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
+    authDomain: "keelaseesystem.firebaseapp.com",
+    databaseURL: "https://keelaseesystem-default-rtdb.firebaseio.com",
+    projectId: "keelaseesystem",
+    storageBucket: "keelaseesystem.firebasestorage.app",
+    messagingSenderId: "434885983982",
+    appId: "1:434885983982:web:ffb751f1652abf2308fdff"
+});
+const db = getDatabase(app);
+const authReady = signInAnonymously(getAuth(app)).catch(e => console.warn('anonymous sign-in failed', e));
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const id = new URLSearchParams(location.search).get('m');
+const $ = (x) => document.getElementById(x);
+
+let settings = {}, m = null, rendered = '';
+const team = (k) => (settings.teams && settings.teams[k]) || { name: k, color: '#666' };
+const rankPts = (r) => r ? (Number((settings.rankPoints || {})[r]) || 0) : 0;
+const mref = () => ref(db, 'matches/' + id);
+const fmtDate = (d) => { if (!d) return ''; const [y, mo, da] = d.split('-'); return `${+da}/${+mo}/${+y + 543}`; };
+
+if (!id) { $('title').innerText = 'ลิงก์ไม่ถูกต้อง'; $('controls').innerHTML = '<div class="text-danger text-center">ไม่พบรหัสรายการแข่งขันในลิงก์</div>'; }
+else authReady.then(() => {
+    onValue(ref(db, 'settings'), s => { settings = s.val() || {}; if (settings.eventName) $('evName').innerText = settings.eventName + ' ' + (settings.academicYear || ''); draw(true); });
+    onValue(mref(), s => { m = s.val(); draw(false); });
+});
+
+function draw(force) {
+    if (!m) { if (m === null && id) { $('title').innerText = 'ไม่พบรายการแข่งขัน'; $('controls').innerHTML = '<div class="text-danger text-center">รายการนี้อาจถูกลบแล้ว</div>'; } return; }
+    const teams = m.teams || [];
+    const sport = (settings.sports || {})[m.sport] || m.sport;
+    $('title').innerText = `${sport} (${m.category || ''})`;
+    $('info').innerHTML = `<i class="fas fa-calendar me-1"></i>${fmtDate(m.date)} ${esc(m.time || '')} น. &nbsp; <i class="fas fa-location-dot me-1"></i>${esc(m.location || '-')}`;
+    const method = m.scoringMethod || 'score_once';
+    const rank = method === 'rank';
+    $('scoreBoard').innerHTML = teams.map(tk => {
+        const t = team(tk), r = (m.details || {})['rank_' + tk] || 0;
+        return `<div class="col"><div class="team-score" style="border-color:${t.color}">
+            <div class="fw-bold" style="color:${t.color}">${esc(t.name)}</div>
+            <div class="num">${rank ? (r ? 'อันดับ ' + r : '-') : ((m.scores || {})[tk] || 0)}</div></div></div>`;
+    }).join('');
+    // วาดปุ่มควบคุมใหม่เฉพาะเมื่อโครงสร้างเปลี่ยน (กันช่องกรอกเสียโฟกัสตอนพิมพ์)
+    const sig = [m.status, method, m.setCount, teams.join(','), force ? Object.keys(settings.teams || {}).length : ''].join('|');
+    if (sig === rendered) return;
+    rendered = sig;
+    if (m.status === 'done') {
+        const w = m.winner;
+        $('controls').innerHTML = `<div class="text-center py-3"><i class="fas fa-circle-check text-success fs-1"></i>
+            <h5 class="mt-2">รายการนี้จบการแข่งขันแล้ว</h5>
+            <div class="text-muted">ผู้ชนะ: <b>${w === 'draw' ? 'เสมอ' : (w && w !== 'none' ? esc(team(w).name) : '-')}</b></div>
+            <div class="small text-muted mt-2">หากต้องแก้ไขผล กรุณาแจ้งผู้ดูแลระบบ</div></div>`;
+        $('footerBtns').innerHTML = '';
+        return;
+    }
+    $('controls').innerHTML = controls(method, teams);
+    $('footerBtns').innerHTML = `<button class="btn btn-success btn-lg" onclick="finish()"><i class="fas fa-flag-checkered me-1"></i> ยืนยันจบการแข่งขัน</button>`;
+}
+
+function controls(method, teams) {
+    const d = m.details || {}, setCount = m.setCount || 3;
+    let h = '';
+    if (m.sport === 'cheer') {
+        h = '<h6 class="border-bottom pb-2">คะแนนกรรมการ 5 ท่าน</h6>';
+        for (let i = 1; i <= 5; i++) {
+            const nm = (m.referees && m.referees[i - 1]) || `กรรมการท่านที่ ${i}`;
+            h += `<div class="mb-2"><div class="small fw-bold text-muted"><i class="fas fa-user-circle"></i> ${esc(nm)}</div><div class="d-flex gap-2">` +
+                teams.map(tk => `<div class="flex-fill"><div class="small" style="color:${team(tk).color}">${esc(team(tk).name)}</div>
+                <input type="number" inputmode="numeric" class="form-control" style="border-color:${team(tk).color}" value="${d[`j${i}_${tk}`] || 0}" onchange="cheer(${i},'${tk}',this.value)"></div>`).join('') + '</div></div>';
+        }
+    } else if (method === 'score_set') {
+        h = `<h6 class="border-bottom pb-2">คะแนนรายเซต (${setCount} Set)</h6>`;
+        for (let i = 1; i <= setCount; i++)
+            h += `<div class="d-flex align-items-center gap-2 mb-2"><b style="width:50px">SET ${i}</b>` +
+                teams.map(tk => `<input type="number" inputmode="numeric" class="form-control" style="border-color:${team(tk).color}" value="${d[`s${i}_${tk}`] || 0}" onchange="setPoint(${i},'${tk}',this.value)">`).join('<span>:</span>') + '</div>';
+    } else if (method === 'win_set') {
+        h = `<h6 class="border-bottom pb-2">ผู้ชนะรายเซต (${setCount} Set)</h6>`;
+        for (let i = 1; i <= setCount; i++) {
+            const w = d['set' + i] || 'none';
+            h += `<div class="mb-2"><div class="fw-bold small">Set ${i}</div><div class="btn-group w-100">` +
+                teams.map(tk => `<input type="radio" class="btn-check" name="s${i}" id="s${i}_${tk}" ${w === tk ? 'checked' : ''} onchange="setWin(${i},'${tk}')"><label class="btn btn-outline-secondary" for="s${i}_${tk}" style="border-color:${team(tk).color};color:${team(tk).color}">${esc(team(tk).name)}</label>`).join('') +
+                `<input type="radio" class="btn-check" name="s${i}" id="s${i}_none" ${w === 'none' ? 'checked' : ''} onchange="setWin(${i},'none')"><label class="btn btn-outline-secondary" for="s${i}_none">-</label></div></div>`;
+        }
+    } else if (method === 'win_once') {
+        h = '<h6 class="border-bottom pb-2 text-center">เลือกผู้ชนะ</h6><div class="d-grid gap-2">' +
+            teams.map(tk => { const win = ((m.scores || {})[tk] || 0) > 0;
+                return `<input type="radio" class="btn-check" name="w" id="w_${tk}" ${win ? 'checked' : ''} onchange="simpleWin('${tk}')"><label class="btn btn-outline-secondary py-3 fs-5" for="w_${tk}" style="border-color:${team(tk).color};color:${team(tk).color}"><i class="fas fa-trophy me-2"></i>${esc(team(tk).name)}ชนะ</label>`; }).join('') + '</div>';
+    } else if (method === 'rank') {
+        h = '<h6 class="border-bottom pb-2">จัดอันดับแต่ละสี</h6>';
+        teams.forEach(tk => {
+            const cur = d['rank_' + tk] || 0;
+            let o = `<option value="0">- เลือกอันดับ -</option>`;
+            for (let r = 1; r <= teams.length; r++) o += `<option value="${r}" ${cur === r ? 'selected' : ''}>อันดับ ${r}</option>`;
+            h += `<div class="d-flex align-items-center justify-content-between mb-2 p-2 border rounded"><b style="color:${team(tk).color}"><i class="fas fa-flag me-1"></i>${esc(team(tk).name)}</b>
+                <select class="form-select w-auto" style="border:2px solid ${team(tk).color}" onchange="setRank('${tk}',this.value)">${o}</select></div>`;
+        });
+    } else {
+        h = '<div class="row g-2">' + teams.map(tk => `<div class="col"><button class="big-btn w-100" style="background:${team(tk).color}" onclick="pt('${tk}',1)">+1<br><small>${esc(team(tk).name)}</small></button></div>`).join('') + '</div>' +
+            '<div class="row g-2 mt-1">' + teams.map(tk => `<div class="col"><button class="btn btn-outline-secondary w-100" onclick="pt('${tk}',-1)">-1</button></div>`).join('') + '</div>';
+    }
+    return h;
+}
+
+const save = (u) => update(mref(), u).catch(e => Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' }));
+const dets = () => ({ ...(m.details || {}) });
+
+window.pt = (tk, delta) => runTransaction(ref(db, `matches/${id}/scores/${tk}`), c => Math.max(0, (c || 0) + delta)).catch(() => Swal.fire({ icon: 'error', title: 'บันทึกคะแนนไม่สำเร็จ' }));
+window.simpleWin = (tk) => { const s = {}; (m.teams || []).forEach(k => s[k] = k === tk ? 1 : 0); save({ scores: s }); };
+window.cheer = (j, tk, v) => {
+    const d = dets(); d[`j${j}_${tk}`] = parseInt(v) || 0;
+    const s = {}; (m.teams || []).forEach(k => { let sum = 0; for (let i = 1; i <= 5; i++) sum += d[`j${i}_${k}`] || 0; s[k] = sum; });
+    save({ details: d, scores: s });
+};
+window.setPoint = (n, tk, v) => {
+    const d = dets(); d[`s${n}_${tk}`] = parseInt(v) || 0;
+    const teams = m.teams || [], w = {}; teams.forEach(k => w[k] = 0);
+    for (let i = 1; i <= (m.setCount || 3); i++) {
+        let max = 0, win = null;
+        teams.forEach(k => { const sc = d[`s${i}_${k}`] || 0; if (sc > max) { max = sc; win = k; } else if (sc === max) win = null; });
+        if (win) w[win]++;
+    }
+    save({ details: d, scores: w });
+};
+window.setWin = (n, tk) => {
+    const d = dets(); d['set' + n] = tk;
+    const teams = m.teams || [], w = {}; teams.forEach(k => w[k] = 0);
+    for (let i = 1; i <= (m.setCount || 3); i++) { const x = d['set' + i]; if (x && x !== 'none' && teams.includes(x)) w[x]++; }
+    save({ details: d, scores: w });
+};
+window.setRank = (tk, v) => {
+    const d = dets(), r = parseInt(v) || 0;
+    if (r > 0) d['rank_' + tk] = r; else delete d['rank_' + tk];
+    const s = {}; (m.teams || []).forEach(k => s[k] = rankPts(d['rank_' + k] || 0));
+    save({ details: d, scores: s });
+};
+window.finish = async () => {
+    const teams = m.teams || [], sc = m.scores || {};
+    const r = await Swal.fire({ title: 'ยืนยันจบการแข่งขัน?', text: 'ตรวจสอบผลให้ครบถ้วนก่อนยืนยัน', icon: 'question', showCancelButton: true, confirmButtonColor: '#198754', confirmButtonText: 'ยืนยัน', cancelButtonText: 'ตรวจสอบก่อน' });
+    if (!r.isConfirmed) return;
+    let max = 0, winner = 'none', draw = false;
+    teams.forEach(tk => { const s = sc[tk] || 0; if (s > max) { max = s; winner = tk; draw = false; } else if (s === max && max > 0) draw = true; });
+    if (draw) winner = 'draw';
+    save({ status: 'done', winner });
+};
+</script>
+</body>
+</html>
