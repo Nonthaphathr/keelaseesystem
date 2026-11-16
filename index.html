@@ -3298,9 +3298,9 @@
             }
             text = `📢 ผลการแข่งขัน\n🏆 กีฬา: ${getSportName(m.sport)} (${m.category})\n------------------\n${scoreText}\n------------------\n${eventTag}`; 
         }
-        navigator.clipboard.writeText(text).then(() => { 
-            Swal.fire({ icon: 'success', title: 'คัดลอกข้อความแล้ว', timer: 1000, showConfirmButton: false }); 
-        });
+        // แสดงตัวอย่างก่อนคัดลอก (ใช้โมดัลเดียวกับ "คัดลอกข้อมูล")
+        document.getElementById('copyPreviewText').value = text;
+        new bootstrap.Modal(document.getElementById('copyPreviewModal')).show();
     };
 
     // ===== ส่งออก/นำเข้า/ล้างข้อมูล =====
