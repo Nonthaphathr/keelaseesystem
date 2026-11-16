@@ -124,12 +124,14 @@
             padding: 20mm 25mm;
             color: #000;
             position: relative;
-            font-family: 'Kanit', sans-serif;
+            font-family: 'Sarabun', sans-serif;
             box-sizing: border-box;
             line-height: 1.5;
             font-size: 16pt;
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
         }
+        .report-preview-page h1, .report-preview-page h2, .report-preview-page h3,
+        .report-preview-page h4, .report-preview-page h5, .report-preview-page h6 { font-family: 'Sarabun', sans-serif; }
         .report-preview-page * {
             text-shadow: none !important;
             -webkit-text-stroke: 0 !important;
@@ -238,26 +240,35 @@
 
                 <h5 class="mb-3 pb-2 border-bottom border-light"><i class="fas fa-people-group text-primary me-2"></i>เอกสารพิธีเปิดเพิ่มเติม</h5>
                 <div class="row g-3 mb-4">
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <div class="doc-type-card" onclick="selectDocType('opening_schedule')">
                             <i class="fas fa-list-ol text-info"></i>
                             <h6 class="fw-bold mb-1">กำหนดการพิธีเปิด</h6>
                             <small class="text-muted">ตารางเวลา/ลำดับพิธีการ</small>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <div class="doc-type-card" onclick="selectDocType('opening_mc')">
                             <i class="fas fa-microphone text-success"></i>
                             <h6 class="fw-bold mb-1">บทพิธีกร</h6>
                             <small class="text-muted">บทพูดพิธีกร ขบวน พิธีการ และบรรยายกีฬา</small>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="doc-type-card" onclick="selectDocType('oath_bio')">
+                    <div class="col-md-6">
+                        <div class="doc-type-card" onclick="selectDocType('oath')">
+                            <i class="fas fa-hand-paper text-warning"></i>
+                            <h6 class="fw-bold mb-1">คำกล่าวปฏิญาณตน (พิมพ์แยก)</h6>
+                            <small class="text-muted">คำปฏิญาณของนักกีฬาอาวุโส ตัวใหญ่ พิมพ์แผ่นเดียว</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="doc-type-card" onclick="selectDocType('athlete_bio')">
                             <i class="fas fa-fire text-danger"></i>
-                            <h6 class="fw-bold mb-1">คำปฏิญาณและประวัตินักกีฬา</h6>
+                            <h6 class="fw-bold mb-1">ประวัตินักกีฬา</h6>
                             <small class="text-muted">นักกีฬาอาวุโส และนักกีฬาวิ่งคบเพลิง</small>
                         </div>
+                    </div>
+                </div>
                     </div>
                 </div>
             </div>
@@ -788,7 +799,7 @@
 
         function generateOpeningChairmanSpeech(chairman, pronoun, ending, yearShort, sportListText, teamListText, teamCount) {
             return `
-                <div style="line-height: 1.6; font-size: 16pt; font-family: 'Kanit', sans-serif;">
+                <div style="line-height: 1.6; font-size: 16pt; font-family: 'Sarabun', sans-serif;">
                     ${getDocumentHeader('คำกล่าวเปิด', `${systemSettings.eventName} ประจำปีการศึกษา 25${yearShort}`)}
                     
                     <div style="text-align: center; margin-bottom: 20px; font-weight:bold;">
@@ -832,7 +843,7 @@
 
         function generateOpeningReportSpeech(reporter, chairman, pronoun, ending, yearShort, sportListText, sportCount, teamListText, teamCount) {
              return `
-                <div style="line-height: 1.6; font-size: 16pt; font-family: 'Kanit', sans-serif;">
+                <div style="line-height: 1.6; font-size: 16pt; font-family: 'Sarabun', sans-serif;">
                     ${getDocumentHeader('คำกล่าวรายงานต่อประธานในพิธีเปิด', `${systemSettings.eventName} ประจำปีการศึกษา 25${yearShort}`)}
                     
                     <div style="text-align: center; margin-bottom: 20px; font-weight:bold;">
@@ -884,7 +895,7 @@
 
         function generateClosingChairmanSpeech(chairman, pronoun, ending, yearShort) {
              return `
-                <div style="line-height: 1.6; font-size: 16pt; font-family: 'Kanit', sans-serif;">
+                <div style="line-height: 1.6; font-size: 16pt; font-family: 'Sarabun', sans-serif;">
                     ${getDocumentHeader('คำกล่าวในพิธีปิด', `${systemSettings.eventName} ประจำปีการศึกษา 25${yearShort}`)}
                     
                     <div style="text-align: center; margin-bottom: 20px; font-weight:bold;">
@@ -1013,7 +1024,7 @@
             }
 
             return `
-                <div style="line-height: 1.6; font-size: 16pt; font-family: 'Kanit', sans-serif;">
+                <div style="line-height: 1.6; font-size: 16pt; font-family: 'Sarabun', sans-serif;">
                     ${getDocumentHeader('คำกล่าวรายงานต่อประธานในพิธีปิด', `${systemSettings.eventName} ประจำปีการศึกษา 25${yearShort}`)}
                     
                     <div style="text-align: center; margin-bottom: 20px; font-weight:bold;">
@@ -1069,11 +1080,12 @@
         }
 
         // ===== เอกสารพิธีเปิดเพิ่มเติม: กำหนดการ / บทพิธีกร / คำปฏิญาณและประวัตินักกีฬา =====
-        const EXTRA_TYPES = ['opening_schedule', 'opening_mc', 'oath_bio'];
+        const EXTRA_TYPES = ['opening_schedule', 'opening_mc', 'oath', 'athlete_bio'];
         const EXTRA_TITLES = {
             opening_schedule: 'กำหนดการพิธีเปิด',
             opening_mc: 'บทพิธีกร พิธีเปิด',
-            oath_bio: 'คำปฏิญาณและประวัตินักกีฬา'
+            oath: 'คำกล่าวปฏิญาณตนของนักกีฬาอาวุโส',
+            athlete_bio: 'ประวัตินักกีฬาอาวุโสและนักกีฬาวิ่งคบเพลิง'
         };
         let cd = {};
         try { cd = JSON.parse(localStorage.getItem('ceremonyDocData') || '{}') || {}; } catch (e) { cd = {}; }
@@ -1143,14 +1155,14 @@
             s.classList.remove('d-none');
             s.classList.add('fade-in');
             document.getElementById('extraTitle').textContent = 'ขั้นตอนที่ 2: กรอกข้อมูล — ' + EXTRA_TITLES[type];
-            const forms = { opening_schedule: cxFormSchedule, opening_mc: cxFormMc, oath_bio: cxFormOath };
+            const forms = { opening_schedule: cxFormSchedule, opening_mc: cxFormMc, oath: cxFormOath, athlete_bio: cxFormBio };
             document.getElementById('extraForm').innerHTML = forms[type]();
             saveCd();
             Object.keys(cxEditors).forEach(cxRenderList);
         }
 
         window.generateExtraDocument = () => {
-            const docs = { opening_schedule: cxDocSchedule, opening_mc: cxDocMc, oath_bio: cxDocOath };
+            const docs = { opening_schedule: cxDocSchedule, opening_mc: cxDocMc, oath: cxDocOath, athlete_bio: cxDocBio };
             document.getElementById('documentContent').innerHTML = docs[selectedDocType]();
             new bootstrap.Modal(document.getElementById('previewModal')).show();
         };
@@ -1187,7 +1199,7 @@
         function cxH(text) {
             return `<div style="font-weight:bold; font-size:17pt; margin:20px 0 8px; padding-bottom:3px; border-bottom:1px solid #000; page-break-after:avoid;">${text}</div>`;
         }
-        const cxWrap = (inner) => `<div style="line-height:1.6; font-size:16pt; font-family:'Kanit',sans-serif;">${inner}${cxFooter()}</div>`;
+        const cxWrap = (inner) => `<div style="line-height:1.6; font-size:16pt; font-family:'Sarabun',sans-serif;">${inner}${cxFooter()}</div>`;
 
         // =========================================================
         // 1) กำหนดการพิธีเปิด
@@ -1241,13 +1253,19 @@
         // =========================================================
         // 2) คำปฏิญาณและประวัตินักกีฬา
         // =========================================================
-        function cxFormOath() {
-            const school = systemSettings.schoolName;
-            const torch = [
+        const TORCH_DEFAULT = [
                 { name: 'เด็กชายมนัสนันท์ สายตา', bio: 'นักเรียนชั้นมัธยมศึกษาปีที่ 1 บุตรของนายสุรศักดิ์ สายตา และนางสมปอง วงประเทศ สำเร็จการศึกษาระดับประถมศึกษาจากโรงเรียนบ้านขี้เหล็ก เป็นนักกีฬาที่มีความสามารถหลากหลายประเภท โดยเฉพาะกีฬาฟุตบอลและเปตอง โดยเพิ่งคว้าเหรียญเงินระดับจังหวัดจากการแข่งขันกีฬาเปตอง ในรายการกีฬานักเรียนสังกัดองค์การบริหารส่วนจังหวัดศรีสะเกษ ประจำปี 2568' },
                 { name: 'เด็กหญิงฟ้าลดา สายลาด', bio: 'นักเรียนชั้นมัธยมศึกษาปีที่ 2 บุตรีของนายเจริญ สายลาด และนางเสวียน สายลาด ภูมิลำเนาบ้านเลิงแฝก ตำบลหนองหัวช้าง อำเภอกันทรารมย์ จังหวัดศรีสะเกษ เป็นนักกีฬาวอลเลย์บอลชายหาดที่มีความสามารถโดดเด่น คว้าเหรียญเงินจากการแข่งขันวอลเลย์บอลชายหาด รุ่นอายุไม่เกิน 14 ปี ประเภทหญิง ในรายการกีฬาองค์การบริหารส่วนจังหวัดศรีสะเกษ' },
                 { name: 'เด็กหญิงนรินทร บุตรสิงห์', bio: 'นักเรียนชั้นมัธยมศึกษาปีที่ 2 บุตรีของนายนนท์ปวิธ บุตรสิงห์ และนางดวงเดือน ศรีสะเนตร ภูมิลำเนาบ้านบกขี้ยาง ตำบลหนองหัวช้าง อำเภอกันทรารมย์ จังหวัดศรีสะเกษ มีประสบการณ์ด้านกีฬาวอลเลย์บอลที่โดดเด่น คว้ารางวัลรองชนะเลิศอันดับที่ 1 จากการแข่งขันกีฬาซีอีโอเกมส์ระดับอำเภอ และคว้าเหรียญเงินจากการแข่งขันวอลเลย์บอลชายหาด รุ่นอายุไม่เกิน 14 ปี ประเภทหญิง ในรายการกีฬาองค์การบริหารส่วนจังหวัดศรีสะเกษ' }
-            ];
+        ];
+        function cxFormOath() {
+            return cxSec('คำกล่าวปฏิญาณตน', 'fa-hand-paper')
+                + cxArea('oath', 'ข้อความคำปฏิญาณ', 'ข้าพเจ้า ขอประกาศตนไว้ ณ ที่นี้ว่า ข้าพเจ้า คือนักกีฬาสมัครเล่น และขอปฏิญาณตนว่า ข้าพเจ้าจะแข่งขันกีฬาด้วยน้ำใจนักกีฬา อันแท้จริง', 4)
+                + cxFld('oath_who', 'ผู้นำกล่าวปฏิญาณ (นักกีฬาอาวุโส)', 'นายธนะสิทธิ์ พรหมทอง', 'แสดงใต้คำปฏิญาณ ปล่อยว่างได้', 'col-12');
+        }
+        function cxFormBio() {
+            const school = systemSettings.schoolName;
+            const torch = TORCH_DEFAULT;
             return cxSec('ประวัตินักกีฬาอาวุโส', 'fa-user-tie')
                 + cxFld('sr_name', 'ชื่อ-สกุล (พร้อมคำนำหน้า)', 'นายธนะสิทธิ์ พรหมทอง')
                 + cxFld('sr_pos', 'ตำแหน่ง', 'ผู้ช่วยครูอัตราจ้าง')
@@ -1256,12 +1274,18 @@
                 + cxArea('sr_edu', 'ประวัติการศึกษา', 'สำเร็จการศึกษาระดับประถมศึกษาจากโรงเรียนบ้านบนควน สำเร็จการศึกษาระดับมัธยมศึกษาจากโรงเรียนทุ่งสง และสำเร็จการศึกษาระดับปริญญาตรี สาขาวิชาสังคมศึกษา จากมหาวิทยาลัยรามคำแหง', 2)
                 + cxArea('sr_sport', 'ประวัติการกีฬา', 'นายธนะสิทธิ์เป็นนักกีฬามวยสมัครเล่นที่มีประสบการณ์ยาวนาน ในช่วงการศึกษาระดับประถมศึกษาและมัธยมศึกษา ได้เข้าร่วมการแข่งขันมวยสมัครเล่น รุ่นน้ำหนักไม่เกิน 45 กิโลกรัม และในช่วงการศึกษาระดับอุดมศึกษา ได้ก้าวสู่การเป็นนักกีฬามวยสมัครเล่น รุ่นน้ำหนักไม่เกิน 48 กิโลกรัม', 3)
                 + cxArea('sr_close', 'ข้อความสรุปท้ายประวัติ', `นายธนะสิทธิ์ พรหมทอง เป็นแบบอย่างที่ดีของนักกีฬาที่มีความมุ่งมั่น อุทิศตนในการฝึกฝน และเป็นผู้ที่เข้าใจคุณค่าของการกีฬาอย่างแท้จริง ทั้งยังเป็นผู้ที่นำความรู้และประสบการณ์ด้านกีฬามาพัฒนาเยาวชนใน${school}ในปัจจุบัน`, 3)
-                + cxSec('คำกล่าวปฏิญาณตน', 'fa-hand-paper')
-                + cxArea('oath', 'ข้อความคำปฏิญาณ', 'ข้าพเจ้า ขอประกาศตนไว้ ณ ที่นี้ว่า ข้าพเจ้า คือนักกีฬาสมัครเล่น และขอปฏิญาณตนว่า ข้าพเจ้าจะแข่งขันกีฬาด้วยน้ำใจนักกีฬา อันแท้จริง', 3)
                 + cxSec('ประวัตินักกีฬาวิ่งคบเพลิง', 'fa-fire', 'รายชื่อชุดนี้ถูกนำไปใช้ในบทพิธีกรด้วย')
                 + cxList('torch', [{ k: 'name', w: 2, ph: 'ชื่อ-สกุล (พร้อมคำนำหน้า)' }, { k: 'bio', w: 5, area: true, ph: 'ประวัติ เช่น นักเรียนชั้น... บุตรของ...' }], torch, 'เพิ่มนักกีฬาคบเพลิง');
         }
         function cxDocOath() {
+            return cxWrap(`
+                ${cxHead('คำกล่าวปฏิญาณตนของนักกีฬาอาวุโส')}
+                <div style="border:3px solid #000; border-radius:10px; padding:36px 40px; margin:50px 0 30px; text-align:center; font-size:24pt; line-height:2; font-weight:600; page-break-inside:avoid;">
+                    “${cxBr(cd.oath)}”
+                </div>
+                ${(cd.oath_who || '').trim() ? `<div style="text-align:center; font-size:16pt; margin-top:20px;">นำกล่าวปฏิญาณโดย <strong>${cxEsc(cd.oath_who)}</strong></div>` : ''}`);
+        }
+        function cxDocBio() {
             const torchHtml = (cd.torch || []).filter(t => (t.name || '').trim() || (t.bio || '').trim()).map(t => `
                 <div class="speech-line speech-indent" style="page-break-inside:avoid;"><strong>${cxEsc(t.name)}</strong> ${cxBr(t.bio)}</div>`).join('');
             const sr = `
@@ -1270,13 +1294,9 @@
                 <div class="speech-line speech-indent" style="page-break-inside:avoid;"><strong>ประวัติการกีฬา</strong> ${cxBr(cd.sr_sport)}</div>
                 <div class="speech-line speech-indent" style="page-break-inside:avoid;">${cxBr(cd.sr_close)}</div>`;
             return cxWrap(`
-                ${cxHead('คำปฏิญาณและประวัตินักกีฬา')}
+                ${cxHead('ประวัตินักกีฬาอาวุโสและนักกีฬาวิ่งคบเพลิง')}
                 ${cxH('ประวัตินักกีฬาอาวุโส')}
                 ${sr}
-                ${cxH('คำกล่าวปฏิญาณตนของนักกีฬาอาวุโส')}
-                <div style="border:2px solid #000; border-radius:8px; padding:18px 24px; margin:12px 0; text-align:center; font-size:18pt; line-height:1.8; font-weight:600; page-break-inside:avoid;">
-                    “${cxBr(cd.oath)}”
-                </div>
                 ${cxH('ขอเชิญรับฟังประวัตินักกีฬาวิ่งคบเพลิง')}
                 ${torchHtml}`);
         }
@@ -1464,10 +1484,10 @@
                 <head>
                     <meta charset="UTF-8">
                     <title>พิมพ์เอกสาร - ${systemSettings.eventName} ${systemSettings.academicYear}</title>
-                    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+                    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
                     <style>
                         @page { size: A4; margin: 20mm 25mm; }
-                        body { font-family: 'Kanit', sans-serif; margin: 0; padding: 0; background: white; line-height: 1.5; font-size: 16pt; }
+                        body { font-family: 'Sarabun', sans-serif; margin: 0; padding: 0; background: white; line-height: 1.5; font-size: 16pt; }
                         @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
                         .speech-line { text-align: justify; text-justify: inter-word; margin-bottom: 10px; line-height: 1.6; }
                         .speech-indent { text-indent: 2.5cm; }
