@@ -197,7 +197,7 @@
 
     <div class="header-section text-center">
         <a href="index.html" class="teacher-btn"><i class="fas fa-user-shield me-1"></i> สำหรับครูผู้รับผิดชอบ</a>
-        <img src="https://nonthaphathr.github.io/uploadimg/logoschool.png" height="60" class="mb-3 animate__animated animate__fadeInDown" id="headerLogo">
+        <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" height="60" class="mb-3 animate__animated animate__fadeInDown" id="headerLogo">
         <h3 class="fw-bold mb-1 animate__animated animate__fadeInUp" id="headerTitle">ลงทะเบียนนักกีฬา</h3>
         <p class="mb-0 opacity-75 fw-light animate__animated animate__fadeInUp" id="headerSubtitle">กระดุมทองเกมส์ 2568</p>
     </div>
@@ -319,10 +319,23 @@
             }
         }, { onlyOnce: true });
 
+        // แสดงโลโก้ที่จำไว้จากครั้งก่อนทันที (ไม่ให้โลโก้เก่าค้างระหว่างรอ Firebase)
+        try {
+            const kc = JSON.parse(localStorage.getItem('ksSettingsCache') || '{}') || {};
+            if (kc.schoolLogo) document.getElementById('headerLogo').src = kc.schoolLogo;
+            if (kc.eventName) document.getElementById('headerSubtitle').textContent = `${kc.eventName} ${kc.academicYear || ''}`;
+        } catch (e) {}
+
         function updateHeaderUI() {
             if (systemSettings.schoolLogo) {
                 document.getElementById('headerLogo').src = systemSettings.schoolLogo;
             }
+            try {
+                localStorage.setItem('ksSettingsCache', JSON.stringify({
+                    schoolLogo: systemSettings.schoolLogo, eventName: systemSettings.eventName,
+                    academicYear: systemSettings.academicYear, schoolName: systemSettings.schoolName
+                }));
+            } catch (e) {}
             document.getElementById('headerTitle').textContent = 'ลงทะเบียนนักกีฬา';
             document.getElementById('headerSubtitle').textContent = `${systemSettings.eventName} ${systemSettings.academicYear}`;
         }

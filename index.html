@@ -319,7 +319,7 @@
 </head>
 <body>
     <div id="loadingOverlay">
-        <img src="https://nonthaphathr.github.io/uploadimg/logoschool.png" class="spinner-logo" id="loadingLogo">
+        <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" class="spinner-logo" id="loadingLogo" alt="">
         <h4 class="text-secondary fw-bold">กำลังโหลดข้อมูล...</h4>
         <small class="text-muted" id="loadingEventName">กีฬาสี 2568</small>
         <button class="btn btn-sm btn-outline-secondary mt-3" onclick="forceHideLoader()">กดตรงนี้หากรอนานเกินไป</button>
@@ -328,7 +328,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="#">
-                <img src="https://nonthaphathr.github.io/uploadimg/logoschool.png" alt="Logo" id="navbarLogo">
+                <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="Logo" id="navbarLogo">
                 <div class="d-flex flex-column ms-2">
                     <span class="fs-5 fw-bold text-warning" id="navbarEventName">กีฬาสี 2568</span>
                     <small class="text-white-50 d-none d-sm-block" style="font-size: 0.75rem;" id="navbarSchoolName">โรงเรียนกระดุมทองวิทยา</small>
@@ -358,6 +358,22 @@
             </div>
         </div>
     </nav>
+    <script>
+        // ใช้โลโก้/ชื่องานที่จำไว้จากครั้งก่อนทันที (ไม่ให้โลโก้เก่าค้างระหว่างรอ Firebase)
+        try {
+            window.__ksCache = JSON.parse(localStorage.getItem('ksSettingsCache') || '{}') || {};
+            var c = window.__ksCache;
+            if (c.schoolLogo) {
+                document.getElementById('loadingLogo').src = c.schoolLogo;
+                document.getElementById('navbarLogo').src = c.schoolLogo;
+            }
+            if (c.eventName) {
+                var t = c.eventName + ' ' + (c.academicYear || '');
+                document.getElementById('loadingEventName').innerText = t;
+                document.getElementById('navbarEventName').innerText = t;
+            }
+        } catch (e) { window.__ksCache = {}; }
+    </script>
 
     <div class="container py-4">
         
@@ -967,9 +983,9 @@
     // ===== ข้อมูลการตั้งค่าระบบ (รองรับ Dynamic Teams) =====
     let systemSettings = {
         schoolName: 'โรงเรียนกระดุมทองวิทยา',
-        eventName: 'กีฬาสี',
-        academicYear: '2568',
-        schoolLogo: 'https://nonthaphathr.github.io/uploadimg/logoschool.png',
+        eventName: (window.__ksCache || {}).eventName || 'กีฬาสี',
+        academicYear: (window.__ksCache || {}).academicYear || '2568',
+        schoolLogo: (window.__ksCache || {}).schoolLogo || 'https://nonthaphathr.github.io/uploadimg/logoschool.png',
         eventLogo: '',
         password: 'KTW1234',
         rankPoints: { 1: 5, 2: 3, 3: 2, 4: 1 },
@@ -1080,6 +1096,12 @@
         document.getElementById('loadingLogo').src = systemSettings.schoolLogo;
         document.getElementById('loadingEventName').innerText = `${systemSettings.eventName} ${systemSettings.academicYear}`;
         document.title = `ระบบบันทึกผลการแข่งขัน - ${systemSettings.eventName} ${systemSettings.academicYear}`;
+        try {
+            localStorage.setItem('ksSettingsCache', JSON.stringify({
+                schoolLogo: systemSettings.schoolLogo, eventName: systemSettings.eventName,
+                academicYear: systemSettings.academicYear, schoolName: systemSettings.schoolName
+            }));
+        } catch (e) {}
         
         const filterWinner = document.getElementById('filterWinner');
         const activeTeams = getActiveTeams();
