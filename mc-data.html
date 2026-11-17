@@ -134,7 +134,7 @@
             { k: 'alias', l: 'ชื่อขบวน', w: 6 },
             { k: 'leader', l: 'ชื่อประธานสี', w: 4 },
             { k: 'level', l: 'ชั้น ม.', w: 2, ph: 'เช่น 5' },
-            { k: 'concept', l: 'คอนเซปต์ขบวน', w: 8 },
+            { k: 'concept', l: 'คอนเซปต์ขบวน', w: 12, area: true, rows: 5, ph: 'เขียนได้เต็มที่ เช่น แนวคิดหลักของขบวน / ที่มาของชื่อสี / สัญลักษณ์ ธีมการแต่งกาย / ความหมายที่อยากให้พิธีกรเล่า (ประมาณ 2-4 ประโยค)' },
             { k: 'count', l: 'จำนวนสมาชิก (คน)', w: 4 },
             { k: 'sign', l: 'ผู้ถือป้ายคณะสี', w: 6 },
             { k: 'flag', l: 'ผู้ถือธงคณะสี', w: 6 },
@@ -156,7 +156,7 @@
         function field(attrs, f, val) {
             const common = `class="form-control" ${attrs} data-orig="${esc(val ?? '')}" placeholder="${esc(f.ph || '')}"`;
             return `<div class="col-md-${f.w || 6}"><label class="form-label fw-bold small mb-1">${f.l}</label>${f.note ? `<div class="small text-danger mb-1"><i class="fas fa-circle-info me-1"></i>หมายเหตุ: ${f.note}</div>` : ''}
-                ${f.area ? `<textarea rows="2" ${common}>${esc(val)}</textarea>` : `<input type="text" ${common} value="${esc(val)}">`}</div>`;
+                ${f.area ? `<textarea rows="${f.rows || 2}" ${common}>${esc(val)}</textarea>` : `<input type="text" ${common} value="${esc(val)}">`}</div>`;
         }
         function rowHtml(key, r) {
             const cols = LISTS[key].cols;
