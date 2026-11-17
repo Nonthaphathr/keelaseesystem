@@ -17,7 +17,7 @@ export const TEAM_PARADE_FIELDS = [
     { k: 'count', l: 'จำนวนสมาชิก (คน)', w: 4 },
     { k: 'sign', l: 'ผู้ถือป้ายคณะสี', w: 6, person: true },
     { k: 'flag', l: 'ผู้ถือธงคณะสี', w: 6, person: true },
-    { k: 'scorer', l: 'ผู้ส่งคะแนนลงระบบประจำสนาม', w: 12, person: true, noConflict: true, desc: 'มีหน้าที่รับใบลงทะเบียนที่กองอำนวยการก่อนแข่งกีฬา 10 นาที และทำหน้าที่บันทึกคะแนนการแข่งขันลงแอปพลิเคชัน', note: 'ซ้ำคนได้กรณีแข่งคนละช่วงเวลา', ph: 'เช่น นายสมชาย ใจดี, นางสาวมานี มีตา' }
+    { k: 'scorer', l: 'ผู้ส่งคะแนนลงระบบประจำสนาม', w: 12, person: true, noConflict: true, list: true, desc: 'มีหน้าที่รับใบลงทะเบียนที่กองอำนวยการก่อนแข่งกีฬา 10 นาที และทำหน้าที่บันทึกคะแนนการแข่งขันลงแอปพลิเคชัน', note: 'ซ้ำคนได้กรณีแข่งคนละช่วงเวลา', ph: 'เช่น นายสมชาย ใจดี' }
 ];
 export const SCHOOL_PARADE_FIELDS = [
     { k: 'mj', l: 'คฑากรนำขบวน', w: 4, person: true },
@@ -125,4 +125,41 @@ export function attachSuggest(box, getPool, onPick) {
             el.addEventListener('blur', () => setTimeout(() => { box.style.display = 'none'; target = null; }, 150));
         }
     };
+}
+
+
+// ---------- ช่องรายชื่อแบบกด "+ เพิ่ม" (เก็บเป็นข้อความคั่นด้วย ", " ในช่อง hidden เดียว) ----------
+const lfRow = (v, n, ph) => `<div class="input-group mb-2 lf-row"><span class="input-group-text bg-white text-muted lf-n">${n}</span>
+    <input type="text" class="form-control lf-in" value="${esc(v)}" placeholder="${esc(ph || '')}" autocomplete="off">
+    <button type="button" class="btn btn-outline-danger lf-del" title="ลบ"><i class="fas fa-trash-alt"></i></button></div>`;
+export function lfHtml(f, val, hiddenAttrs) {
+    const names = String(val ?? '').split(/[,،\n]/).map(x => x.trim()).filter(Boolean);
+    if (!names.length) names.push('');
+    return `<div class="lf-wrap" data-ph="${esc(f.ph || '')}">
+        <div class="lf-rows">${names.map((n, i) => lfRow(n, i + 1, f.ph)).join('')}</div>
+        <button type="button" class="btn btn-sm btn-light border fw-bold lf-add"><i class="fas fa-plus"></i> เพิ่ม</button>
+        <input type="hidden" ${hiddenAttrs} data-orig="${esc(val ?? '')}" value="${esc(val ?? '')}"></div>`;
+}
+// เรียกครั้งเดียวต่อหน้า: opts.onChange(hiddenEl) เมื่อรายชื่อเปลี่ยน, opts.onRow(inputEl) เมื่อมีช่องใหม่ (ไว้ผูก suggest)
+export function lfBind(opts = {}) {
+    const sync = (wrap) => {
+        const rows = [...wrap.querySelectorAll('.lf-row')];
+        rows.forEach((r, i) => { r.querySelector('.lf-n').textContent = i + 1; });
+        const h = wrap.querySelector('input[type=hidden]');
+        h.value = rows.map(r => r.querySelector('.lf-in').value.trim()).filter(Boolean).join(', ');
+        if (opts.onChange) opts.onChange(h);
+    };
+    document.addEventListener('input', (e) => { const w = e.target.closest && e.target.closest('.lf-wrap'); if (w && e.target.classList.contains('lf-in')) sync(w); });
+    document.addEventListener('click', (e) => {
+        const b = e.target.closest && e.target.closest('.lf-add, .lf-del'); if (!b) return;
+        const w = b.closest('.lf-wrap'), rows = w.querySelector('.lf-rows');
+        if (b.classList.contains('lf-add')) {
+            rows.insertAdjacentHTML('beforeend', lfRow('', rows.children.length + 1, w.dataset.ph));
+            const el = rows.lastElementChild.querySelector('.lf-in'); if (opts.onRow) opts.onRow(el); el.focus();
+        } else {
+            b.closest('.lf-row').remove();
+            if (!rows.children.length) rows.insertAdjacentHTML('beforeend', lfRow('', 1, w.dataset.ph));
+        }
+        sync(w);
+    });
 }

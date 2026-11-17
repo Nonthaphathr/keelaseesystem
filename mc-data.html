@@ -70,6 +70,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
         import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+        import { lfHtml, lfBind } from "./reg-utils.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -138,7 +139,7 @@
             { k: 'count', l: 'จำนวนสมาชิก (คน)', w: 4 },
             { k: 'sign', l: 'ผู้ถือป้ายคณะสี', w: 6 },
             { k: 'flag', l: 'ผู้ถือธงคณะสี', w: 6 },
-            { k: 'scorer', l: 'ผู้ส่งคะแนนลงระบบประจำสนาม', w: 12, desc: 'มีหน้าที่รับใบลงทะเบียนที่กองอำนวยการก่อนแข่งกีฬา 10 นาที และทำหน้าที่บันทึกคะแนนการแข่งขันลงแอปพลิเคชัน', note: 'ซ้ำคนได้กรณีแข่งคนละช่วงเวลา', ph: 'เช่น นายสมชาย ใจดี, นางสาวมานี มีตา' }
+            { k: 'scorer', l: 'ผู้ส่งคะแนนลงระบบประจำสนาม', w: 12, list: true, desc: 'มีหน้าที่รับใบลงทะเบียนที่กองอำนวยการก่อนแข่งกีฬา 10 นาที และทำหน้าที่บันทึกคะแนนการแข่งขันลงแอปพลิเคชัน', note: 'ซ้ำคนได้กรณีแข่งคนละช่วงเวลา', ph: 'เช่น นายสมชาย ใจดี' }
         ];
         const LISTS = {
             torch: { title: 'นักกีฬาวิ่งคบเพลิง', icon: 'fa-fire', add: 'เพิ่มนักกีฬาคบเพลิง',
@@ -156,8 +157,9 @@
         function field(attrs, f, val) {
             const common = `class="form-control" ${attrs} data-orig="${esc(val ?? '')}" placeholder="${esc(f.ph || '')}"`;
             return `<div class="col-md-${f.w || 6}"><label class="form-label fw-bold small mb-1">${f.l}</label>${f.desc ? `<div class="small text-muted mb-1">${f.desc}</div>` : ''}${f.note ? `<div class="small text-danger mb-1"><i class="fas fa-circle-info me-1"></i>หมายเหตุ: ${f.note}</div>` : ''}
-                ${f.area ? `<textarea rows="${f.rows || 2}" ${common}>${esc(val)}</textarea>` : `<input type="text" ${common} value="${esc(val)}">`}</div>`;
+                ${f.list ? lfHtml(f, val, attrs) : f.area ? `<textarea rows="${f.rows || 2}" ${common}>${esc(val)}</textarea>` : `<input type="text" ${common} value="${esc(val)}">`}</div>`;
         }
+        lfBind();
         function rowHtml(key, r) {
             const cols = LISTS[key].cols;
             return `<div class="lrow d-flex gap-2 mb-2 align-items-start">
