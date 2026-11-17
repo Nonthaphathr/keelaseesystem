@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <style>
@@ -177,6 +178,10 @@
             transition: transform 0.2s;
         }
         .back-btn:hover { transform: scale(1.05); }
+        .nav-bar { position: fixed; top: 16px; left: 16px; z-index: 100; display: flex; flex-wrap: wrap; gap: 8px; }
+        .nav-bar .btn { border-radius: 50px; padding: 9px 18px; font-weight: 600; transition: transform .2s; }
+        .nav-bar .btn:hover { transform: scale(1.05); }
+        body > .container.py-4 { padding-top: 4.5rem !important; }
 
         .logo-placeholder {
             width: 80px;
@@ -212,9 +217,10 @@
 </head>
 <body>
 
-    <a href="index.html" class="btn btn-light back-btn shadow no-print">
-        <i class="fas fa-arrow-left me-1"></i> กลับหน้าหลัก
-    </a>
+    <div class="nav-bar no-print">
+        <button type="button" id="navBack" class="btn btn-warning shadow d-none" onclick="goBack()"><i class="fas fa-arrow-left me-1"></i> ย้อนกลับ</button>
+        <a href="index.html" class="btn btn-light shadow"><i class="fas fa-table-list me-1"></i> ไปหน้าตารางแข่งขัน</a>
+    </div>
 
     <div class="container py-4">
         <div class="text-center mb-4 fade-in">
@@ -275,6 +281,13 @@
                             <i class="fas fa-microphone text-success"></i>
                             <h6 class="fw-bold mb-1">บทพิธีกร</h6>
                             <small class="text-muted">บทพูดพิธีกร ขบวน พิธีการ และบรรยายกีฬา</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="doc-type-card" onclick="selectDocType('mc_sport')">
+                            <i class="fas fa-bullhorn text-primary"></i>
+                            <h6 class="fw-bold mb-1">บทพิธีกรบรรยายกีฬา</h6>
+                            <small class="text-muted">ดึงทุกกีฬาจากตารางแข่งขัน เรียงตามเวลา แยกไฟล์ตามกีฬา / เกริ่นนำ / กล่าวปิด</small>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -504,6 +517,7 @@
                 if (selectedDocType === 'closing_report') {
                     renderAwardTypes();
                 }
+                if (selectedDocType === 'mc_sport') msRenderPicker();
             });
         }
 
@@ -547,8 +561,10 @@
             return '<span class="gender-badge gender-mixed">ผสม</span>';
         }
 
+        const updateNav = () => document.getElementById('navBack').classList.toggle('d-none', !selectedDocType);
         window.selectDocType = (type) => {
             selectedDocType = type;
+            updateNav();
             
             document.querySelectorAll('.doc-type-card').forEach(card => card.classList.remove('selected'));
             event.currentTarget.classList.add('selected');
@@ -606,6 +622,7 @@
             
             document.querySelectorAll('.doc-type-card').forEach(card => card.classList.remove('selected'));
             selectedDocType = null;
+            updateNav();
         };
 
         function renderAwardTypes() {
@@ -1114,10 +1131,11 @@
         }
 
         // ===== เอกสารพิธีเปิดเพิ่มเติม: กำหนดการ / บทพิธีกร / คำปฏิญาณและประวัตินักกีฬา =====
-        const EXTRA_TYPES = ['opening_schedule', 'opening_mc', 'oath', 'athlete_bio'];
+        const EXTRA_TYPES = ['opening_schedule', 'opening_mc', 'mc_sport', 'oath', 'athlete_bio'];
         const EXTRA_TITLES = {
             opening_schedule: 'กำหนดการพิธีเปิด',
             opening_mc: 'บทพิธีกร พิธีเปิด',
+            mc_sport: 'บทพิธีกรบรรยายกีฬา (ทุกชนิดกีฬา)',
             oath: 'คำกล่าวปฏิญาณตนของนักกีฬาอาวุโส',
             athlete_bio: 'ประวัตินักกีฬาอาวุโสและนักกีฬาวิ่งคบเพลิง'
         };
@@ -1189,16 +1207,18 @@
             s.classList.remove('d-none');
             s.classList.add('fade-in');
             document.getElementById('extraTitle').textContent = 'ขั้นตอนที่ 2: กรอกข้อมูล — ' + EXTRA_TITLES[type];
-            const forms = { opening_schedule: cxFormSchedule, opening_mc: cxFormMc, oath: cxFormOath, athlete_bio: cxFormBio };
+            const forms = { opening_schedule: cxFormSchedule, opening_mc: cxFormMc, mc_sport: cxFormMcSport, oath: cxFormOath, athlete_bio: cxFormBio };
             const pullBar = `<div class="col-12"><div class="alert alert-info border-0 py-2 mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <small><i class="fas fa-qrcode me-1"></i>ข้อมูลที่พิธีกร/ประธานสีกรอกผ่านลิงก์ ดึงมาใส่ฟอร์มนี้ได้</small>
                 <button type="button" class="btn btn-sm btn-primary rounded-pill" onclick="cxPullRemote()"><i class="fas fa-cloud-arrow-down me-1"></i>ดึงข้อมูล</button></div></div>`;
             document.getElementById('extraForm').innerHTML = pullBar + forms[type]();
             saveCd();
             Object.keys(cxEditors).forEach(cxRenderList);
+            if (type === 'mc_sport') msRenderPicker();
         }
 
         window.generateExtraDocument = () => {
+            if (selectedDocType === 'mc_sport') { msGenerate(); return; }
             const docs = { opening_schedule: cxDocSchedule, opening_mc: cxDocMc, oath: cxDocOath, athlete_bio: cxDocBio };
             document.getElementById('documentContent').innerHTML = docs[selectedDocType]();
             new bootstrap.Modal(document.getElementById('previewModal')).show();
@@ -1321,7 +1341,13 @@
                 { desc: `การแสดงเชียร์ลีดเดอร์ของ${cheerTxt}` },
                 {}, {}, {}, {}, {}, {}
             ];
-            return cxFld('x_date', 'วันที่จัดงาน', '', 'เช่น 2-3 ธันวาคม 2568')
+            return `<div class="col-12"><div class="d-flex flex-wrap gap-2 align-items-center p-2 rounded-3 border bg-light">
+                    <b class="small me-1"><i class="fas fa-file-excel text-success me-1"></i>ไฟล์ Excel (.xlsx)</b>
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill" onclick="cxSchedExport()"><i class="fas fa-file-export me-1"></i>ส่งออก / ดาวน์โหลดแม่แบบ</button>
+                    <button type="button" class="btn btn-sm btn-success rounded-pill" onclick="document.getElementById('schImport').click()"><i class="fas fa-file-import me-1"></i>นำเข้า .xlsx</button>
+                    <input type="file" id="schImport" accept=".xlsx,.xls" class="d-none" onchange="cxSchedImport(event)">
+                    <small class="text-muted">นำเข้าจะแทนที่รายการกำหนดการเดิมทั้งหมด</small></div></div>`
+                + cxFld('x_date', 'วันที่จัดงาน', '', 'เช่น 2-3 ธันวาคม 2568')
                 + cxFld('x_venue', 'สถานที่', 'สนามกีฬา' + school)
                 + cxFld('chairman', 'ชื่อประธานในพิธี', '', 'ระบุชื่อประธาน')
                 + cxFld('chairman_pos', 'ตำแหน่งประธานในพิธี', 'ประธานคณะกรรมการสถานศึกษาขั้นพื้นฐาน' + school)
@@ -1408,7 +1434,8 @@
         // =========================================================
         function cxFormMc() {
             const school = systemSettings.schoolName;
-            let f = cxSec('ข้อมูลงาน', 'fa-calendar-day')
+            let f = `<div class="col-12"><div class="alert alert-primary border-0 py-2 mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2"><small><i class="fas fa-bullhorn me-1"></i>ต้องการบทบรรยาย <b>ทุกกีฬาตามตารางแข่งขัน</b> เรียงตามเวลา / แยกไฟล์ตามกีฬา / เกริ่นนำ-กล่าวปิดแยกกัน</small><button type="button" class="btn btn-sm btn-primary rounded-pill" onclick="goBack(); setTimeout(() => document.querySelector('[onclick*=mc_sport]').click(), 50)">ไปที่ บทพิธีกรบรรยายกีฬา</button></div></div>`
+                + cxSec('ข้อมูลงาน', 'fa-calendar-day')
                 + cxFld('x_date', 'วันที่จัดงาน', '', 'เช่น 2-3 ธันวาคม 2568')
                 + cxFld('x_venue', 'สถานที่', 'สนามกีฬา' + school)
                 + cxSec('พิธีกร', 'fa-microphone', 'พิธีกร 1 พูดแบบผู้ชาย (ผม/ครับ) พิธีกร 2 พูดแบบผู้หญิง (ดิฉัน/ค่ะ)')
@@ -1589,6 +1616,296 @@
             h += L(m2, 'ขอยุติหน้าที่การเป็นพิธีกรเพียงเท่านี้ สวัสดีค่ะ') + L(m1, 'สวัสดีครับ');
             return cxWrap(h);
         }
+
+        // ----- ส่งออก/นำเข้ากำหนดการเป็น .xlsx -----
+        const SCH_INFO = [['วันที่จัดงาน', 'x_date'], ['สถานที่', 'x_venue'], ['ชื่อประธานในพิธี', 'chairman'], ['ตำแหน่งประธานในพิธี', 'chairman_pos'], ['ผู้กล่าวรายงาน', 'reporter'], ['ตำแหน่งผู้กล่าวรายงาน', 'reporter_pos']];
+        window.cxSchedExport = () => {
+            if (typeof XLSX === 'undefined') { Swal.fire({ icon: 'error', title: 'โหลดตัวอ่านไฟล์ Excel ไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้า' }); return; }
+            const wb = XLSX.utils.book_new();
+            const info = XLSX.utils.aoa_to_sheet([['หัวข้อ', 'ข้อมูล'], ...SCH_INFO.map(([l, k]) => [l, cd[k] ?? ''])]);
+            info['!cols'] = [{ wch: 26 }, { wch: 70 }];
+            XLSX.utils.book_append_sheet(wb, info, 'ข้อมูลทั่วไป');
+            const rows = (cd.sch_rows || []).map((r, i) => [i + 1, String(r.time ?? ''), r.desc ?? '']);
+            const sch = XLSX.utils.aoa_to_sheet([['ลำดับ', 'เวลา', 'รายการ'], ...rows]);
+            sch['!cols'] = [{ wch: 8 }, { wch: 12 }, { wch: 100 }];
+            XLSX.utils.book_append_sheet(wb, sch, 'กำหนดการ');
+            const note = XLSX.utils.aoa_to_sheet([['คำอธิบาย'], ['ชีต "ข้อมูลทั่วไป": แก้ได้เฉพาะคอลัมน์ "ข้อมูล" (ห้ามเปลี่ยนชื่อหัวข้อ)'], ['ชีต "กำหนดการ": หนึ่งแถวต่อหนึ่งรายการ ลำดับเรียงตามแถว เวลาเว้นว่างได้ (จะขึ้นเป็นจุด ๆ)'], ['ในช่อง "รายการ" ใช้ {chairman} {chairman_pos} {reporter} {reporter_pos} แทนข้อมูลที่กรอกในชีตข้อมูลทั่วไป'], ['นำเข้าไฟล์นี้ในหน้า "กำหนดการพิธีเปิด" > ปุ่ม นำเข้า .xlsx (แทนที่รายการเดิมทั้งหมด)']]);
+            note['!cols'] = [{ wch: 110 }];
+            XLSX.utils.book_append_sheet(wb, note, 'คำอธิบาย');
+            XLSX.writeFile(wb, `กำหนดการพิธีเปิด_${systemSettings.eventName}_${systemSettings.academicYear}.xlsx`);
+        };
+        window.cxSchedImport = async (ev) => {
+            const file = ev.target.files[0]; ev.target.value = '';
+            if (!file) return;
+            try {
+                const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+                const sName = wb.SheetNames.find(n => /กำหนดการ/.test(n)) || wb.SheetNames[1] || wb.SheetNames[0];
+                const iName = wb.SheetNames.find(n => /ข้อมูลทั่วไป/.test(n));
+                if (iName) {
+                    const map = Object.fromEntries(SCH_INFO);
+                    XLSX.utils.sheet_to_json(wb.Sheets[iName], { header: 1, defval: '' }).forEach(r => {
+                        const k = map[String(r[0]).trim()];
+                        if (k && String(r[1] ?? '').trim() !== '') cd[k] = String(r[1]).trim();
+                    });
+                }
+                const fmtTimeCell = (v) => {
+                    if (typeof v === 'number' && v > 0 && v < 1) { const mins = Math.round(v * 1440); return String(Math.floor(mins / 60)).padStart(2, '0') + '.' + String(mins % 60).padStart(2, '0'); }
+                    return String(v ?? '').trim();
+                };
+                const rows = XLSX.utils.sheet_to_json(wb.Sheets[sName], { header: 1, defval: '' }).slice(1)
+                    .map(r => ({ time: fmtTimeCell(r[1]), desc: String(r[2] ?? '').trim() }))
+                    .filter(r => r.time || r.desc);
+                if (!rows.length) { Swal.fire({ icon: 'warning', title: 'ไม่พบรายการกำหนดการในไฟล์', text: 'ตรวจว่ามีชีต "กำหนดการ" คอลัมน์ ลำดับ / เวลา / รายการ' }); return; }
+                cd.sch_rows = rows;
+                saveCd();
+                openExtra('opening_schedule');
+                Swal.fire({ icon: 'success', title: `นำเข้ากำหนดการ ${rows.length} รายการแล้ว`, timer: 1800, showConfirmButton: false });
+            } catch (e) {
+                console.error(e);
+                Swal.fire({ icon: 'error', title: 'อ่านไฟล์ไม่สำเร็จ', text: 'ใช้ไฟล์ .xlsx ที่ส่งออกจากหน้านี้เป็นแม่แบบ' });
+            }
+        };
+
+        // =========================================================
+        // 4) บทพิธีกรบรรยายกีฬา (ดึงจากตารางแข่งขัน เรียงตามเวลา แยกเกริ่นนำ/กล่าวปิด เลือกแยกไฟล์ตามกีฬาได้)
+        // =========================================================
+        const MS_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+        const msThaiDate = (iso) => { const p = String(iso || '').split('-'); return p.length === 3 ? `${+p[2]} ${MS_MONTHS[+p[1] - 1]} ${+p[0] + 543}` : (iso || ''); };
+        const msTime = (t) => String(t || '').replace(':', '.');
+        let msState = { date: 'all', sel: null };
+        let msOpts = { split: false, intro: true, close: true, result: true, players: true, loc: true };
+        let msFiles = [];
+        const msSports = (dateSel) => {
+            const map = {};
+            allMatchesArray.filter(m => dateSel === 'all' || m.date === dateSel).forEach(m => { (map[m.sport] = map[m.sport] || []).push(m); });
+            return map;
+        };
+
+        function cxFormMcSport() {
+            msState = { date: 'all', sel: null };
+            msFiles = [];
+            const school = systemSettings.schoolName;
+            const opt = (k, label) => `<div class="form-check"><input class="form-check-input" type="checkbox" id="msOpt_${k}" ${msOpts[k] ? 'checked' : ''} onchange="msOpt('${k}', this.checked)"><label class="form-check-label" for="msOpt_${k}">${label}</label></div>`;
+            return cxSec('ข้อมูลงานและพิธีกร', 'fa-microphone', 'ใช้ข้อมูลชุดเดียวกับเอกสารพิธีการอื่น กรอกที่ไหนก็ใช้ร่วมกัน')
+                + cxFld('x_date', 'วันที่จัดงาน', '', 'เช่น 2-3 ธันวาคม 2568')
+                + cxFld('x_venue', 'สถานที่', 'สนามกีฬา' + school)
+                + cxFld('mc1', 'พิธีกร 1 (พูดแบบผู้ชาย ผม/ครับ)', 'ณัฐกร', '', 'col-md-6')
+                + cxFld('mc2', 'พิธีกร 2 (พูดแบบผู้หญิง ดิฉัน/ค่ะ)', 'ฐาปนีย์', '', 'col-md-6')
+                + cxFld('closer', 'ผู้กล่าวปิดโครงการ (ใช้ในบทกล่าวปิด)', '', 'ระบุชื่อ/ตำแหน่ง', 'col-12')
+                + cxSec('เลือกกีฬาที่จะสร้างบท', 'fa-futbol', 'ดึงจากตารางแข่งขันในระบบ บทเรียงตามเวลาแข่งขัน กีฬาที่เพิ่มในระบบภายหลังจะขึ้นให้เลือกอัตโนมัติ')
+                + `<div class="col-12"><div class="d-flex flex-wrap gap-2 align-items-center mb-2"><label class="small fw-bold mb-0">วันที่แข่ง</label>
+                        <select id="msDate" class="form-select form-select-sm" style="max-width:260px" onchange="msSetDate(this.value)"></select>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" onclick="msAll(true)">เลือกทั้งหมด</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" onclick="msAll(false)">ไม่เลือก</button></div>
+                    <div id="msPicker" class="row g-2"></div></div>`
+                + cxSec('ตัวเลือกการสร้างเอกสาร', 'fa-sliders')
+                + `<div class="col-md-6">${opt('split', 'แยกไฟล์ตามชนิดกีฬา (ไม่ติ๊ก = รวมเป็นไฟล์เดียวเรียงตามเวลา)')}${opt('intro', 'สร้างบทเกริ่นนำ (แยกไฟล์)')}${opt('close', 'สร้างบทกล่าวปิด (แยกไฟล์)')}</div>
+                   <div class="col-md-6">${opt('result', 'เว้นช่องจดผลการแข่งขันใต้แต่ละรายการ (ถ้าแข่งจบแล้วจะใส่ผลจริงให้)')}${opt('players', 'ใส่รายชื่อนักกีฬาที่ลงทะเบียนไว้')}${opt('loc', 'ใส่สถานที่แข่งขัน')}</div>
+                   <div class="col-12"><div id="mcFiles"></div></div>`;
+        }
+        function msRenderPicker() {
+            const box = document.getElementById('msPicker');
+            if (!box) return;
+            if (!isMatchesLoaded) { box.innerHTML = '<div class="col-12 text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>กำลังโหลดตารางแข่งขัน...</div>'; return; }
+            const dates = [...new Set(allMatchesArray.map(m => m.date).filter(Boolean))].sort();
+            const dsel = document.getElementById('msDate');
+            if (dsel && !dsel.dataset.ready) {
+                dsel.innerHTML = '<option value="all">ทุกวัน</option>' + dates.map(d => `<option value="${d}">${msThaiDate(d)}</option>`).join('');
+                dsel.dataset.ready = '1';
+            }
+            const map = msSports(msState.date);
+            const keys = Object.keys(map);
+            if (msState.sel === null) msState.sel = new Set(Object.keys(msSports('all')));
+            if (!keys.length) { box.innerHTML = '<div class="col-12 text-muted">ยังไม่มีรายการแข่งขันในตารางแข่งขัน</div>'; return; }
+            box.innerHTML = keys.map(k => {
+                const ms = map[k], ts = ms.map(m => m.time).filter(Boolean).sort();
+                return `<div class="col-md-6"><label class="d-flex gap-2 align-items-start p-2 border rounded-3 bg-white" style="cursor:pointer">
+                    <input class="form-check-input mt-1" type="checkbox" ${msState.sel.has(k) ? 'checked' : ''} onchange="msTick('${k}', this.checked)">
+                    <span><b>${cxEsc(getSportName(k))}</b> <span class="badge bg-secondary">${ms.length} รายการ</span><br>
+                    <small class="text-muted">${ts.length ? msTime(ts[0]) + ' – ' + msTime(ts[ts.length - 1]) + ' น.' : ''}</small></span></label></div>`;
+            }).join('');
+        }
+        window.msTick = (k, on) => { on ? msState.sel.add(k) : msState.sel.delete(k); };
+        window.msAll = (on) => { Object.keys(msSports(msState.date)).forEach(k => on ? msState.sel.add(k) : msState.sel.delete(k)); msRenderPicker(); };
+        window.msSetDate = (v) => { msState.date = v; msRenderPicker(); };
+        window.msOpt = (k, v) => { msOpts[k] = v; };
+
+        // ชุดตัวช่วยจัดรูปบท
+        function msKit() {
+            const m1 = (cd.mc1 || '').trim() || 'พิธีกร 1', m2 = (cd.mc2 || '').trim() || 'พิธีกร 2';
+            let turn = 0;
+            const kit = {
+                m1, m2,
+                L: (n, t) => `<div style="margin-bottom:10px; text-align:justify; page-break-inside:avoid;"><strong>(${cxEsc(n)})</strong> ${t}</div>`,
+                D: (t) => `<div style="margin:8px 0 12px; color:#555; font-style:italic; font-size:14pt;">( ${t} )</div>`,
+                DIV: (t) => `<div style="text-align:center; font-weight:bold; margin:22px 0 12px; border-top:1px dashed #666; border-bottom:1px dashed #666; padding:4px 0; page-break-after:avoid;">${t}</div>`,
+                BL: (arr) => `<ul style="margin:4px 0 10px; padding-left:1.6cm;">${arr.map(a => `<li>${a}</li>`).join('')}</ul>`,
+                // พิธีกรสลับกันพูด: คืน {n: ชื่อ, e: คำลงท้าย, p: สรรพนาม}
+                next: () => { const male = (turn++ % 2) === 0; return male ? { n: m1, e: 'ครับ', p: 'ผม', male } : { n: m2, e: 'ค่ะ', p: 'ดิฉัน', male }; },
+                other: (s) => s.male ? { n: m2, e: 'ค่ะ', p: 'ดิฉัน', male: false } : { n: m1, e: 'ครับ', p: 'ผม', male: true }
+            };
+            return kit;
+        }
+        const msTeamsOf = (m) => {
+            const order = getActiveTeams().map(t => t.key);
+            return (m.teams || []).slice().sort((a, b) => { const x = order.indexOf(a), y = order.indexOf(b); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y); });
+        };
+        const msTeamName = (k) => 'คณะ' + cxEsc(getTeamByKey(k).name);
+        const msJoin = (arr) => arr.length <= 1 ? arr.join('') : arr.slice(0, -1).join(' ') + ' และ' + arr[arr.length - 1];
+
+        function msResultBox(m, tks) {
+            const dots = (n) => '.'.repeat(n);
+            const box = (inner) => `<div style="border:1px solid #888; border-radius:6px; padding:6px 12px; margin:0 0 12px 1.2cm; font-size:14pt; page-break-inside:avoid;">${inner}</div>`;
+            const done = m.status === 'done';
+            const method = m.scoringMethod || 'score_once';
+            if (method === 'rank') {
+                const ranks = tks.map(tk => ({ tk, r: (m.details || {})['rank_' + tk] || 0 })).sort((a, b) => (a.r || 99) - (b.r || 99));
+                return box('<b>ผลการจัดอันดับ</b> ' + (done ? ranks.map(x => `${x.r ? 'อันดับ ' + x.r : '-'} ${msTeamName(x.tk)}`).join(' &nbsp; ') : tks.map((_, i) => `อันดับ ${i + 1} ${dots(14)}`).join(' &nbsp; ')));
+            }
+            const w = m.winner;
+            const wTxt = done ? (w === 'draw' ? 'เสมอ' : (w && w !== 'none' ? msTeamName(w) : dots(14))) : dots(16);
+            if (method === 'win_once') return box(`<b>ผู้ชนะ</b> ${wTxt}`);
+            const sc = tks.map(tk => `${msTeamName(tk)} ${done ? ((m.scores || {})[tk] ?? 0) : dots(6)}`).join(' &nbsp;:&nbsp; ');
+            return box(`<b>ผลการแข่งขัน</b> ${sc} &nbsp; <b>ผู้ชนะ</b> ${wTxt}`);
+        }
+
+        function msMatchBlock(kit, m, idx, withSport) {
+            const tks = msTeamsOf(m);
+            const sp = cxEsc(getSportName(m.sport)), cat = cxEsc(m.category || '');
+            const s = kit.next();
+            let h = kit.D(`เวลา ${cxDots(msTime(m.time), 5)} น.${msOpts.loc && (m.location || '').trim() ? ' · ' + cxEsc(m.location) : ''} · ${sp} ${cat}`);
+            const vs = tks.length === 2 ? `${msTeamName(tks[0])} พบ ${msTeamName(tks[1])}` : `${msJoin(tks.map(msTeamName))}`;
+            const where = msOpts.loc && (m.location || '').trim() ? ` ณ ${cxEsc(m.location)}` : '';
+            const lead = idx === 0 ? 'ลำดับต่อไป' : ['ต่อด้วย', 'ถัดจากนั้น', 'มาถึงอีกหนึ่งรายการ'][idx % 3];
+            h += kit.L(s.n, `${lead} เป็นการแข่งขัน${withSport ? sp + ' ' : ''}${cat} ${tks.length === 2 ? 'ระหว่าง' : 'โดยมีนักกีฬาจาก'} ${vs} เวลา ${cxDots(msTime(m.time), 5)} น.${where} ${s.e === 'ครับ' ? 'ขอเชิญนักกีฬาเข้าประจำจุดครับ' : 'ขอเชิญนักกีฬาเข้าประจำจุดค่ะ'}`);
+            if (msOpts.players) {
+                const lines = tks.map(tk => ({ tk, names: (((m.players || {})[tk]) || []).filter(Boolean) })).filter(x => x.names.length);
+                if (lines.length) {
+                    const o = kit.other(s);
+                    h += kit.L(o.n, 'สำหรับรายชื่อนักกีฬาที่ลงทะเบียนไว้ ' + lines.map(x => `${msTeamName(x.tk)} ได้แก่ ${x.names.map(cxEsc).join(' ')}`).join(' ส่วน') + ` ${o.e}`);
+                }
+            }
+            if (msOpts.result) h += msResultBox(m, tks);
+            return h;
+        }
+
+        function msBodyHtml(kit, matches, opts) {
+            // opts.byDay: แบ่งหัวข้อตามวัน; ตรวจการเปลี่ยนชนิดกีฬา แล้วขึ้นหัวข้อ/เกริ่นกีฬาใหม่
+            let h = '', prevDate = null, prevSport = null, idx = 0;
+            const counts = {};
+            matches.forEach(m => { counts[m.sport] = (counts[m.sport] || 0) + 1; });
+            matches.forEach(m => {
+                if (m.date !== prevDate) { h += cxH(`วันที่ ${msThaiDate(m.date)}`); prevDate = m.date; prevSport = null; }
+                if (m.sport !== prevSport) {
+                    const s = kit.next(), sp = cxEsc(getSportName(m.sport));
+                    h += kit.DIV(`${sp}`);
+                    h += kit.L(s.n, `ต่อไปจะเป็นช่วงการแข่งขัน${sp} ${counts[m.sport] > 1 ? `มีการแข่งขันทั้งหมด ${counts[m.sport]} รายการ` : ''} ขอให้ทุกคณะสีตรวจสอบความพร้อมของนักกีฬา เมื่อเรียบร้อยแล้วเชิญนักกีฬาเข้าประจำจุด เพื่อฟังท่านกรรมการผู้ตัดสินชี้แจงกติกา ก่อนดำเนินการแข่งขัน${s.e}`);
+                    h += kit.D('เมื่อการแข่งขันเริ่มขึ้น ให้บรรยายไปตามสภาพจริง โดยสังเกตดูสถานการณ์ แทรกอารมณ์ขันได้ตามสมควร แต่ระมัดระวังอย่าให้หยาบคายหรือสร้างความไม่พอใจให้แก่ผู้ฟัง');
+                    prevSport = m.sport; idx = 0;
+                }
+                h += msMatchBlock(kit, m, idx++, opts.withSport);
+            });
+            return h;
+        }
+
+        function msIntroHtml(kit, matches) {
+            const ev = cxEsc(systemSettings.eventName), year = cxEsc(systemSettings.academicYear), S = cxEsc(systemSettings.schoolName);
+            const teams = getActiveTeams().map(t => msTeamName(t.key));
+            const byDate = {};
+            matches.forEach(m => { ((byDate[m.date] = byDate[m.date] || {})[m.sport] = (byDate[m.date][m.sport] || [])).push(m); });
+            const sched = Object.keys(byDate).sort().map(d => {
+                const items = Object.entries(byDate[d]).map(([sp, ms]) => {
+                    const ts = ms.map(x => x.time).filter(Boolean).sort();
+                    return `${cxEsc(getSportName(sp))} (${ms.length} รายการ${ts.length ? ' เริ่ม ' + msTime(ts[0]) + ' น.' : ''})`;
+                });
+                return `<div style="margin-bottom:4px;"><b>${msThaiDate(d)}</b></div>` + kit.BL(items);
+            }).join('');
+            let h = cxHead('บทพิธีกร ช่วงเกริ่นนำการแข่งขัน') + cxTitleBlock();
+            h += cxH('เกริ่นนำ');
+            h += kit.D('ก่อนเริ่มการแข่งขันกีฬา เมื่อผู้ชมและนักกีฬาพร้อมแล้ว');
+            h += kit.L(kit.m1, `สวัสดีครับท่านผู้มีเกียรติ คณะครู นักเรียน และกองเชียร์ทุกท่าน ยินดีต้อนรับเข้าสู่การแข่งขันกีฬาภายใน ${ev} ประจำปีการศึกษา ${year} ของ${S}ครับ`);
+            h += kit.L(kit.m2, `สวัสดีค่ะ ท่านผู้มีเกียรติทุกท่าน การแข่งขันในครั้งนี้เป็นการประลองฝีมือระหว่าง ${msJoin(teams) || cxDots('', 20)} ซึ่งทุกคณะสีได้เตรียมความพร้อมมาเป็นอย่างดี ดิฉันเชื่อว่าจะเต็มไปด้วยความสนุกสนาน และน้ำใจนักกีฬาค่ะ`);
+            h += kit.L(kit.m1, 'ก่อนที่จะเริ่มการแข่งขัน ผมขออนุญาตนำเรียนรายการแข่งขันที่จะดำเนินการต่อจากนี้ครับ');
+            h += kit.D('อ่านตามรายการด้านล่าง หรือตัดบางรายการได้ตามความเหมาะสม');
+            h += sched || kit.D('ยังไม่ได้เลือกรายการแข่งขัน');
+            h += kit.L(kit.m2, 'ขอให้นักกีฬาทุกคนปฏิบัติตามกติกาและคำชี้แจงของท่านกรรมการอย่างเคร่งครัด แข่งขันด้วยน้ำใจนักกีฬา รู้แพ้ รู้ชนะ รู้อภัย และขอให้กองเชียร์ทุกคณะสีส่งเสียงเชียร์ให้เต็มที่ด้วยความสร้างสรรค์ ไม่ใช้ถ้อยคำหยาบคายหรือก้าวร้าวค่ะ');
+            h += kit.L(kit.m1, 'และขอให้ทุกท่านดูแลความปลอดภัยของตนเองและเพื่อน ๆ ระหว่างการแข่งขัน หากมีเหตุฉุกเฉินให้แจ้งครูหรือเจ้าหน้าที่ได้ทันทีครับ');
+            h += kit.L(kit.m2, 'เอาล่ะค่ะ ทุกอย่างพร้อมแล้ว เรามาเริ่มการแข่งขันกันเลยค่ะ');
+            return h;
+        }
+
+        function msCloseHtml(kit, matches) {
+            const ev = cxEsc(systemSettings.eventName), year = cxEsc(systemSettings.academicYear), S = cxEsc(systemSettings.schoolName);
+            const teams = getActiveTeams();
+            const done = matches.filter(m => m.status === 'done');
+            const wins = {}; teams.forEach(t => wins[t.key] = 0);
+            done.forEach(m => { if (wins[m.winner] !== undefined) wins[m.winner]++; });
+            const summary = done.length
+                ? teams.map(t => `${msTeamName(t.key)} ชนะ ${wins[t.key]} รายการ`).join(' ') + ` จากการแข่งขันที่สิ้นสุดแล้ว ${done.length} รายการ`
+                : teams.map(t => `${msTeamName(t.key)} ${cxDots('', 6)} รายการ`).join(' ');
+            let h = cxHead('บทพิธีกร ช่วงกล่าวปิดการแข่งขัน') + cxTitleBlock();
+            h += cxH('กล่าวปิด');
+            h += kit.D('เมื่อการแข่งขันรายการสุดท้ายเสร็จสิ้น');
+            h += kit.L(kit.m1, `และแล้วการแข่งขันกีฬาภายใน ${ev} ประจำปีการศึกษา ${year} ก็เดินทางมาถึงรายการสุดท้ายแล้วนะครับ ขอขอบคุณนักกีฬาทุกคนที่ทุ่มเทแข่งขันอย่างเต็มความสามารถ`);
+            h += kit.L(kit.m2, `ขอขอบคุณท่านกรรมการผู้ตัดสิน เจ้าหน้าที่ประจำสนาม คณะครู และกองเชียร์ทุกคณะสีที่ช่วยกันสร้างบรรยากาศอันสนุกสนาน และดำเนินการแข่งขันให้ผ่านไปได้ด้วยดีค่ะ`);
+            h += kit.L(kit.m1, `สรุปผลการแข่งขันโดยรวม ${summary} ครับ`);
+            h += kit.D('อ่านสรุปผลหรือประกาศผลตามที่คณะกรรมการจัดการแข่งขันแจ้ง');
+            h += kit.L(kit.m2, 'ไม่ว่าผลการแข่งขันจะออกมาเป็นอย่างไร ทุกคณะสีล้วนได้รับสิ่งที่มีค่า คือมิตรภาพ ความสามัคคี และประสบการณ์ที่ดีร่วมกันค่ะ');
+            h += kit.L(kit.m1, `ในลำดับต่อไป ขอเรียนเชิญ ${cxDots(cd.closer, 40)} กล่าวปิดโครงการแข่งขันกีฬาภายใน ขอเรียนเชิญครับ`);
+            h += kit.D('ผู้กล่าวปิดโครงการกล่าวจบ');
+            h += kit.L(kit.m2, `ขอบพระคุณคณะผู้บริหาร คณะครู และนักเรียนผู้ร่วมกิจกรรมทุกท่านจากใจจริงค่ะ ก่อนแยกย้าย ขอให้ทุกคนช่วยกันเก็บขยะและอุปกรณ์ให้เรียบร้อย และเดินทางกลับด้วยความปลอดภัยค่ะ`);
+            h += kit.L(kit.m1, `ขอยุติหน้าที่การเป็นพิธีกรของ${S}เพียงเท่านี้ สวัสดีครับ`) + kit.L(kit.m2, 'สวัสดีค่ะ');
+            return h;
+        }
+
+        const msFileName = (s) => String(s).replace(/[\\/:*?"<>|]+/g, '').trim();
+        window.msGenerate = () => {
+            if (!isMatchesLoaded) { Swal.fire({ icon: 'info', title: 'กำลังโหลดตารางแข่งขัน', text: 'รอสักครู่แล้วลองใหม่' }); return; }
+            const sel = msState.sel || new Set();
+            const matches = allMatchesArray.filter(m => sel.has(m.sport) && (msState.date === 'all' || m.date === msState.date))
+                .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+            if (!matches.length) { Swal.fire({ icon: 'warning', title: 'ยังไม่ได้เลือกกีฬา', text: 'ติ๊กเลือกกีฬาอย่างน้อย 1 ชนิดก่อนสร้างบท' }); return; }
+            const files = [];
+            const head = (t) => cxHead(t) + cxTitleBlock();
+            if (msOpts.intro) files.push({ name: 'บทพิธีกร_1_เกริ่นนำ', title: 'บทเกริ่นนำ', note: `${matches.length} รายการที่จะแข่ง`, html: cxWrap(msIntroHtml(msKit(), matches)) });
+            if (msOpts.split) {
+                const keys = [...new Set(matches.map(m => m.sport))];
+                keys.forEach((k, i) => {
+                    const ms = matches.filter(m => m.sport === k);
+                    files.push({ name: `บทพิธีกร_${i + 2}_${msFileName(getSportName(k))}`, title: `บท${getSportName(k)}`, note: `${ms.length} รายการ เรียงตามเวลา`,
+                        html: cxWrap(head(`บทพิธีกร บรรยายกีฬา${cxEsc(getSportName(k))}`) + msBodyHtml(msKit(), ms, { withSport: false })) });
+                });
+            } else {
+                files.push({ name: 'บทพิธีกร_2_บรรยายกีฬาตามเวลา', title: 'บทบรรยายกีฬา (รวมทุกชนิด เรียงตามเวลา)', note: `${matches.length} รายการ`,
+                    html: cxWrap(head('บทพิธีกร บรรยายกีฬา เรียงตามเวลาแข่งขัน') + msBodyHtml(msKit(), matches, { withSport: true })) });
+            }
+            if (msOpts.close) files.push({ name: 'บทพิธีกร_9_กล่าวปิด', title: 'บทกล่าวปิด', note: 'สรุปผล/กล่าวขอบคุณ/ปิดงาน', html: cxWrap(msCloseHtml(msKit(), matches)) });
+            msFiles = files;
+            const box = document.getElementById('mcFiles');
+            box.innerHTML = `<div class="p-3 rounded-4 border bg-white mt-2"><div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                <h6 class="fw-bold mb-0"><i class="fas fa-folder-open text-primary me-2"></i>ไฟล์ที่สร้างแล้ว (${files.length} ไฟล์)</h6>
+                <button type="button" class="btn btn-sm btn-primary rounded-pill" onclick="msDownloadAll()"><i class="fas fa-download me-1"></i>ดาวน์โหลดทั้งหมด (.doc)</button></div>
+                ${files.map((f, i) => `<div class="d-flex flex-wrap align-items-center gap-2 py-2 border-top">
+                    <div class="flex-grow-1"><b>${cxEsc(f.title)}</b><br><small class="text-muted">${cxEsc(f.note)}</small></div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" onclick="msPreview(${i})"><i class="fas fa-eye me-1"></i>ดู/พิมพ์</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="msDownload(${i})"><i class="fas fa-file-word me-1"></i>.doc</button></div>`).join('')}
+                <small class="text-muted d-block mt-2">ไฟล์ .doc เปิดด้วย Word ได้ทันที หรือกด “ดู/พิมพ์” แล้วเลือกบันทึกเป็น PDF</small></div>`;
+            box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        window.msPreview = (i) => {
+            document.getElementById('documentContent').innerHTML = msFiles[i].html;
+            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        };
+        window.msDownload = (i) => {
+            const f = msFiles[i];
+            const doc = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${cxEsc(f.title)}</title>
+                <style>@page{size:A4;margin:2cm 2.5cm} body{font-family:'TH SarabunPSK','Sarabun',sans-serif;font-size:16pt;line-height:1.5}</style></head><body>${f.html}</body></html>`;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob(['﻿', doc], { type: 'application/msword' }));
+            a.download = `${f.name}_${systemSettings.eventName}.doc`;
+            document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        };
+        window.msDownloadAll = () => { msFiles.forEach((_, i) => setTimeout(() => msDownload(i), i * 600)); };
 
         window.printDocument = () => {
             const element = document.getElementById('documentContent');
