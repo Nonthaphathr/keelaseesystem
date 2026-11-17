@@ -230,7 +230,6 @@
                     ${open ? `<div class="row g-2 mt-2">${ts.map(k => `<div class="col-md-6"><div class="small border rounded p-2 bg-light">
                         <div class="fw-bold mb-1">${esc(teamName(k))}</div>
                         ${names(m, k).length ? '<ol class="mb-1 ps-3">' + names(m, k).map(n => `<li>${esc(n)}</li>`).join('') + '</ol>' : '<div class="text-muted">— ยังไม่มีรายชื่อ —</div>'}
-                        <div class="text-muted"><i class="fas fa-chalkboard-teacher me-1"></i>ครู: ${coaches(m, k).length ? coaches(m, k).map(esc).join(', ') : '-'}</div>
                     </div></div>`).join('')}</div>` : ''}
                 </div>`;
             });
@@ -310,7 +309,7 @@
                 const mine = matches.filter(m => teamsOf(m).includes(tk));
                 const lines = [...new Set(mine.map(mLabel))];
                 return `📢 เชิญลงทะเบียนนักกีฬา ${ev}\nคณะ${nm}\n\n` +
-                    `เรียน คณะครู/ผู้ปกครอง/นักเรียนคณะ${nm}\nขอเชิญกรอกรายชื่อนักกีฬา (และครูผู้ควบคุม) ในแต่ละรายการแข่งขัน ผ่านลิงก์ด้านล่าง\n\n` +
+                    `เรียน คณะครู/ผู้ปกครอง/นักเรียนคณะ${nm}\nขอเชิญกรอกรายชื่อนักกีฬาในแต่ละรายการแข่งขัน ผ่านลิงก์ด้านล่าง\n\n` +
                     `👉 ${link}\n\n` +
                     `💡 พิมพ์ชื่อสักสองสามตัวอักษร ระบบจะแสดงรายชื่อให้เลือก\n` +
                     `🏅 รายการที่ต้องลงทะเบียน (${st.total} รายการ):\n${lines.slice(0, 25).map(l => `   • ${l}`).join('\n')}${lines.length > 25 ? `\n   … และอื่น ๆ` : ''}\n\n` +
@@ -341,11 +340,11 @@
         // ===== ดาวน์โหลด CSV =====
         window.downloadCsv = () => {
             const q = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-            const rows = [['วันที่', 'เวลา', 'กีฬา', 'รุ่น', 'คณะสี', 'ลำดับ', 'ชื่อนักกีฬา', 'ครูผู้ควบคุม']];
+            const rows = [['วันที่', 'เวลา', 'กีฬา', 'รุ่น', 'คณะสี', 'ลำดับ', 'ชื่อนักกีฬา']];
             matches.forEach(m => teamsOf(m).forEach(k => {
-                const ns = names(m, k), cs = coaches(m, k).join(', ');
-                if (!ns.length) rows.push([thaiDate(m.date), m.time, sportName(m.sport), m.category, teamName(k), '', '(ยังไม่ลงชื่อ)', cs]);
-                ns.forEach((n, i) => rows.push([thaiDate(m.date), m.time, sportName(m.sport), m.category, teamName(k), i + 1, n, cs]));
+                const ns = names(m, k);
+                if (!ns.length) rows.push([thaiDate(m.date), m.time, sportName(m.sport), m.category, teamName(k), '', '(ยังไม่ลงชื่อ)']);
+                ns.forEach((n, i) => rows.push([thaiDate(m.date), m.time, sportName(m.sport), m.category, teamName(k), i + 1, n]));
             }));
             const blob = new Blob(['﻿' + rows.map(r => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob);

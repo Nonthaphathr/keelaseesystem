@@ -137,7 +137,8 @@
             { k: 'concept', l: 'คอนเซปต์ขบวน', w: 8 },
             { k: 'count', l: 'จำนวนสมาชิก (คน)', w: 4 },
             { k: 'sign', l: 'ผู้ถือป้ายคณะสี', w: 6 },
-            { k: 'flag', l: 'ผู้ถือธงคณะสี', w: 6 }
+            { k: 'flag', l: 'ผู้ถือธงคณะสี', w: 6 },
+            { k: 'scorer', l: 'ผู้ส่งคะแนนลงระบบประจำสนาม', w: 12, note: 'ซ้ำคนได้กรณีแข่งคนละช่วงเวลา', ph: 'หลายคนคั่นด้วยลูกน้ำ เช่น สนามละ 1 คน' }
         ];
         const LISTS = {
             torch: { title: 'นักกีฬาวิ่งคบเพลิง', icon: 'fa-fire', add: 'เพิ่มนักกีฬาคบเพลิง',
@@ -154,7 +155,7 @@
         // ----- ตัวสร้างฟอร์ม -----
         function field(attrs, f, val) {
             const common = `class="form-control" ${attrs} data-orig="${esc(val ?? '')}" placeholder="${esc(f.ph || '')}"`;
-            return `<div class="col-md-${f.w || 6}"><label class="form-label fw-bold small mb-1">${f.l}</label>
+            return `<div class="col-md-${f.w || 6}"><label class="form-label fw-bold small mb-1">${f.l}</label>${f.note ? `<div class="small text-danger mb-1"><i class="fas fa-circle-info me-1"></i>หมายเหตุ: ${f.note}</div>` : ''}
                 ${f.area ? `<textarea rows="2" ${common}>${esc(val)}</textarea>` : `<input type="text" ${common} value="${esc(val)}">`}</div>`;
         }
         function rowHtml(key, r) {

@@ -227,7 +227,7 @@
                 <div class="col-md-6 col-lg-5"><div class="hub-card sport" onclick="showSport()">
                     <div class="hub-ico"><i class="fas fa-person-running"></i></div>
                     <h4>ลงทะเบียนนักกีฬา</h4>
-                    <div class="text-muted">กรอกรายชื่อนักกีฬาและครูผู้ควบคุมในแต่ละรายการแข่งขัน</div>
+                    <div class="text-muted">กรอกรายชื่อนักกีฬาในแต่ละรายการแข่งขัน</div>
                     <div class="hub-stat" id="hubSportStat">กำลังโหลด...</div>
                     <div class="progress mt-2"><div class="progress-bar bg-warning" id="hubSportBar" style="width:0%"></div></div>
                     <button class="btn btn-warning w-100 fw-bold rounded-pill mt-3">เข้าไปกรอก <i class="fas fa-arrow-right ms-1"></i></button>
@@ -356,7 +356,6 @@
         let allMatches = [];
         let currentMatchId = null;
         let tempPlayers = [];              // รายชื่อนักกีฬาของคณะนี้ (ในรายการที่เปิดอยู่)
-        let tempCoaches = [];              // รายชื่อครูผู้ควบคุม
         let people = { students: [], teachers: [] };
         let systemSettings = {
             schoolName: 'โรงเรียนกระดุมทองวิทยา',
@@ -493,7 +492,6 @@
             let lastDate = '', html = '';
             filtered.forEach((m, index) => {
                 const count = ((m.players || {})[myTeam] || []).filter(x => x).length;
-                const coachCount = ((m.coaches || {})[myTeam] || []).filter(x => x).length;
                 const isDone = m.status === 'done';
                 if (m.date !== lastDate) {
                     lastDate = m.date;
@@ -514,8 +512,6 @@
                             <div class="d-flex gap-1 flex-wrap">
                                 <span class="team-badge-mini ${count ? '' : 'opacity-50'}" style="background-color:${esc(team.color)}20; color:${esc(team.color)}; border-color:${esc(team.color)};">
                                     <i class="fas fa-user me-1"></i>นักกีฬา: ${count}</span>
-                                <span class="team-badge-mini ${coachCount ? '' : 'opacity-50'}" style="background-color:#6c757d20; color:#555; border-color:#999;">
-                                    <i class="fas fa-chalkboard-teacher me-1"></i>ครู: ${coachCount}</span>
                             </div>
                         </div>
                         <div class="text-secondary ps-3 opacity-50"><i class="fas fa-chevron-right fa-lg"></i></div>
@@ -532,15 +528,13 @@
             document.getElementById('modalCategory').innerText = m.category;
             document.getElementById('modalStatusBadge').classList.toggle('d-none', m.status !== 'done');
             tempPlayers = [...(((m.players || {})[myTeam]) || [])];
-            tempCoaches = [...(((m.coaches || {})[myTeam]) || [])];
             if (!tempPlayers.length) tempPlayers.push('');
-            if (!tempCoaches.length) tempCoaches.push('');
             renderTeamInputs();
             new bootstrap.Modal(document.getElementById('regModal')).show();
         };
 
         function listHtml(kind, arr) {
-            const ph = kind === 'p' ? 'ชื่อ-นามสกุล (พิมพ์แล้วเลือกจากรายการ)' : 'ชื่อครู (พิมพ์แล้วเลือกจากรายการ)';
+            const ph = 'ชื่อ-นามสกุล (พิมพ์แล้วเลือกจากรายการ)';
             return arr.map((name, idx) => `
                 <div class="d-flex gap-2 mb-2">
                     <div class="input-group">
@@ -556,7 +550,7 @@
         function renderTeamInputs() {
             const team = systemSettings.teams[myTeam];
             const box = (title, icon, kind, arr) => `
-                <div class="col-12 ${kind === 'p' ? 'col-lg-7' : 'col-lg-5'}">
+                <div class="col-12">
                     <div class="team-box h-100" style="border-left:5px solid ${esc(team.color)};">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="fw-bold m-0 text-dark"><i class="fas ${icon} me-2" style="color:${esc(team.color)};"></i>${title}</h5>
@@ -567,12 +561,11 @@
                     </div>
                 </div>`;
             document.getElementById('teamInputsContainer').innerHTML =
-                box(`นักกีฬา ${esc(team.name)}`, 'fa-user', 'p', tempPlayers) +
-                box('ครูผู้ควบคุม/ผู้ฝึกสอน', 'fa-chalkboard-teacher', 'c', tempCoaches);
+                box(`นักกีฬา ${esc(team.name)}`, 'fa-user', 'p', tempPlayers);
             checkAthlete();
         }
 
-        const arrOf = (k) => k === 'p' ? tempPlayers : tempCoaches;
+        const arrOf = (k) => tempPlayers;
         window.addInput = (k) => { arrOf(k).push(''); renderTeamInputs(); };
         window.removeInput = (k, idx) => { arrOf(k).splice(idx, 1); if (!arrOf(k).length) arrOf(k).push(''); renderTeamInputs(); };
 
@@ -582,7 +575,7 @@
             const copy = allMatches.map(m => ({
                 id: m.id, sport: m.sport, category: m.category, date: m.date, time: m.time, note: m.note,
                 players: { [myTeam]: m.id === currentMatchId ? players : (((m.players || {})[myTeam]) || []) },
-                coaches: { [myTeam]: m.id === currentMatchId ? coaches : (((m.coaches || {})[myTeam]) || []) }
+                coaches: { [myTeam]: (((m.coaches || {})[myTeam]) || []) }
             }));
             return athleteConflicts(copy).filter(c => c.kind === 'time' && (c.a.m.id === currentMatchId || c.b.m.id === currentMatchId));
         }
@@ -594,7 +587,7 @@
             const box = document.getElementById('conflictBox');
             if (!currentMatchId) return;
             const clean = (a) => [...new Set(a.map(n => n.trim()).filter(Boolean))];
-            const cs = currentConflicts(clean(tempPlayers), clean(tempCoaches));
+            const cs = currentConflicts(clean(tempPlayers), []);
             box.classList.toggle('d-none', !cs.length);
             box.innerHTML = cs.length ? `<div class="alert alert-warning border-0 shadow-sm"><i class="fas fa-triangle-exclamation me-1"></i><b>เตือน: พบชื่อที่เวลาแข่งขันซ้อนกัน</b>
                 <ul class="mb-1 mt-1 small">${conflictHtml(cs)}</ul><small>ยังบันทึกได้ตามปกติ (หน้างานจริงยืดหยุ่นได้)</small></div>` : '';
@@ -602,8 +595,8 @@
 
         window.savePlayers = async () => {
             const clean = (a) => [...new Set(a.map(n => n.trim()).filter(Boolean))];
-            const players = clean(tempPlayers), coaches = clean(tempCoaches);
-            const cs = currentConflicts(players, coaches);
+            const players = clean(tempPlayers);
+            const cs = currentConflicts(players, []);
             if (cs.length) {
                 const r = await Swal.fire({
                     icon: 'warning', title: 'พบชื่อที่เวลาแข่งซ้อนกัน', width: 560,
@@ -613,10 +606,7 @@
                 if (!r.isConfirmed) return;
             }
             // เขียนเฉพาะข้อมูลของคณะตัวเอง ไม่แตะข้อมูลของคณะอื่น
-            Promise.all([
-                set(ref(db, `matches/${currentMatchId}/players/${myTeam}`), players),
-                set(ref(db, `matches/${currentMatchId}/coaches/${myTeam}`), coaches)
-            ]).then(() => {
+            set(ref(db, `matches/${currentMatchId}/players/${myTeam}`), players).then(() => {
                 Swal.fire({ icon: 'success', title: 'บันทึกเรียบร้อย!', text: 'รายชื่อถูกส่งเข้าระบบกลางแล้ว', timer: 1500, showConfirmButton: false });
                 bootstrap.Modal.getInstance(document.getElementById('regModal')).hide();
             }).catch(err => {
@@ -659,7 +649,7 @@
             const td = (mcCache.teams || {})[myTeam] || {};
             document.getElementById('paradeTeamName').textContent = (systemSettings.teams[myTeam] || {}).name || '';
             document.getElementById('paradeFields').innerHTML = TEAM_PARADE_FIELDS.map(f => `<div class="col-md-${f.w}">
-                <label class="form-label fw-bold small mb-1">${f.l}</label>
+                <label class="form-label fw-bold small mb-1">${f.l}</label>${f.note ? `<div class="small text-danger mb-1"><i class="fas fa-circle-info me-1"></i>หมายเหตุ: ${esc(f.note)}</div>` : ''}
                 <input type="text" class="form-control" data-f="${f.k}" data-orig="${esc(td[f.k] ?? '')}" value="${esc(td[f.k] ?? '')}" placeholder="${esc(f.ph || (f.person ? 'พิมพ์ชื่อแล้วเลือกจากรายการ' : ''))}"
                        oninput="checkParade()"></div>`).join('');
             document.querySelectorAll('#paradeFields [data-f]').forEach(el => { if (TEAM_PARADE_FIELDS.find(f => f.k === el.dataset.f).person) sugP.bind(el); });

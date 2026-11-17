@@ -16,7 +16,8 @@ export const TEAM_PARADE_FIELDS = [
     { k: 'concept', l: 'คอนเซปต์ขบวน', w: 8 },
     { k: 'count', l: 'จำนวนสมาชิก (คน)', w: 4 },
     { k: 'sign', l: 'ผู้ถือป้ายคณะสี', w: 6, person: true },
-    { k: 'flag', l: 'ผู้ถือธงคณะสี', w: 6, person: true }
+    { k: 'flag', l: 'ผู้ถือธงคณะสี', w: 6, person: true },
+    { k: 'scorer', l: 'ผู้ส่งคะแนนลงระบบประจำสนาม', w: 12, person: true, noConflict: true, note: 'ซ้ำคนได้กรณีแข่งคนละช่วงเวลา', ph: 'พิมพ์ชื่อแล้วเลือกจากรายการ (หลายคนคั่นด้วยลูกน้ำ เช่น สนามละ 1 คน)' }
 ];
 export const SCHOOL_PARADE_FIELDS = [
     { k: 'mj', l: 'คฑากรนำขบวน', w: 4, person: true },
@@ -41,7 +42,7 @@ export function paradeConflicts(mc, teams) {
     torch.forEach(t => t && push(t.name, 'นักกีฬาวิ่งคบเพลิง', 'event'));
     Object.keys(teams || {}).forEach(tk => {
         const d = td[tk] || {}, tn = (teams[tk] || {}).name || tk;
-        TEAM_PARADE_FIELDS.filter(f => f.person).forEach(f => push(d[f.k], `${f.l} (${tn})`, tk));
+        TEAM_PARADE_FIELDS.filter(f => f.person && !f.noConflict).forEach(f => push(d[f.k], `${f.l} (${tn})`, tk));
     });
     const g = {};
     list.forEach(x => { if (x.key) (g[x.key] = g[x.key] || []).push(x); });

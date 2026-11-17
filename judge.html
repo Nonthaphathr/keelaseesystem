@@ -50,7 +50,10 @@ const app = initializeApp({
 const db = getDatabase(app);
 const authReady = signInAnonymously(getAuth(app)).catch(e => console.warn('anonymous sign-in failed', e));
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const id = new URLSearchParams(location.search).get('m');
+const qs = new URLSearchParams(location.search);
+const id = qs.get('m');
+const JN = parseInt(qs.get('j')) || 0;   // ลิงก์ส่วนตัวของกรรมการท่านที่ N (เฉพาะรายการประกวด)
+const isPanel = () => m && (m.sport === 'cheer' || m.sport === 'parade' || /ขบวน|พาเหรด|เชียร์/.test((settings.sports || {})[m.sport] || ''));
 const $ = (x) => document.getElementById(x);
 
 let settings = {}, m = null, rendered = '';
@@ -80,7 +83,7 @@ function draw(force) {
             <div class="num">${rank ? (r ? 'อันดับ ' + r : '-') : ((m.scores || {})[tk] || 0)}</div></div></div>`;
     }).join('');
     // วาดปุ่มควบคุมใหม่เฉพาะเมื่อโครงสร้างเปลี่ยน (กันช่องกรอกเสียโฟกัสตอนพิมพ์)
-    const sig = [m.status, method, m.setCount, teams.join(','), force ? Object.keys(settings.teams || {}).length : ''].join('|');
+    const sig = [m.status, method, JN, isPanel(), m.setCount, teams.join(','), force ? Object.keys(settings.teams || {}).length : ''].join('|');
     if (sig === rendered) return;
     rendered = sig;
     if (m.status === 'done') {
@@ -93,15 +96,16 @@ function draw(force) {
         return;
     }
     $('controls').innerHTML = controls(method, teams);
-    $('footerBtns').innerHTML = `<button class="btn btn-success btn-lg" onclick="finish()"><i class="fas fa-flag-checkered me-1"></i> ยืนยันจบการแข่งขัน</button>`;
+    $('footerBtns').innerHTML = (JN && isPanel()) ? '<div class="alert alert-info text-center mb-0 small"><i class="fas fa-circle-check me-1"></i>คะแนนบันทึกอัตโนมัติ ไม่ต้องกดยืนยัน — ผู้ดูแลจะเป็นผู้ปิดรายการหลังกรรมการให้คะแนนครบ</div>' : `<button class="btn btn-success btn-lg" onclick="finish()"><i class="fas fa-flag-checkered me-1"></i> ยืนยันจบการแข่งขัน</button>`;
 }
 
 function controls(method, teams) {
     const d = m.details || {}, setCount = m.setCount || 3;
     let h = '';
-    if (m.sport === 'cheer') {
-        h = '<h6 class="border-bottom pb-2">คะแนนกรรมการ 5 ท่าน</h6>';
-        for (let i = 1; i <= 5; i++) {
+    if (isPanel()) {
+        const from = JN || 1, to = JN || 5;
+        h = JN ? `<h6 class="border-bottom pb-2">ให้คะแนนโดย กรรมการท่านที่ ${JN}${(m.referees && m.referees[JN - 1]) ? ' (' + esc(m.referees[JN - 1]) + ')' : ''}</h6><div class="small text-muted mb-2">กรอกคะแนนของท่านเท่านั้น ระบบรวมคะแนนกรรมการทุกท่านให้อัตโนมัติ</div>` : '<h6 class="border-bottom pb-2">คะแนนกรรมการ 5 ท่าน</h6>';
+        for (let i = from; i <= to; i++) {
             const nm = (m.referees && m.referees[i - 1]) || `กรรมการท่านที่ ${i}`;
             h += `<div class="mb-2"><div class="small fw-bold text-muted"><i class="fas fa-user-circle"></i> ${esc(nm)}</div><div class="d-flex gap-2">` +
                 teams.map(tk => `<div class="flex-fill"><div class="small" style="color:${team(tk).color}">${esc(team(tk).name)}</div>
@@ -145,10 +149,16 @@ const dets = () => ({ ...(m.details || {}) });
 
 window.pt = (tk, delta) => runTransaction(ref(db, `matches/${id}/scores/${tk}`), c => Math.max(0, (c || 0) + delta)).catch(() => Swal.fire({ icon: 'error', title: 'บันทึกคะแนนไม่สำเร็จ' }));
 window.simpleWin = (tk) => { const s = {}; (m.teams || []).forEach(k => s[k] = k === tk ? 1 : 0); save({ scores: s }); };
-window.cheer = (j, tk, v) => {
-    const d = dets(); d[`j${j}_${tk}`] = parseInt(v) || 0;
-    const s = {}; (m.teams || []).forEach(k => { let sum = 0; for (let i = 1; i <= 5; i++) sum += d[`j${i}_${k}`] || 0; s[k] = sum; });
-    save({ details: d, scores: s });
+window.cheer = (jn, tk, v) => {
+    // ใช้ transaction เพื่อให้กรรมการหลายคนบันทึกพร้อมกันได้โดยคะแนนไม่ทับกัน
+    runTransaction(mref(), (cur) => {
+        if (!cur) return cur;
+        cur.details = cur.details || {};
+        cur.details[`j${jn}_${tk}`] = Math.max(0, parseInt(v) || 0);
+        cur.scores = cur.scores || {};
+        (cur.teams || []).forEach(k => { let sum = 0; for (let i = 1; i <= 5; i++) sum += cur.details[`j${i}_${k}`] || 0; cur.scores[k] = sum; });
+        return cur;
+    }).catch(() => Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' }));
 };
 window.setPoint = (n, tk, v) => {
     const d = dets(); d[`s${n}_${tk}`] = parseInt(v) || 0;

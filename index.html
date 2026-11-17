@@ -644,6 +644,8 @@
                         <div class="col-lg-6">
                             <label class="form-label small mb-1">ตัวอย่างข้อความ (แก้ไขได้ก่อนคัดลอก)</label>
                             <textarea id="jlText" class="form-control" rows="16" style="font-size:.88rem; background:#fafafa;"></textarea>
+                            <div class="small mt-2 mb-1">รายการประกวด (เชียร์/ขบวนพาเหรด) ออกลิงก์แยกให้กรรมการแต่ละท่าน จำนวน
+                                <input type="number" id="jlJudges" class="form-control form-control-sm d-inline-block text-center" style="width:64px" min="1" max="10" value="5" oninput="jlBuild()"> ท่าน</div>
                             <div class="form-check small mt-2"><input class="form-check-input" type="checkbox" id="jlShowTeams" checked onchange="jlBuild()"><label class="form-check-label" for="jlShowTeams">แสดงคู่แข่งขัน</label></div>
                             <div class="form-check small"><input class="form-check-input" type="checkbox" id="jlShowPlace" checked onchange="jlBuild()"><label class="form-check-label" for="jlShowPlace">แสดงวันเวลา/สนาม</label></div>
                         </div>
@@ -1083,6 +1085,9 @@
             'cheer': 'ประกวดกองเชียร์ฯ'
         }
     };
+
+    // รายการแบบกรรมการหลายคนให้คะแนน (ประกวดเชียร์/ขบวนพาเหรด)
+    window.isPanelSport = (sp) => sp === 'cheer' || sp === 'parade' || /ขบวน|พาเหรด|เชียร์/.test((systemSettings.sports || {})[sp] || '');
 
     // ===== Helper Functions สำหรับ Teams =====
     // ลำดับทีมตามช่อง "ลำดับการแสดงผล" (order) ถ้าไม่ได้ตั้งไว้ใช้ลำดับเดิม
@@ -2145,7 +2150,7 @@
                 showPage('dashboard');
             }).catch((error) => { Swal.fire('Error', 'ไม่สามารถแก้ไขได้', 'error'); });
         } else {
-            let refs = sport === 'cheer' ? ['','','','',''] : ['']; 
+            let refs = isPanelSport(sport) ? ['','','','',''] : ['']; 
             
             const scores = {};
             const players = {};
@@ -2233,14 +2238,14 @@
             // กรรมการ
             const refDiv = document.getElementById('refereeInputs');
             refDiv.innerHTML = '';
-            const refCount = (m.sport === 'cheer') ? 5 : 1;
+            const refCount = isPanelSport(m.sport) ? 5 : 1;
             let currentRefs = m.referees || [];
             while(currentRefs.length < refCount) currentRefs.push('');
             currentRefs.forEach((name, i) => { 
                 if(i < refCount) refDiv.innerHTML += `<input type="text" class="form-control form-control-sm mb-2" placeholder="กรรมการ ${i+1}" value="${name}" id="refInput_${i}">`; 
             });
 
-            document.getElementById('signerLabel').innerText = (m.sport === 'cheer') ? "ประธานสีผู้รับรอง" : "ตัวแทนนักกีฬาผู้ชนะ";
+            document.getElementById('signerLabel').innerText = isPanelSport(m.sport) ? "ประธานสีผู้รับรอง" : "ตัวแทนนักกีฬาผู้ชนะ";
             
             renderPlayersTab(m);
             renderScoreDisplay(m);
@@ -2417,7 +2422,7 @@
         const setCount = m.setCount || 3;
         const teams = m.teams || ['team1', 'team2'];
         
-        if(m.sport === 'cheer') {
+        if(isPanelSport(m.sport)) {
             html = `<h6 class="border-bottom pb-2 mb-2">คะแนนกรรมการ 5 ท่าน</h6>`;
             html += '<div class="row g-2 text-center mb-1"><div class="col-6 offset-6 d-flex">';
             teams.forEach(tk => {
@@ -2962,7 +2967,7 @@
                             ` : '').join('')}
                             <td style="text-align:center;">
                                 <div style="border-bottom:1px dotted #000; width:100px; margin:0 auto 5px;"></div>
-                                <small style="font-size:9pt;">(${m.athleteSign||'................'})<br>${m.sport==='cheer'?'ประธานสี':'ตัวแทนนักกีฬา'}</small>
+                                <small style="font-size:9pt;">(${m.athleteSign||'................'})<br>${isPanelSport(m.sport)?'ประธานสี':'ตัวแทนนักกีฬา'}</small>
                             </td>
                         </tr>
                     </table>
@@ -3491,17 +3496,24 @@
         const base = location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '') + 'judge.html?m=';
         const eventTag = `#${(systemSettings.eventName || '').replace(/\s+/g, '')}${systemSettings.academicYear || ''}`;
         if (!picked.length) { document.getElementById('jlText').value = ''; return; }
+        const nJ = Math.max(1, Math.min(10, parseInt(document.getElementById('jlJudges').value) || 5));
         let t = `📋 ลิงก์กรรมการตัดสินผล ${systemSettings.eventName || ''} ${systemSettings.academicYear || ''}\nกดลิงก์ของรายการที่รับผิดชอบเพื่อลงผล (บันทึกอัตโนมัติ)\n`;
         const bySport = {};
         picked.forEach(m => (bySport[m.sport] = bySport[m.sport] || []).push(m));
         Object.entries(bySport).forEach(([sp, ms]) => {
-            t += `\n🏆 ${getSportName(sp)}\n`;
+            t += `\n━━━━━━━━━━━━━━\n🏆 ${getSportName(sp)}\n━━━━━━━━━━━━━━\n`;
             ms.forEach(m => {
-                t += `▫️ ${m.category || ''}`;
-                if (showTeams) t += ` ${getMatchTeamsText(m)}`;
-                t += '\n';
-                if (showPlace) t += `   ⏰ ${formatDateThai(m.date)} ${m.time || ''} น. 📍 ${m.location || '-'}\n`;
-                t += `   🔗 ${base}${m.id}\n`;
+                t += `\n▫️ ${m.category || ''}${showTeams ? ' ' + getMatchTeamsText(m) : ''}\n`;
+                if (showPlace) t += `⏰ ${formatDateThai(m.date)} ${m.time || ''} น.\n📍 ${m.location || '-'}\n`;
+                if (isPanelSport(m.sport)) {
+                    t += `👥 กรรมการแต่ละท่านใช้ลิงก์ของตัวเอง\n`;
+                    for (let i = 1; i <= nJ; i++) {
+                        const nm = (m.referees && m.referees[i - 1]) ? ` (${m.referees[i - 1]})` : '';
+                        t += `\n🔗 กรรมการท่านที่ ${i}${nm}\n${base}${m.id}&j=${i}\n`;
+                    }
+                } else {
+                    t += `🔗 ${base}${m.id}\n`;
+                }
             });
         });
         t += `\n${eventTag}`;
@@ -3777,7 +3789,7 @@
                 let sc = parseInt(r['จำนวน Set']); if (![3, 5, 7].includes(sc)) sc = 3;
                 const scores = {}, players = {}; teamKeys.forEach(k => { scores[k] = 0; players[k] = []; });
                 const m = { sport: sp, category: cat, date, time, location: String(r['สถานที่'] ?? '').trim(), status: 'wait', scores, winner: 'none', scoringMethod: method,
-                    details: {}, referees: sp === 'cheer' ? ['', '', '', '', ''] : [''], athleteSign: '', note: noteTxt, players, teams: teamKeys, createdAt: new Date().toISOString() };
+                    details: {}, referees: isPanelSport(sp) ? ['', '', '', '', ''] : [''], athleteSign: '', note: noteTxt, players, teams: teamKeys, createdAt: new Date().toISOString() };
                 if (method === 'score_set' || method === 'win_set') m.setCount = sc;
                 good.push(m);
             });
