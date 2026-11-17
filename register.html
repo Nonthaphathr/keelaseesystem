@@ -21,8 +21,8 @@
 
         body {
             font-family: 'Sarabun', sans-serif;
-            background-color: #f4f7f6;
-            background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
+            background-color: var(--team-tint, #f4f7f6);
+            background-image: radial-gradient(var(--team-dot, #e0e0e0) 1px, transparent 1px);
             background-size: 20px 20px;
             padding-bottom: 50px;
             min-height: 100vh;
@@ -244,7 +244,7 @@
         </div>
 
         <div id="sportView">
-        <button class="btn btn-light border rounded-pill mb-2 mt-3 d-none" id="backHub" onclick="showHub()"><i class="fas fa-arrow-left me-1"></i> กลับหน้าเลือกส่วน</button>
+        <button class="btn btn-light border rounded-pill mb-2 d-none" id="backHub" style="margin-top:48px; position:relative; z-index:11;" onclick="showHub()"><i class="fas fa-arrow-left me-1"></i> กลับหน้าเลือกส่วน</button>
         <div class="filter-container animate__animated animate__fadeIn d-none" id="filterBox">
             <div class="row g-2">
                 <div class="col-6">
@@ -425,6 +425,24 @@
         }
 
         // ===== เริ่มต้น: ตรวจลิงก์ → โหลดข้อมูล =====
+        // ธีมหน้าเว็บตามสีของคณะ: ผสมสีกับดำให้เข้มพอสำหรับตัวอักษรสีขาว, พื้นหลังหน้าจอผสมกับขาวให้อ่านง่าย
+        function applyTeamTheme(hex) {
+            const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+            if (!m) return;
+            const n = parseInt(m[1], 16), c = [n >> 16 & 255, n >> 8 & 255, n & 255];
+            const mix = (t, k) => '#' + c.map(v => Math.round(v * (1 - k) + t * k).toString(16).padStart(2, '0')).join('');
+            // ความสว่างสัมพัทธ์ ใช้ตัดสินว่าต้องเข้มแค่ไหนจึงจะอ่านตัวอักษรขาวได้ (คอนทราสต์ >= 4.5)
+            const lin = (v) => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); };
+            let k = 0.35, base = mix(0, k);
+            const lum = (h) => { const x = parseInt(h.slice(1), 16); return .2126 * lin(x >> 16 & 255) + .7152 * lin(x >> 8 & 255) + .0722 * lin(x & 255); };
+            while (1.05 / (lum(base) + .05) < 4.5 && k < .9) { k += .05; base = mix(0, k); }
+            const root = document.documentElement.style;
+            root.setProperty('--primary-gradient', `linear-gradient(135deg, ${mix(0, Math.min(k + .25, .95))}, ${base}, ${mix(0, Math.max(k - .1, .2))})`);
+            root.setProperty('--team-tint', mix(255, .93));
+            root.setProperty('--team-dot', mix(255, .8));
+            root.setProperty('--team-color', base);
+            document.querySelector('meta[name=theme-color]')?.setAttribute('content', base);
+        }
         (async function init() {
             if (!token) return showMessage('fa-link-slash', 'ต้องเข้าผ่านลิงก์/QR Code ของคณะสีตัวเอง<br><small class="text-muted">ขอลิงก์ได้จากครูผู้รับผิดชอบ</small>');
             try {
@@ -437,6 +455,7 @@
                 if (s) { systemSettings = { ...systemSettings, ...s }; if (s.teams) systemSettings.teams = s.teams; if (s.sports) systemSettings.sports = s.sports; }
                 if (!systemSettings.teams[myTeam]) return showMessage('fa-link-slash', 'ไม่พบคณะสีของลิงก์นี้ กรุณาติดต่อครูผู้รับผิดชอบ');
                 updateHeaderUI();
+                applyTeamTheme((systemSettings.teams[myTeam] || {}).color);
 
                 // รายชื่อสำหรับช่วยกรอก (ถ้าแอดมินนำเข้าไว้)
                 get(ref(db, 'registry/people')).then(sn => {
@@ -512,7 +531,7 @@
                             </div>
                             <div class="small text-muted mb-2"><i class="far fa-clock me-1"></i>${esc(m.time)} น. | ${esc(m.category)}</div>
                             <div class="d-flex gap-1 flex-wrap">
-                                <span class="team-badge-mini ${count ? '' : 'opacity-50'}" style="background-color:${esc(team.color)}20; color:${esc(team.color)}; border-color:${esc(team.color)};">
+                                <span class="team-badge-mini ${count ? '' : 'opacity-50'}" style="background-color:${esc(team.color)}20; color:var(--team-color, ${esc(team.color)}); border-color:var(--team-color, ${esc(team.color)});">
                                     <i class="fas fa-user me-1"></i>นักกีฬา: ${count}</span>
                                 <span class="team-badge-mini ${scorerCount ? '' : 'opacity-50'}" style="background-color:#6c757d20; color:#555; border-color:#999;">
                                     <i class="fas fa-clipboard-check me-1"></i>ผู้ส่งคะแนน: ${scorerCount}</span>
@@ -559,8 +578,8 @@
                 <div class="col-12">
                     <div class="team-box h-100" style="border-left:5px solid ${esc(team.color)};">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="fw-bold m-0 text-dark"><i class="fas ${icon} me-2" style="color:${esc(team.color)};"></i>${title}</h5>
-                            <button class="btn btn-sm btn-light fw-bold border" style="color:${esc(team.color)}; border-color:${esc(team.color)};" onclick="addInput('${kind}')">
+                            <h5 class="fw-bold m-0 text-dark"><i class="fas ${icon} me-2" style="color:var(--team-color, ${esc(team.color)});"></i>${title}</h5>
+                            <button class="btn btn-sm btn-light fw-bold border" style="color:var(--team-color, ${esc(team.color)}); border-color:${esc(team.color)};" onclick="addInput('${kind}')">
                                 <i class="fas fa-plus"></i> เพิ่ม</button>
                         </div>${extra}
                         <div class="d-flex flex-column gap-2">${listHtml(kind, arr)}</div>
