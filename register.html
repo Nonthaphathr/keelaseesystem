@@ -649,7 +649,7 @@
             const td = (mcCache.teams || {})[myTeam] || {};
             document.getElementById('paradeTeamName').textContent = (systemSettings.teams[myTeam] || {}).name || '';
             document.getElementById('paradeFields').innerHTML = TEAM_PARADE_FIELDS.map(f => `<div class="col-md-${f.w}">
-                <label class="form-label fw-bold small mb-1">${f.l}</label>${f.note ? `<div class="small text-danger mb-1"><i class="fas fa-circle-info me-1"></i>หมายเหตุ: ${esc(f.note)}</div>` : ''}
+                <label class="form-label fw-bold small mb-1">${f.l}</label>${f.desc ? `<div class="small text-muted mb-1">${esc(f.desc)}</div>` : ''}${f.note ? `<div class="small text-danger mb-1"><i class="fas fa-circle-info me-1"></i>หมายเหตุ: ${esc(f.note)}</div>` : ''}
                 ${f.area ? `<textarea rows="${f.rows || 3}" class="form-control" data-f="${f.k}" data-orig="${esc(td[f.k] ?? '')}" placeholder="${esc(f.ph || '')}" oninput="checkParade()">${esc(td[f.k] ?? '')}</textarea>`
                 : `<input type="text" class="form-control" data-f="${f.k}" data-orig="${esc(td[f.k] ?? '')}" value="${esc(td[f.k] ?? '')}" placeholder="${esc(f.ph || (f.person ? 'พิมพ์ชื่อแล้วเลือกจากรายการ' : ''))}"
                        oninput="checkParade()">`}</div>`).join('');
