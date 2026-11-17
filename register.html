@@ -355,6 +355,7 @@
         let myTeam = null;                 // คณะสีของลิงก์นี้
         let allMatches = [];
         let currentMatchId = null;
+        let tempScorers = [];              // ผู้ส่งคะแนนลงระบบประจำสนาม (ของคณะนี้ ในรายการที่เปิดอยู่)
         let tempPlayers = [];              // รายชื่อนักกีฬาของคณะนี้ (ในรายการที่เปิดอยู่)
         let people = { students: [], teachers: [] };
         let systemSettings = {
@@ -492,6 +493,7 @@
             let lastDate = '', html = '';
             filtered.forEach((m, index) => {
                 const count = ((m.players || {})[myTeam] || []).filter(x => x).length;
+                const scorerCount = ((m.scorers || {})[myTeam] || []).filter(x => x).length;
                 const isDone = m.status === 'done';
                 if (m.date !== lastDate) {
                     lastDate = m.date;
@@ -512,6 +514,8 @@
                             <div class="d-flex gap-1 flex-wrap">
                                 <span class="team-badge-mini ${count ? '' : 'opacity-50'}" style="background-color:${esc(team.color)}20; color:${esc(team.color)}; border-color:${esc(team.color)};">
                                     <i class="fas fa-user me-1"></i>นักกีฬา: ${count}</span>
+                                <span class="team-badge-mini ${scorerCount ? '' : 'opacity-50'}" style="background-color:#6c757d20; color:#555; border-color:#999;">
+                                    <i class="fas fa-clipboard-check me-1"></i>ผู้ส่งคะแนน: ${scorerCount}</span>
                             </div>
                         </div>
                         <div class="text-secondary ps-3 opacity-50"><i class="fas fa-chevron-right fa-lg"></i></div>
@@ -528,13 +532,15 @@
             document.getElementById('modalCategory').innerText = m.category;
             document.getElementById('modalStatusBadge').classList.toggle('d-none', m.status !== 'done');
             tempPlayers = [...(((m.players || {})[myTeam]) || [])];
+            tempScorers = [...(((m.scorers || {})[myTeam]) || [])];
+            if (!tempScorers.length) tempScorers.push('');
             if (!tempPlayers.length) tempPlayers.push('');
             renderTeamInputs();
             new bootstrap.Modal(document.getElementById('regModal')).show();
         };
 
         function listHtml(kind, arr) {
-            const ph = 'ชื่อ-นามสกุล (พิมพ์แล้วเลือกจากรายการ)';
+            const ph = kind === 's' ? 'เช่น นายสมชาย ใจดี (พิมพ์แล้วเลือกจากรายการ)' : 'ชื่อ-นามสกุล (พิมพ์แล้วเลือกจากรายการ)';
             return arr.map((name, idx) => `
                 <div class="d-flex gap-2 mb-2">
                     <div class="input-group">
@@ -549,23 +555,26 @@
 
         function renderTeamInputs() {
             const team = systemSettings.teams[myTeam];
-            const box = (title, icon, kind, arr) => `
+            const box = (title, icon, kind, arr, extra = '') => `
                 <div class="col-12">
                     <div class="team-box h-100" style="border-left:5px solid ${esc(team.color)};">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h5 class="fw-bold m-0 text-dark"><i class="fas ${icon} me-2" style="color:${esc(team.color)};"></i>${title}</h5>
                             <button class="btn btn-sm btn-light fw-bold border" style="color:${esc(team.color)}; border-color:${esc(team.color)};" onclick="addInput('${kind}')">
                                 <i class="fas fa-plus"></i> เพิ่ม</button>
-                        </div>
+                        </div>${extra}
                         <div class="d-flex flex-column gap-2">${listHtml(kind, arr)}</div>
                     </div>
                 </div>`;
             document.getElementById('teamInputsContainer').innerHTML =
-                box(`นักกีฬา ${esc(team.name)}`, 'fa-user', 'p', tempPlayers);
+                box(`นักกีฬา ${esc(team.name)}`, 'fa-user', 'p', tempPlayers) +
+                box('ผู้ส่งคะแนนลงระบบประจำสนาม', 'fa-clipboard-check', 's', tempScorers,
+                    `<div class="small text-muted mb-1">มีหน้าที่รับใบลงทะเบียนที่กองอำนวยการก่อนแข่งกีฬา 10 นาที และทำหน้าที่บันทึกคะแนนการแข่งขันลงแอปพลิเคชัน</div>
+                     <div class="small text-danger mb-2"><i class="fas fa-circle-info me-1"></i>หมายเหตุ: ซ้ำคนได้กรณีแข่งคนละช่วงเวลา</div>`);
             checkAthlete();
         }
 
-        const arrOf = (k) => tempPlayers;
+        const arrOf = (k) => k === 's' ? tempScorers : tempPlayers;
         window.addInput = (k) => { arrOf(k).push(''); renderTeamInputs(); };
         window.removeInput = (k, idx) => { arrOf(k).splice(idx, 1); if (!arrOf(k).length) arrOf(k).push(''); renderTeamInputs(); };
 
@@ -606,7 +615,10 @@
                 if (!r.isConfirmed) return;
             }
             // เขียนเฉพาะข้อมูลของคณะตัวเอง ไม่แตะข้อมูลของคณะอื่น
-            set(ref(db, `matches/${currentMatchId}/players/${myTeam}`), players).then(() => {
+            Promise.all([
+                set(ref(db, `matches/${currentMatchId}/players/${myTeam}`), players),
+                set(ref(db, `matches/${currentMatchId}/scorers/${myTeam}`), clean(tempScorers))
+            ]).then(() => {
                 Swal.fire({ icon: 'success', title: 'บันทึกเรียบร้อย!', text: 'รายชื่อถูกส่งเข้าระบบกลางแล้ว', timer: 1500, showConfirmButton: false });
                 bootstrap.Modal.getInstance(document.getElementById('regModal')).hide();
             }).catch(err => {
@@ -624,9 +636,10 @@
             document.getElementById('hubSportStat').innerHTML = tot ? `ลงชื่อแล้ว <b>${done}/${tot}</b> รายการ` : 'ยังไม่มีรายการแข่งขัน';
             document.getElementById('hubSportBar').style.width = pct + '%';
             const td = (mcCache.teams || {})[myTeam] || {};
-            const f = TEAM_PARADE_FIELDS.filter(x => String(td[x.k] ?? '').trim()).length;
-            document.getElementById('hubParadeStat').innerHTML = `กรอกแล้ว <b>${f}/${TEAM_PARADE_FIELDS.length}</b> ช่อง`;
-            document.getElementById('hubParadeBar').style.width = Math.round(f * 100 / TEAM_PARADE_FIELDS.length) + '%';
+            const req = TEAM_PARADE_FIELDS.filter(x => !x.optional);
+            const f = req.filter(x => String(td[x.k] ?? '').trim()).length;
+            document.getElementById('hubParadeStat').innerHTML = `กรอกแล้ว <b>${f}/${req.length}</b> ช่อง`;
+            document.getElementById('hubParadeBar').style.width = Math.round(f * 100 / req.length) + '%';
         }
         const sugP = attachSuggest(document.getElementById('sugBox'), () => idx.all,
             (el, p) => { el.value = p.n; el.dispatchEvent(new Event('input', { bubbles: true })); checkParade(); });
@@ -693,7 +706,7 @@
             arrOf(k)[i] = el.value;
             checkAthlete();
             const q = norm(el.value);
-            const pool = k === 'p' ? idx.all : idx.teachers;
+            const pool = idx.all;
             if (q.length < 1 || !pool.length) { sugBox.style.display = 'none'; return; }
             const taken = new Set(arrOf(k).map(norm));
             const hits = pool.filter(p => p.key.includes(q) && !(taken.has(p.key) && p.key !== q))

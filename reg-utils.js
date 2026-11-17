@@ -17,7 +17,7 @@ export const TEAM_PARADE_FIELDS = [
     { k: 'count', l: 'จำนวนสมาชิก (คน)', w: 4 },
     { k: 'sign', l: 'ผู้ถือป้ายคณะสี', w: 6, person: true, list: true, ph: 'พิมพ์ชื่อแล้วเลือกจากรายการ' },
     { k: 'flag', l: 'ผู้ถือธงคณะสี', w: 6, person: true },
-    { k: 'scorer', l: 'ผู้ส่งคะแนนลงระบบประจำสนาม', w: 12, person: true, noConflict: true, list: true, desc: 'มีหน้าที่รับใบลงทะเบียนที่กองอำนวยการก่อนแข่งกีฬา 10 นาที และทำหน้าที่บันทึกคะแนนการแข่งขันลงแอปพลิเคชัน', note: 'ซ้ำคนได้กรณีแข่งคนละช่วงเวลา', ph: 'เช่น นายสมชาย ใจดี' }
+    { k: 'cheer_sign', l: 'ผู้ถือป้ายคณะหลีดเดอร์ (ถ้ามี)', w: 12, person: true, list: true, optional: true, ph: 'พิมพ์ชื่อแล้วเลือกจากรายการ (ไม่มีให้เว้นว่าง)' }
 ];
 export const SCHOOL_PARADE_FIELDS = [
     { k: 'mj', l: 'คฑากรนำขบวน', w: 4, person: true },

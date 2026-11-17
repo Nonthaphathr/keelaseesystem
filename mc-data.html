@@ -139,7 +139,7 @@
             { k: 'count', l: 'จำนวนสมาชิก (คน)', w: 4 },
             { k: 'sign', l: 'ผู้ถือป้ายคณะสี', w: 6, list: true, ph: 'ชื่อ-สกุล' },
             { k: 'flag', l: 'ผู้ถือธงคณะสี', w: 6 },
-            { k: 'scorer', l: 'ผู้ส่งคะแนนลงระบบประจำสนาม', w: 12, list: true, desc: 'มีหน้าที่รับใบลงทะเบียนที่กองอำนวยการก่อนแข่งกีฬา 10 นาที และทำหน้าที่บันทึกคะแนนการแข่งขันลงแอปพลิเคชัน', note: 'ซ้ำคนได้กรณีแข่งคนละช่วงเวลา', ph: 'เช่น นายสมชาย ใจดี' }
+            { k: 'cheer_sign', l: 'ผู้ถือป้ายคณะหลีดเดอร์ (ถ้ามี)', w: 12, list: true, optional: true, ph: 'ชื่อ-สกุล (ไม่มีให้เว้นว่าง)' }
         ];
         const LISTS = {
             torch: { title: 'นักกีฬาวิ่งคบเพลิง', icon: 'fa-fire', add: 'เพิ่มนักกีฬาคบเพลิง',
@@ -182,11 +182,11 @@
 
         function teamBlock(t, withLinkTools) {
             const td = (data.teams || {})[t.key] || {};
-            const filled = TEAM_FIELDS.filter(f => (td[f.k] || '').toString().trim()).length;
+            const filled = TEAM_FIELDS.filter(f => !f.optional && (td[f.k] || '').toString().trim()).length;
             return `<div class="team-block" style="border-left-color:${esc(t.color)} !important;">
                 <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                     <div class="fw-bold font-title"><span class="badge" style="background:${esc(t.color)};">&nbsp;</span> ${esc(t.name)}
-                        <span class="badge ${filled === TEAM_FIELDS.length ? 'bg-success' : 'bg-secondary'} ms-1">กรอกแล้ว ${filled}/${TEAM_FIELDS.length}</span></div>
+                        <span class="badge ${filled === TEAM_FIELDS.filter(f => !f.optional).length ? 'bg-success' : 'bg-secondary'} ms-1">กรอกแล้ว ${filled}/${TEAM_FIELDS.filter(f => !f.optional).length}</span></div>
                     ${withLinkTools ? `<button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="showTeamLink('${t.key}')"><i class="fas fa-qrcode me-1"></i>ออกลิงก์ให้ประธานสี</button>` : ''}
                 </div>
                 <div class="row g-2">${TEAM_FIELDS.map(f => field(`data-tk="${t.key}" data-tf="${f.k}"`, f, td[f.k])).join('')}</div></div>`;
