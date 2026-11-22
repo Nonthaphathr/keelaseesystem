@@ -84,7 +84,7 @@ export function athleteConflicts(matches) {
                 if (a.team !== b.team && a.role === b.role) out.push({ name: a.n, kind: 'both-teams', a, b });
                 continue;
             }
-            if (a.m.date === b.m.date && a.iv.s < b.iv.e && b.iv.s < a.iv.e) out.push({ name: a.n, kind: 'time', a, b });
+            if (a.m.date === b.m.date && a.iv.s === b.iv.s) out.push({ name: a.n, kind: 'time', a, b });
         }
     });
     return out;

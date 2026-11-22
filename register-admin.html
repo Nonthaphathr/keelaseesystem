@@ -395,8 +395,8 @@
             const ac = athleteConflicts(matches);
             const lbl = (x) => `${esc(sportName(x.m.sport))} ${esc(x.m.category || '')} (${lastDate(x.m)} ${esc(x.m.time)} น.${x.team ? ' · ' + esc(teamName(x.team)) : ''}${x.role === 'ครู' ? ' · ครู' : ''})`;
             document.getElementById('conflictAthlete').innerHTML = ac.length
-                ? `<div class="alert alert-warning mb-0"><b>ชื่อนักกีฬา/ครูที่เวลาแข่งซ้อนกัน (${ac.length})</b>
-                    <small class="d-block text-muted">เวลาจบประมาณจากหมายเหตุของรายการ ถ้าไม่มีสมมติ 60 นาที</small>
+                ? `<div class="alert alert-warning mb-0"><b>ชื่อนักกีฬา/ครูที่เวลาแข่งตรงกันเป๊ะ (${ac.length})</b>
+                    <small class="d-block text-muted">ตรวจเฉพาะรายการที่วันและเวลาเริ่มแข่งตรงกันเป๊ะ</small>
                     <ul class="mb-0 small mt-1">${ac.map(c => `<li><b>${esc(c.name)}</b> — ${c.kind === 'both-teams' ? 'ลงชื่อทั้งสองสีในรายการเดียวกัน: ' + lbl(c.a) + ' / ' + esc(teamName(c.b.team)) : lbl(c.a) + ' ชนกับ ' + lbl(c.b)}</li>`).join('')}</ul></div>`
                 : '<div class="text-success small"><i class="fas fa-circle-check me-1"></i>ไม่พบชื่อที่เวลาแข่งซ้อนกัน</div>';
         }

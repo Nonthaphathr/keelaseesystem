@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>รายการที่รับผิดชอบ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background: #eef2f7; }
+        .head { background: linear-gradient(135deg, #1a237e, #3949ab); color: #fff; padding: 16px 0; }
+        .head h1 { font-family: 'Kanit', sans-serif; font-size: 1.25rem; margin: 0; }
+        .item { display: block; text-decoration: none; color: inherit; background: #fff; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 3px 10px rgba(0,0,0,.07); border-left: 6px solid #3949ab; }
+        .item:active { transform: scale(.99); }
+        .item.done { border-left-color: #2e7d32; opacity: .75; }
+        .item .t { font-family: 'Kanit', sans-serif; font-size: 1.05rem; }
+        .day { font-family: 'Kanit', sans-serif; color: #1a237e; margin: 14px 0 8px; }
+    </style>
+</head>
+<body>
+<div class="head"><div class="container" style="max-width:640px;">
+    <div class="small opacity-75" id="evName">เจ้าหน้าที่ประจำสนาม</div>
+    <h1 id="title">กำลังโหลด...</h1>
+</div></div>
+
+<div class="container py-3" style="max-width:640px;">
+    <div id="list"><div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div></div>
+    <div class="text-center text-muted small mt-4">แตะรายการเพื่อเข้าหน้าลงคะแนนได้ทันที (ไม่ต้องใช้รหัสผ่าน)</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+
+const app = initializeApp({
+    apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
+    authDomain: "keelaseesystem.firebaseapp.com",
+    databaseURL: "https://keelaseesystem-default-rtdb.firebaseio.com",
+    projectId: "keelaseesystem",
+    storageBucket: "keelaseesystem.firebasestorage.app",
+    messagingSenderId: "434885983982",
+    appId: "1:434885983982:web:ffb751f1652abf2308fdff"
+});
+const db = getDatabase(app);
+const authReady = signInAnonymously(getAuth(app)).catch(e => console.warn('anonymous sign-in failed', e));
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const $ = (x) => document.getElementById(x);
+const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+const who = norm(new URLSearchParams(location.search).get('n'));
+
+let settings = {}, matches = {};
+const sportName = (k) => (settings.sports || {})[k] || k;
+const isPanel = (m) => m.sport === 'cheer' || m.sport === 'parade' || /ขบวน|พาเหรด|เชียร์/.test(sportName(m.sport));
+const fmtDate = (d) => { if (!d) return 'ไม่ระบุวัน'; const [y, mo, da] = d.split('-'); return `${+da}/${+mo}/${+y + 543}`; };
+const teamsText = (m) => (m.teams || []).map(k => ((settings.teams || {})[k] || {}).name || k).join(' vs ');
+
+if (!who) {
+    $('title').innerText = 'ลิงก์ไม่ถูกต้อง';
+    $('list').innerHTML = '<div class="text-danger text-center">ไม่พบชื่อเจ้าหน้าที่ในลิงก์</div>';
+} else {
+    $('title').innerText = who;
+    authReady.then(() => {
+        onValue(ref(db, 'settings'), s => { settings = s.val() || {}; if (settings.eventName) $('evName').innerText = settings.eventName + ' ' + (settings.academicYear || ''); draw(); });
+        onValue(ref(db, 'matches'), s => { matches = s.val() || {}; draw(); });
+    });
+}
+
+function draw() {
+    const mine = Object.entries(matches).map(([id, m]) => ({ ...m, id }))
+        .map(m => ({ m, idx: (m.referees || []).findIndex(r => norm(r) === who) }))
+        .filter(x => x.idx >= 0)
+        .sort((a, b) => ((a.m.date || '') + (a.m.time || '')).localeCompare((b.m.date || '') + (b.m.time || '')));
+    if (!mine.length) { $('list').innerHTML = '<div class="alert alert-warning text-center">ยังไม่พบรายการที่ท่านรับผิดชอบ<br><small>โปรดแจ้งผู้ดูแลระบบ</small></div>'; return; }
+    const byDay = {};
+    mine.forEach(x => (byDay[x.m.date || ''] = byDay[x.m.date || ''] || []).push(x));
+    $('list').innerHTML = Object.keys(byDay).sort().map(d => `<div class="day"><i class="fas fa-calendar-day me-1"></i>${fmtDate(d)}</div>` +
+        byDay[d].map(({ m, idx }) => {
+            const href = `judge.html?m=${encodeURIComponent(m.id)}${isPanel(m) ? '&j=' + (idx + 1) : ''}`;
+            const done = m.status === 'done';
+            return `<a class="item ${done ? 'done' : ''}" href="${href}">
+                <div class="t">${esc(sportName(m.sport))} <small class="text-muted">(${esc(m.category || '')})</small> ${done ? '<span class="badge bg-success">จบแล้ว</span>' : ''}</div>
+                <div class="small text-muted">${esc(teamsText(m))}</div>
+                <div class="small"><i class="fas fa-clock me-1"></i>${esc(m.time || '-')} น. &nbsp; <i class="fas fa-location-dot me-1"></i>${esc(m.location || '-')}</div>
+                <div class="small text-primary mt-1"><i class="fas fa-pen-to-square me-1"></i>แตะเพื่อลงคะแนน</div></a>`;
+        }).join('')).join('');
+}
+</script>
+</body>
+</html>
