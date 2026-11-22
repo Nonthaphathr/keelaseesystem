@@ -83,6 +83,19 @@
             </div>
 
             <div class="form-card">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <h6 class="fw-bold mb-0"><i class="fas fa-id-card text-success me-2"></i>การ์ด QR ผู้ส่งคะแนนประจำสนาม <span class="badge bg-secondary" id="scTotal"></span></h6>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <select id="scTeam" class="form-select form-select-sm" style="width:auto" onchange="renderScorers()"></select>
+                        <button class="btn btn-sm btn-primary rounded-pill" onclick="printScorerCards()"><i class="fas fa-print me-1"></i>พิมพ์การ์ด</button>
+                    </div>
+                </div>
+                <p class="small text-muted mb-2">รายชื่อนักเรียนผู้ส่งคะแนนที่แต่ละคณะสีกรอกตอนลงทะเบียน (ตรวจชื่อพิมพ์คล้ายกันและรวมให้เป็นคนเดียว) สแกน QR แล้วเข้าหน้ารายการที่รับผิดชอบ แตะเข้าลงคะแนนได้ทันทีโดยไม่ต้องใช้รหัสผ่าน</p>
+                <div id="scWarn" class="mb-2"></div>
+                <div class="row g-2" id="scGrid"></div>
+            </div>
+
+            <div class="form-card">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                     <h6 class="fw-bold mb-0"><i class="fas fa-clipboard-list text-primary me-2"></i>ข้อมูลการลงทะเบียน</h6>
                     <div class="d-flex gap-2 flex-wrap">
@@ -137,7 +150,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
         import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
-        import { TEAM_PARADE_FIELDS, SCHOOL_PARADE_FIELDS, paradeConflicts, athleteConflicts, attachSuggest, fmtTime } from "./reg-utils.js";
+        import { TEAM_PARADE_FIELDS, SCHOOL_PARADE_FIELDS, paradeConflicts, athleteConflicts, scorerCards, attachSuggest, fmtTime } from "./reg-utils.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -397,9 +410,54 @@
             document.getElementById('conflictAthlete').innerHTML = ac.length
                 ? `<div class="alert alert-warning mb-0"><b>ชื่อนักกีฬา/ครูที่เวลาแข่งตรงกันเป๊ะ (${ac.length})</b>
                     <small class="d-block text-muted">ตรวจเฉพาะรายการที่วันและเวลาเริ่มแข่งตรงกันเป๊ะ</small>
-                    <ul class="mb-0 small mt-1">${ac.map(c => `<li><b>${esc(c.name)}</b> — ${c.kind === 'both-teams' ? 'ลงชื่อทั้งสองสีในรายการเดียวกัน: ' + lbl(c.a) + ' / ' + esc(teamName(c.b.team)) : lbl(c.a) + ' ชนกับ ' + lbl(c.b)}</li>`).join('')}</ul></div>`
+                    <ul class="mb-0 small mt-1">${ac.map(c => `<li><b>${esc(c.name)}</b>${c.fuzzy ? ' <span class="badge bg-info text-dark">ชื่อคล้ายกัน: ' + esc(c.b.n) + '</span>' : ''} — ${c.kind === 'both-teams' ? 'ลงชื่อทั้งสองสีในรายการเดียวกัน: ' + lbl(c.a) + ' / ' + esc(teamName(c.b.team)) : lbl(c.a) + ' ชนกับ ' + lbl(c.b)}</li>`).join('')}</ul></div>`
                 : '<div class="text-success small"><i class="fas fa-circle-check me-1"></i>ไม่พบชื่อที่เวลาแข่งซ้อนกัน</div>';
         }
+
+        // ===== การ์ด QR ผู้ส่งคะแนนประจำสนาม =====
+        const staffUrl = (c) => { const u = new URL('staff.html', location.href); u.searchParams.set('t', c.team); u.searchParams.set('n', c.name); return u.href; };
+        const staffQr = (c, n) => `https://api.qrserver.com/v1/create-qr-code/?size=${n}x${n}&margin=4&data=${encodeURIComponent(staffUrl(c))}`;
+        const scList = () => { const f = (document.getElementById('scTeam') || {}).value || 'all'; return scorerCards(matches).filter(c => f === 'all' || c.team === f); };
+        window.renderScorers = () => {
+            const sel = document.getElementById('scTeam'), v = sel.value;
+            sel.innerHTML = '<option value="all">ทุกคณะสี</option>' + activeTeams().map(t => `<option value="${t.key}">${esc(t.name)}</option>`).join('');
+            sel.value = [...sel.options].some(o => o.value === v) ? v : 'all';
+            const list = scList();
+            document.getElementById('scTotal').textContent = list.length + ' คน';
+            const fz = list.filter(c => c.variants.length > 1);
+            document.getElementById('scWarn').innerHTML = fz.length
+                ? `<div class="alert alert-info py-2 mb-0 small"><b>พบชื่อที่พิมพ์ไม่ตรงกันแต่คล้ายกัน (${fz.length}) — รวมเป็นคนเดียวกันแล้ว ควรให้คณะสีแก้ให้เหมือนกัน</b><ul class="mb-0 mt-1">${fz.map(c => `<li>${esc(teamName(c.team))}: ${c.variants.map(esc).join(' / ')}</li>`).join('')}</ul></div>` : '';
+            document.getElementById('scGrid').innerHTML = list.length ? list.map(c => {
+                const t = settings.teams[c.team] || {};
+                return `<div class="col-6 col-md-4 col-lg-3"><div class="border rounded-3 p-2 text-center h-100 bg-white" style="border-top:5px solid ${esc(t.color || '#999')} !important;">
+                    <img src="${staffQr(c, 170)}" class="img-fluid" alt="QR">
+                    <div class="fw-bold">${esc(c.name)}</div>
+                    <div class="small" style="color:${esc(t.color || '#666')}"><i class="fas fa-circle me-1" style="font-size:.6rem"></i>${esc(teamName(c.team))}</div>
+                    <div class="small text-muted">รับผิดชอบ ${c.ms.length} รายการ</div>
+                    <details class="small text-start mt-1"><summary class="text-primary" style="cursor:pointer">ดูรายการ</summary><ul class="ps-3 mb-0">${c.ms.map(m => `<li>${esc(mLabel(m))} • ${thaiDate(m.date)} ${esc(m.time)} น.</li>`).join('')}</ul></details>
+                </div></div>`;
+            }).join('') : '<div class="text-center text-muted py-3">ยังไม่มีคณะสีใดกรอกผู้ส่งคะแนน</div>';
+        };
+        window.printScorerCards = () => {
+            const list = scList();
+            if (!list.length) return Swal.fire({ icon: 'info', title: 'ไม่มีการ์ดให้พิมพ์' });
+            const ev = esc(`${settings.eventName || ''} ${settings.academicYear || ''}`.trim());
+            const cards = list.map(c => { const t = settings.teams[c.team] || {};
+                return `<div class="c" style="border-color:${esc(t.color || '#3949ab')}"><div class="ev">${ev}</div><div class="ti">การ์ดส่งคะแนนประจำสนาม</div>
+                <img src="${staffQr(c, 260)}"><div class="nm">${esc(c.name)}</div><div class="tm" style="color:${esc(t.color || '#333')}">${esc(teamName(c.team))}</div>
+                <div class="sm">สแกนเพื่อเข้าลงคะแนนรายการที่รับผิดชอบ (${c.ms.length} รายการ)</div>
+                <ul>${c.ms.slice(0, 8).map(m => `<li>${esc(mLabel(m))} • ${thaiDate(m.date)} ${esc(m.time)} น.</li>`).join('')}${c.ms.length > 8 ? '<li>...</li>' : ''}</ul></div>`; }).join('');
+            const w = window.open('', '_blank');
+            if (!w) return Swal.fire({ icon: 'warning', title: 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์', text: 'กรุณาอนุญาต pop-up แล้วลองใหม่' });
+            w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>การ์ดผู้ส่งคะแนน</title>
+                <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&family=Kanit:wght@600&display=swap" rel="stylesheet">
+                <style>@page{size:A4;margin:10mm}body{font-family:'Sarabun',sans-serif;margin:0}.g{display:grid;grid-template-columns:repeat(2,1fr);gap:8mm}
+                .c{border:3px dashed;border-radius:10px;padding:7mm;text-align:center;page-break-inside:avoid}.ev{font-size:11pt;color:#555}.ti{font-family:'Kanit',sans-serif;font-size:15pt;color:#1a237e}
+                img{width:52mm;height:52mm;margin:3mm 0}.nm{font-size:16pt;font-weight:700}.tm{font-size:13pt;font-weight:700}.sm{font-size:10pt;color:#555;margin-bottom:2mm}
+                ul{text-align:left;font-size:9.5pt;margin:2mm 0 0;padding-left:5mm}</style></head><body><div class="g">${cards}</div>
+                <script>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))<\/script></body></html>`);
+            w.document.close();
+        };
 
         // ===== เริ่มต้น =====
         (async function init() {
@@ -418,7 +476,7 @@
                 onValue(ref(db, 'matches'), (snap) => {
                     const d = snap.val();
                     matches = d ? Object.keys(d).map(k => ({ ...d[k], id: k })).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)) : [];
-                    renderTeams(); renderFilters(); renderList(); renderConflicts();
+                    renderTeams(); renderFilters(); renderList(); renderConflicts(); renderScorers();
                 });
                 onValue(ref(db, 'mcData'), (snap) => { mc = snap.val() || {}; renderSchoolParade(); renderParadeRows(); renderConflicts(); });
                 get(ref(db, 'registry/people')).then(sn => { const v = sn.val() || {}; const a = (x) => (x && typeof x === 'object') ? Object.values(x) : []; people = { students: a(v.students), teachers: a(v.teachers) }; }).catch(() => {});

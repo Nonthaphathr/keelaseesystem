@@ -382,11 +382,6 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="#" onclick="openStaffCards(); return false;" class="btn btn-sm btn-outline-success border-0 w-100 text-start text-lg-center">
-                            <i class="fas fa-id-card me-1"></i> การ์ด QR เจ้าหน้าที่
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a href="ceremony-docs.html" target="_blank" class="btn btn-sm btn-outline-primary border-0 w-100 text-start text-lg-center">
                             <i class="fas fa-file-invoice me-1"></i> สร้างเอกสารพิธีการ
                         </a>
@@ -688,6 +683,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-success me-auto" onclick="openStaffCardsFromJudge()"><i class="fas fa-id-card me-1"></i> การ์ด QR ผู้ส่งคะแนนประจำสนาม</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
                     <button type="button" class="btn btn-primary" onclick="jlCopy()"><i class="fas fa-copy me-1"></i> คัดลอกข้อความ</button>
                 </div>
@@ -703,7 +699,7 @@
                     <button class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="small text-muted mb-2">สร้างจากรายชื่อ "กรรมการผู้ตัดสิน" ที่ใส่ในแต่ละรายการ — สแกน QR แล้วจะเห็นเฉพาะรายการที่ผู้นั้นรับผิดชอบ แตะเข้าหน้าลงคะแนนได้ทันที ไม่ต้องใช้รหัสผ่าน</div>
+                    <div class="small text-muted mb-2">สร้างจากรายชื่อ "ผู้ส่งคะแนนประจำสนาม" ที่แต่ละคณะสีกรอกในหน้าลงทะเบียน (ตรวจชื่อพิมพ์คล้ายกันและรวมเป็นคนเดียว) — สแกน QR แล้วเห็นเฉพาะรายการที่ผู้นั้นรับผิดชอบ แตะเข้าลงคะแนนได้ทันที ไม่ต้องใช้รหัสผ่าน</div>
                     <div class="row g-2 mb-3">
                         <div class="col-md-4"><input id="scSearch" class="form-control form-control-sm" placeholder="ค้นหาชื่อ..." oninput="scRender()"></div>
                         <div class="col-md-3"><div class="form-check small mt-1"><input class="form-check-input" type="checkbox" id="scHideDone" checked onchange="scRender()"><label class="form-check-label" for="scHideDone">ไม่นับรายการที่จบแล้ว</label></div></div>
@@ -3590,53 +3586,60 @@
         navigator.clipboard.writeText(el.value).then(() => Swal.fire({ icon: 'success', title: 'คัดลอกแล้ว', timer: 1000, showConfirmButton: false }));
     };
 
-    // ===== การ์ด QR เจ้าหน้าที่ประจำสนาม =====
-    const scNorm = (n) => String(n || '').replace(/\s+/g, ' ').trim();
+    // ===== การ์ด QR ผู้ส่งคะแนนประจำสนาม (ข้อมูลจากที่แต่ละคณะสีกรอกตอนลงทะเบียน) =====
+    let scMod = null;
+    const scTeamName = (k) => ((systemSettings.teams || {})[k] || {}).name || k;
+    const scTeamColor = (k) => ((systemSettings.teams || {})[k] || {}).color || '#3949ab';
     const scStaff = () => {
         const hide = document.getElementById('scHideDone').checked;
-        const q = scNorm(document.getElementById('scSearch').value).toLowerCase();
-        const map = {};
-        jlSorted().forEach(m => (m.referees || []).forEach(r => {
-            const n = scNorm(r); if (!n) return;
-            if (hide && m.status === 'done') return;
-            const o = (map[n] = map[n] || { name: n, ms: [] });
-            if (!o.ms.includes(m)) o.ms.push(m);
-        }));
-        return Object.values(map).filter(o => !q || o.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+        const q = String(document.getElementById('scSearch').value || '').replace(/\s+/g, '').toLowerCase();
+        const src = allMatchesArray.map(m => hide && m.status === 'done' ? { ...m, scorers: {} } : m);
+        return scMod.scorerCards(src).filter(c => !q || c.variants.some(v => v.replace(/\s+/g, '').toLowerCase().includes(q)));
     };
-    const scUrl = (n) => location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '') + 'staff.html?n=' + encodeURIComponent(n);
-    const scQr = (n, size) => `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=4&data=${encodeURIComponent(scUrl(n))}`;
-    const scLines = (o) => o.ms.map(m => `${esc2(getSportName(m.sport))} ${esc2(m.category || '')} • ${esc2(m.time || '')} น.`);
-    window.openStaffCards = () => { document.getElementById('scSearch').value = ''; scRender(); new bootstrap.Modal(document.getElementById('staffCardModal')).show(); };
+    const scUrl = (c) => location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '') + 'staff.html?t=' + encodeURIComponent(c.team) + '&n=' + encodeURIComponent(c.name);
+    const scQr = (c, size) => `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=4&data=${encodeURIComponent(scUrl(c))}`;
+    const scLine = (m) => `${esc2(getSportName(m.sport))} ${esc2(m.category || '')} • ${esc2(m.time || '')} น.`;
+    window.openStaffCardsFromJudge = () => {
+        const el = document.getElementById('judgeLinkModal');
+        const inst = bootstrap.Modal.getInstance(el);
+        if (inst) { el.addEventListener('hidden.bs.modal', () => openStaffCards(), { once: true }); inst.hide(); } else openStaffCards();
+    };
+    window.openStaffCards = async () => {
+        scMod = scMod || await import('./reg-utils.js');
+        document.getElementById('scSearch').value = '';
+        scRender();
+        new bootstrap.Modal(document.getElementById('staffCardModal')).show();
+    };
     window.scRender = () => {
+        if (!scMod) return;
         const list = scStaff();
         document.getElementById('scCount').innerText = `${list.length} คน`;
-        document.getElementById('scGrid').innerHTML = list.length ? list.map(o => `
-            <div class="col-6 col-md-4 col-lg-3"><div class="border rounded-3 p-2 text-center h-100 bg-white">
-                <img src="${scQr(o.name, 180)}" class="img-fluid" alt="QR ${esc2(o.name)}">
-                <div class="fw-bold mt-1">${esc2(o.name)}</div>
-                <div class="small text-muted">รับผิดชอบ ${o.ms.length} รายการ</div>
-            </div></div>`).join('') : '<div class="text-center text-muted p-4">ยังไม่มีรายชื่อกรรมการในรายการแข่งขัน</div>';
+        document.getElementById('scGrid').innerHTML = list.length ? list.map(c => `
+            <div class="col-6 col-md-4 col-lg-3"><div class="border rounded-3 p-2 text-center h-100 bg-white" style="border-top:5px solid ${scTeamColor(c.team)} !important;">
+                <img src="${scQr(c, 180)}" class="img-fluid" alt="QR ${esc2(c.name)}">
+                <div class="fw-bold mt-1">${esc2(c.name)}</div>
+                <div class="small" style="color:${scTeamColor(c.team)}">${esc2(scTeamName(c.team))}</div>
+                <div class="small text-muted">รับผิดชอบ ${c.ms.length} รายการ${c.variants.length > 1 ? '<br><span class="text-info">ชื่อพิมพ์ไม่ตรงกัน: ' + c.variants.map(esc2).join(' / ') + '</span>' : ''}</div>
+            </div></div>`).join('') : '<div class="text-center text-muted p-4">ยังไม่มีคณะสีใดกรอกผู้ส่งคะแนนในหน้าลงทะเบียน</div>';
     };
     window.scPrint = () => {
+        if (!scMod) return;
         const list = scStaff();
         if (!list.length) { Swal.fire({ icon: 'info', title: 'ไม่มีการ์ดให้พิมพ์' }); return; }
         const ev = esc2(`${systemSettings.eventName || ''} ${systemSettings.academicYear || ''}`.trim());
-        const cards = list.map(o => `<div class="c"><div class="ev">${ev}</div><div class="ti">การ์ดส่งคะแนน</div>
-            <img src="${scQr(o.name, 260)}"><div class="nm">${esc2(o.name)}</div>
-            <div class="sm">สแกนเพื่อเข้าลงคะแนนรายการที่รับผิดชอบ (${o.ms.length} รายการ)</div>
-            <ul>${scLines(o).slice(0, 8).map(l => `<li>${l}</li>`).join('')}${o.ms.length > 8 ? '<li>...</li>' : ''}</ul></div>`).join('');
+        const cards = list.map(c => `<div class="c" style="border-color:${scTeamColor(c.team)}"><div class="ev">${ev}</div><div class="ti">การ์ดส่งคะแนนประจำสนาม</div>
+            <img src="${scQr(c, 260)}"><div class="nm">${esc2(c.name)}</div><div class="tm" style="color:${scTeamColor(c.team)}">${esc2(scTeamName(c.team))}</div>
+            <div class="sm">สแกนเพื่อเข้าลงคะแนนรายการที่รับผิดชอบ (${c.ms.length} รายการ)</div>
+            <ul>${c.ms.slice(0, 8).map(m => `<li>${scLine(m)}</li>`).join('')}${c.ms.length > 8 ? '<li>...</li>' : ''}</ul></div>`).join('');
         const w = window.open('', '_blank');
         if (!w) { Swal.fire({ icon: 'warning', title: 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์', text: 'กรุณาอนุญาต pop-up แล้วลองใหม่' }); return; }
-        w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>การ์ด QR เจ้าหน้าที่</title>
+        w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>การ์ด QR ผู้ส่งคะแนน</title>
             <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&family=Kanit:wght@600&display=swap" rel="stylesheet">
-            <style>@page{size:A4;margin:10mm}body{font-family:'Sarabun',sans-serif;margin:0}
-            .g{display:grid;grid-template-columns:repeat(2,1fr);gap:8mm}
-            .c{border:2px dashed #3949ab;border-radius:10px;padding:8mm;text-align:center;page-break-inside:avoid}
-            .ev{font-size:11pt;color:#555}.ti{font-family:'Kanit',sans-serif;font-size:16pt;color:#1a237e}
-            img{width:55mm;height:55mm;margin:3mm 0}.nm{font-size:16pt;font-weight:700}.sm{font-size:10pt;color:#555;margin-bottom:2mm}
+            <style>@page{size:A4;margin:10mm}body{font-family:'Sarabun',sans-serif;margin:0}.g{display:grid;grid-template-columns:repeat(2,1fr);gap:8mm}
+            .c{border:3px dashed;border-radius:10px;padding:7mm;text-align:center;page-break-inside:avoid}.ev{font-size:11pt;color:#555}.ti{font-family:'Kanit',sans-serif;font-size:15pt;color:#1a237e}
+            img{width:52mm;height:52mm;margin:3mm 0}.nm{font-size:16pt;font-weight:700}.tm{font-size:13pt;font-weight:700}.sm{font-size:10pt;color:#555;margin-bottom:2mm}
             ul{text-align:left;font-size:9.5pt;margin:2mm 0 0;padding-left:5mm}</style></head><body><div class="g">${cards}</div>
-            <script>const im=[...document.images];Promise.all(im.map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))<\/script></body></html>`);
+            <script>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))<\/script></body></html>`);
         w.document.close();
     };
 

@@ -50,6 +50,63 @@ export function paradeConflicts(mc, teams) {
         .map(a => ({ name: a[0].n, entries: a.map(x => ({ label: x.label, scope: x.scope })) }));
 }
 
+
+// ---------- เทียบชื่อแบบ fuzzy (พิมพ์ผิด/สระ-วรรณยุกต์ต่างกันเล็กน้อย) ----------
+export function editDist(a, b) {
+    if (a === b) return 0;
+    const A = [...a], B = [...b];
+    if (Math.abs(A.length - B.length) > 2) return 9;
+    let prev = Array.from({ length: B.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= A.length; i++) {
+        const cur = [i];
+        for (let j = 1; j <= B.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (A[i - 1] === B[j - 1] ? 0 : 1));
+        prev = cur;
+    }
+    return prev[B.length];
+}
+// ka, kb = ชื่อที่ผ่าน normName แล้ว : สั้น (<5) ต้องตรงเป๊ะ, 5-13 ตัวอักษรต่างได้ 1, ยาวกว่านั้นต่างได้ 2
+export function similarKey(ka, kb) {
+    if (!ka || !kb) return false;
+    if (ka === kb) return true;
+    const L = Math.min([...ka].length, [...kb].length);
+    if (L < 5) return false;
+    return editDist(ka, kb) <= (L >= 14 ? 2 : 1);
+}
+export const similarName = (a, b) => similarKey(normName(a), normName(b));
+// รวมคีย์ที่คล้ายกันเป็นกลุ่มเดียว คืน {key: คีย์ตัวแทนของกลุ่ม}
+export function clusterKeys(keys) {
+    const ks = [...new Set(keys)], par = {};
+    ks.forEach(k => par[k] = k);
+    const find = (x) => par[x] === x ? x : (par[x] = find(par[x]));
+    for (let i = 0; i < ks.length; i++) for (let j = i + 1; j < ks.length; j++)
+        if (similarKey(ks[i], ks[j])) par[find(ks[j])] = find(ks[i]);
+    const out = {}; ks.forEach(k => out[k] = find(k));
+    return out;
+}
+
+// ---------- ผู้ส่งคะแนนประจำสนาม (ที่แต่ละคณะสีกรอกตอนลงทะเบียน) ----------
+// คืน [{ team, name, variants:[ชื่อที่พิมพ์ต่างกัน], ms:[match], fuzzy:boolean }] จัดกลุ่มตามคณะสี + ชื่อที่คล้ายกัน
+export function scorerCards(matches) {
+    const rows = [];
+    (matches || []).forEach(m => Object.keys(m.scorers || {}).forEach(tk => ((m.scorers || {})[tk] || []).forEach(n => {
+        const raw = String(n || '').replace(/\s+/g, ' ').trim(), k = normName(raw);
+        if (k) rows.push({ tk, raw, k, m });
+    })));
+    const out = [];
+    [...new Set(rows.map(r => r.tk))].forEach(tk => {
+        const rs = rows.filter(r => r.tk === tk), rep = clusterKeys(rs.map(r => r.k)), g = {};
+        rs.forEach(r => (g[rep[r.k]] = g[rep[r.k]] || []).push(r));
+        Object.values(g).forEach(a => {
+            const cnt = {}; a.forEach(r => cnt[r.raw] = (cnt[r.raw] || 0) + 1);
+            const variants = Object.keys(cnt).sort((x, y) => cnt[y] - cnt[x]);
+            const ms = []; a.forEach(r => { if (!ms.includes(r.m)) ms.push(r.m); });
+            ms.sort((x, y) => ((x.date || '') + (x.time || '')).localeCompare((y.date || '') + (y.time || '')));
+            out.push({ team: tk, name: variants[0], variants, ms, fuzzy: new Set(a.map(r => r.k)).size > 1 });
+        });
+    });
+    return out.sort((a, b) => a.team.localeCompare(b.team) || a.name.localeCompare(b.name, 'th'));
+}
+
 // ---------- ตรวจชื่อชนกันตามเวลาแข่งขัน ----------
 const toMin = (t) => { const m = String(t || '').match(/(\d{1,2})[:.](\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : null; };
 export function matchInterval(m) {
@@ -73,18 +130,21 @@ export function athleteConflicts(matches) {
             const k = normName(n); if (k) (by[k] = by[k] || []).push({ n, m, team: tk, role: 'ครู', iv });
         }));
     });
+    // รวมชื่อที่คล้ายกัน (พิมพ์ผิดเล็กน้อย) เป็นคนเดียวกัน
+    const rep = clusterKeys(Object.keys(by)), merged = {};
+    Object.keys(by).forEach(k => { (merged[rep[k]] = merged[rep[k]] || []).push(...by[k]); });
     const out = [];
-    Object.values(by).forEach(arr => {
+    Object.values(merged).forEach(arr => {
         for (let i = 0; i < arr.length; i++) for (let j = i + 1; j < arr.length; j++) {
             const a = arr[i], b = arr[j];
             if (a.role === 'ครู' && b.role === 'ครู') {
                 // ครูคนเดียวคุมหลายรายการเวลาชนกันก็เตือนเช่นกัน
             }
             if (a.m.id === b.m.id) {
-                if (a.team !== b.team && a.role === b.role) out.push({ name: a.n, kind: 'both-teams', a, b });
+                if (a.team !== b.team && a.role === b.role) out.push({ name: a.n, kind: 'both-teams', a, b, fuzzy: normName(a.n) !== normName(b.n) });
                 continue;
             }
-            if (a.m.date === b.m.date && a.iv.s === b.iv.s) out.push({ name: a.n, kind: 'time', a, b });
+            if (a.m.date === b.m.date && a.iv.s === b.iv.s) out.push({ name: a.n, kind: 'time', a, b, fuzzy: normName(a.n) !== normName(b.n) });
         }
     });
     return out;
