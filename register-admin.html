@@ -126,13 +126,16 @@
                         <label class="btn btn-outline-primary" for="tplInvite"><i class="fas fa-bullhorn me-1"></i>ข้อความเชิญลงทะเบียน</label>
                         <input type="radio" class="btn-check" name="tplType" id="tplFollow" value="follow" onchange="genTpl()">
                         <label class="btn btn-outline-primary" for="tplFollow"><i class="fas fa-bell me-1"></i>ข้อความติดตาม</label>
+                        <input type="radio" class="btn-check" name="tplType" id="tplMeet" value="meet" onchange="genTpl()">
+                        <label class="btn btn-outline-primary" for="tplMeet"><i class="fas fa-clipboard-check me-1"></i>นัดพบผู้ส่งคะแนนฯ</label>
                     </div>
                     <div class="row g-2 mb-3">
                         <div class="col-md-4"><label class="form-label small fw-bold mb-1">คณะสี</label><select id="tplTeam" class="form-select form-select-sm" onchange="genTpl()"></select></div>
                         <div class="col-md-4"><label class="form-label small fw-bold mb-1">กำหนดส่ง</label><input id="tplDeadline" class="form-control form-control-sm" placeholder="เช่น วันที่ 25 พ.ย. 2569" oninput="genTpl()"></div>
                         <div class="col-md-4"><label class="form-label small fw-bold mb-1">ผู้ประสานงาน/เบอร์ติดต่อ</label><input id="tplContact" class="form-control form-control-sm" placeholder="เช่น ครูนนท์ 08x-xxx-xxxx" oninput="genTpl()"></div>
                     </div>
-                    <textarea id="tplText" class="form-control tpl" rows="14"></textarea>
+                    <div class="mb-3" id="tplMeetRow" style="display:none"><label class="form-label small fw-bold mb-1">วัน เวลา สถานที่นัดพบ (ใช้กับข้อความนัดพบผู้ส่งคะแนนฯ)</label><input id="tplMeet" class="form-control form-control-sm" placeholder="เช่น วันที่ 25 พ.ย. 2569 เวลา 15.30 น. ห้องประชุม..." oninput="genTpl()"></div>
+                    <textarea id="tplText" class="form-control tpl" rows="16"></textarea>
                     <small class="text-muted">แก้ไขข้อความในกล่องได้ก่อนคัดลอก (เปลี่ยนตัวเลือกด้านบนจะสร้างข้อความใหม่)</small>
                 </div>
                 <div class="modal-footer">
@@ -214,6 +217,7 @@
                         <button class="btn btn-sm btn-primary rounded-pill" onclick="showTeamLink('${t.key}')"><i class="fas fa-qrcode me-1"></i>ลิงก์/QR</button>
                         <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="openTpl('${t.key}','invite')"><i class="fas fa-bullhorn me-1"></i>ข้อความเชิญ</button>
                         <button class="btn btn-sm btn-outline-warning rounded-pill" onclick="openTpl('${t.key}','follow')"><i class="fas fa-bell me-1"></i>ติดตาม</button>
+                        <button class="btn btn-sm btn-outline-success rounded-pill" onclick="openTpl('${t.key}','meet')"><i class="fas fa-clipboard-check me-1"></i>นัดพบผู้ส่งคะแนน</button>
                     </div></div></div>`;
             }).join('') || '<div class="text-muted">ยังไม่มีคณะสีในระบบ</div>';
         }
@@ -294,27 +298,77 @@
             const sel = document.getElementById('tplTeam');
             sel.innerHTML = activeTeams().map(t => `<option value="${t.key}">${esc(t.name)}</option>`).join('') + '<option value="all">ทุกคณะสี (สรุปติดตาม)</option>';
             sel.value = tk || (activeTeams()[0] || {}).key;
-            document.getElementById(type === 'follow' ? 'tplFollow' : 'tplInvite').checked = true;
+            document.getElementById(type === 'follow' ? 'tplFollow' : type === 'meet' ? 'tplMeet' : 'tplInvite').checked = true;
             try {
                 const p = JSON.parse(localStorage.getItem('regTplPrefs') || '{}');
-                document.getElementById('tplDeadline').value = p.deadline || ''; document.getElementById('tplContact').value = p.contact || '';
+                document.getElementById('tplDeadline').value = p.deadline || ''; document.getElementById('tplContact').value = p.contact || ''; document.getElementById('tplMeet').value = p.meet || '';
             } catch (e) {}
             // เตรียมลิงก์ทุกสีไว้ก่อน เพื่อใส่ในข้อความได้ทันที
             try { for (const t of activeTeams()) await ensureTeamToken(t.key, false); } catch (e) { console.warn(e); }
             tplModal = tplModal || new bootstrap.Modal(document.getElementById('tplModal'));
             tplModal.show(); genTpl();
         };
-        function buildTpl(type, tk, deadline, contact) {
+        // สถานะข้อมูลขบวนพาเหรดของคณะสี (ช่องที่ต้องกรอก ยกเว้นช่องที่ระบุว่า optional)
+        function paradeStat(tk) {
+            const d = (mc.teams || {})[tk] || {}, req = TEAM_PARADE_FIELDS.filter(f => !f.optional);
+            const missing = req.filter(f => !String(d[f.k] ?? '').trim()).map(f => f.l.replace(/\s*\(.*\)/, ''));
+            return { total: req.length, done: req.length - missing.length, missing };
+        }
+        // สถานะผู้ส่งคะแนนประจำสนาม: รายการของคณะนี้ที่ยังไม่มีผู้ส่งคะแนน
+        function scorerStat(tk) {
+            const mine = matches.filter(m => teamsOf(m).includes(tk));
+            const missing = mine.filter(m => scorers(m, tk).length === 0);
+            return { total: mine.length, done: mine.length - missing.length, missing };
+        }
+        function followExtra(tk, link) {
+            const ps = paradeStat(tk), ss = scorerStat(tk);
+            let t = `\n🚩 ข้อมูลขบวนพาเหรด: `;
+            t += ps.missing.length ? `กรอกแล้ว ${ps.done}/${ps.total} ช่อง ยังขาด ${ps.missing.join(', ')}\n` : `ครบแล้ว ✅\n`;
+            t += `📋 ผู้ส่งคะแนนประจำสนาม: `;
+            if (!ss.missing.length) t += `ระบุครบทุกรายการแล้ว ✅\n`;
+            else {
+                t += `ระบุแล้ว ${ss.done}/${ss.total} รายการ ยังไม่ระบุ ${ss.missing.length} รายการ:\n` +
+                    ss.missing.slice(0, 15).map((m, i) => `   ${i + 1}. ${mLabel(m)} (${thaiDate(m.date)} ${m.time} น.)`).join('\n') +
+                    (ss.missing.length > 15 ? `\n   … และอีก ${ss.missing.length - 15} รายการ` : '') + '\n';
+            }
+            return t;
+        }
+        function meetTpl(tk, meet, contact) {
+            const ev = `${settings.eventName} ประจำปีการศึกษา ${settings.academicYear}`;
+            const ct = contact ? `📞 สอบถาม: ${contact}\n` : '';
+            const base = new URL('staff.html', location.href);
+            const people = scorerCards(matches).filter(c => c.team === tk);
+            const link = teamTokens[tk] ? regUrl(teamTokens[tk]) : '(ยังไม่ได้ออกลิงก์)';
+            const who = people.length ? people.map(c => { const u = new URL(base); u.searchParams.set('t', c.team); u.searchParams.set('n', c.name); return `   • ${c.name} (${c.ms.length} รายการ)\n     ${u.href}`; }).join('\n') : '   (ยังไม่มีรายชื่อผู้ส่งคะแนน — กรอกในลิงก์ลงทะเบียนของคณะสี)';
+            return `📣 นัดพบผู้ส่งคะแนนประจำสนาม\n${ev}\nคณะ${teamName(tk)}\n\n` +
+                `${meet ? '🗓 นัดพบ: ' + meet + '\n\n' : ''}` +
+                `เรียน นักเรียนผู้ส่งคะแนนประจำสนาม คณะ${teamName(tk)}\nขอชี้แจงขั้นตอนการทำงานในวันแข่งขัน ดังนี้\n\n` +
+                `1️⃣ ตรวจสอบรายชื่อ — คณะสีกรอกชื่อผู้ส่งคะแนนของแต่ละรายการไว้ในหน้าลงทะเบียน\n   ${link}\n` +
+                `2️⃣ รับการ์ด QR — แต่ละคนมีการ์ด QR ของตนเอง (ครูผู้ประสานงานแจกให้ หรือกดลิงก์ส่วนตัวด้านล่าง)\n` +
+                `3️⃣ วันแข่ง — ไปที่สนามก่อนเวลาแข่ง 15 นาที แจ้งตัวกับครู/กรรมการประจำสนาม\n` +
+                `4️⃣ สแกน QR (หรือกดลิงก์) → จะเห็นเฉพาะรายการที่ตนรับผิดชอบ → แตะรายการเพื่อเข้าหน้าลงคะแนน (ไม่ต้องใช้รหัสผ่าน)\n` +
+                `5️⃣ ลงคะแนน — กดบันทึกคะแนนทุกครั้งที่มีการเปลี่ยนแปลง ตรวจสอบผลกับกรรมการให้ถูกต้อง\n` +
+                `6️⃣ เมื่อจบรายการ — กด "จบการแข่งขัน" และยืนยัน หากต้องแก้ไขหลังจากนั้นให้แจ้งครูผู้ดูแลระบบ\n\n` +
+                `👤 รายชื่อและลิงก์ส่วนตัว:\n${who}\n\n` +
+                `⚠️ อย่าส่งต่อ QR/ลิงก์ให้ผู้อื่น และลงคะแนนเฉพาะรายการที่ได้รับมอบหมาย\n${ct}ขอบคุณครับ/ค่ะ 🙏`;
+        }
+        function buildTpl(type, tk, deadline, contact, meet) {
             const ev = `${settings.eventName} ประจำปีการศึกษา ${settings.academicYear}`;
             const dl = deadline ? `📌 กำหนดส่ง: ${deadline}\n` : '';
             const ct = contact ? `📞 สอบถาม: ${contact}\n` : '';
+            if (type === 'meet') {
+                if (tk === 'all') return activeTeams().map(tm => meetTpl(tm.key, meet, contact)).join('\n\n━━━━━━━━━━━━━━\n\n');
+                return meetTpl(tk, meet, contact);
+            }
             if (tk === 'all') {
-                let t = `📣 สรุปติดตามการลงทะเบียนนักกีฬา\n${ev}\n\n`;
+                let t = `📣 สรุปติดตามการลงทะเบียน\n${ev}\n\n`;
                 activeTeams().forEach(tm => {
-                    const st = stat(tm.key);
-                    t += `● ${tm.name}: ลงแล้ว ${st.done}/${st.total} รายการ${st.missing.length ? ` (ค้าง ${st.missing.length})` : ' ✅ ครบ'}\n`;
-                    st.missing.slice(0, 15).forEach(m => { t += `   - ${mLabel(m)} (${thaiDate(m.date)} ${m.time} น.)\n`; });
-                    if (st.missing.length > 15) t += `   … และอีก ${st.missing.length - 15} รายการ\n`;
+                    const st = stat(tm.key), ps = paradeStat(tm.key), ss = scorerStat(tm.key);
+                    t += `● ${tm.name}\n   นักกีฬา: ${st.done}/${st.total} รายการ${st.missing.length ? ` (ค้าง ${st.missing.length})` : ' ✅'}\n`;
+                    st.missing.slice(0, 15).forEach(m => { t += `     - ${mLabel(m)} (${thaiDate(m.date)} ${m.time} น.)\n`; });
+                    if (st.missing.length > 15) t += `     … และอีก ${st.missing.length - 15} รายการ\n`;
+                    t += `   ขบวนพาเหรด: ${ps.missing.length ? `${ps.done}/${ps.total} ช่อง (ขาด ${ps.missing.join(', ')})` : 'ครบ ✅'}\n`;
+                    t += `   ผู้ส่งคะแนนฯ: ${ss.done}/${ss.total} รายการ${ss.missing.length ? ` (ค้าง ${ss.missing.length})` : ' ✅'}\n`;
                 });
                 return t + `\n${dl}${ct}`.trimEnd();
             }
@@ -324,25 +378,29 @@
                 const mine = matches.filter(m => teamsOf(m).includes(tk));
                 const lines = [...new Set(mine.map(mLabel))];
                 return `📢 เชิญลงทะเบียนนักกีฬา ${ev}\nคณะ${nm}\n\n` +
-                    `เรียน คณะครู/ผู้ปกครอง/นักเรียนคณะ${nm}\nขอเชิญกรอกรายชื่อนักกีฬาในแต่ละรายการแข่งขัน ผ่านลิงก์ด้านล่าง\n\n` +
+                    `เรียน คณะครู/ผู้ปกครอง/นักเรียนคณะ${nm}\nขอเชิญกรอกรายชื่อนักกีฬาในแต่ละรายการแข่งขัน พร้อมผู้ส่งคะแนนประจำสนามและข้อมูลขบวนพาเหรด ผ่านลิงก์ด้านล่าง\n\n` +
                     `👉 ${link}\n\n` +
                     `💡 พิมพ์ชื่อสักสองสามตัวอักษร ระบบจะแสดงรายชื่อให้เลือก\n` +
                     `🏅 รายการที่ต้องลงทะเบียน (${st.total} รายการ):\n${lines.slice(0, 25).map(l => `   • ${l}`).join('\n')}${lines.length > 25 ? `\n   … และอื่น ๆ` : ''}\n\n` +
                     `${dl}${ct}ลิงก์นี้ใช้ได้เฉพาะคณะ${nm} ขอบคุณครับ/ค่ะ 🙏`;
             }
-            if (!st.missing.length) return `✅ คณะ${nm} ลงทะเบียนนักกีฬาครบทุกรายการแล้ว (${st.done}/${st.total})\nขอบคุณทุกท่านที่ให้ความร่วมมือ 🙏\n\nหากต้องการแก้ไขรายชื่อ เข้าที่ลิงก์เดิมได้ตลอด:\n${link}`;
-            return `⏰ แจ้งติดตามการลงทะเบียนนักกีฬา\n${ev}\nคณะ${nm}\n\n` +
-                `ขณะนี้ลงทะเบียนแล้ว ${st.done} จาก ${st.total} รายการ\nยังไม่ได้ลงชื่อ ${st.missing.length} รายการ:\n` +
-                st.missing.slice(0, 25).map((m, i) => `${i + 1}. ${mLabel(m)} (${thaiDate(m.date)} ${m.time} น.)`).join('\n') +
-                `${st.missing.length > 25 ? `\n… และอีก ${st.missing.length - 25} รายการ` : ''}\n\n` +
-                `👉 กรอกต่อได้ที่ ${link}\n\n${dl}${ct}รบกวนดำเนินการโดยเร็ว ขอบคุณครับ/ค่ะ 🙏`;
+            const head = `⏰ แจ้งติดตามการลงทะเบียน\n${ev}\nคณะ${nm}\n\n`;
+            const ath = st.missing.length
+                ? `🏅 นักกีฬา: ลงทะเบียนแล้ว ${st.done} จาก ${st.total} รายการ\nยังไม่ได้ลงชื่อ ${st.missing.length} รายการ:\n` +
+                  st.missing.slice(0, 25).map((m, i) => `${i + 1}. ${mLabel(m)} (${thaiDate(m.date)} ${m.time} น.)`).join('\n') +
+                  `${st.missing.length > 25 ? `\n… และอีก ${st.missing.length - 25} รายการ` : ''}\n`
+                : `🏅 นักกีฬา: ลงทะเบียนครบทุกรายการแล้ว (${st.done}/${st.total}) ✅\n`;
+            const ps = paradeStat(tk), ss = scorerStat(tk);
+            if (!st.missing.length && !ps.missing.length && !ss.missing.length) return `✅ คณะ${nm} ลงทะเบียนครบแล้วทั้งนักกีฬา ขบวนพาเหรด และผู้ส่งคะแนนประจำสนาม\nขอบคุณทุกท่านที่ให้ความร่วมมือ 🙏`;
+            return head + ath + followExtra(tk, link) + `\n👉 กรอกต่อได้ที่ ${link}\n\n${dl}${ct}รบกวนดำเนินการโดยเร็ว ขอบคุณครับ/ค่ะ 🙏`;
         }
         window.genTpl = () => {
             const type = document.querySelector('input[name=tplType]:checked').value;
             const tk = document.getElementById('tplTeam').value;
-            const deadline = document.getElementById('tplDeadline').value.trim(), contact = document.getElementById('tplContact').value.trim();
-            try { localStorage.setItem('regTplPrefs', JSON.stringify({ deadline, contact })); } catch (e) {}
-            const text = buildTpl(tk === 'all' ? 'follow' : type, tk, deadline, contact);
+            const deadline = document.getElementById('tplDeadline').value.trim(), contact = document.getElementById('tplContact').value.trim(), meet = document.getElementById('tplMeet').value.trim();
+            document.getElementById('tplMeetRow').style.display = type === 'meet' ? '' : 'none';
+            try { localStorage.setItem('regTplPrefs', JSON.stringify({ deadline, contact, meet })); } catch (e) {}
+            const text = buildTpl(tk === 'all' && type !== 'meet' ? 'follow' : type, tk, deadline, contact, meet);
             document.getElementById('tplText').value = text;
             document.getElementById('tplLine').href = 'https://line.me/R/msg/text/?' + encodeURIComponent(text);
         };
