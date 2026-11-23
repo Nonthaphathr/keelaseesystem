@@ -87,7 +87,8 @@
                     <h6 class="fw-bold mb-0"><i class="fas fa-id-card text-success me-2"></i>การ์ด QR ผู้ส่งคะแนนประจำสนาม <span class="badge bg-secondary" id="scTotal"></span></h6>
                     <div class="d-flex gap-2 flex-wrap">
                         <select id="scTeam" class="form-select form-select-sm" style="width:auto" onchange="renderScorers()"></select>
-                        <button class="btn btn-sm btn-primary rounded-pill" onclick="printScorerCards()"><i class="fas fa-print me-1"></i>พิมพ์การ์ด</button>
+                        <button class="btn btn-sm btn-primary rounded-pill" onclick="printScorerCards()"><i class="fas fa-print me-1"></i>พิมพ์การ์ด (รายบุคคล)</button>
+                        <button class="btn btn-sm btn-success rounded-pill" onclick="openMatchCardPicker()"><i class="fas fa-list-check me-1"></i>พิมพ์ตามรายการแข่งขัน</button>
                     </div>
                 </div>
                 <p class="small text-muted mb-2">รายชื่อนักเรียนผู้ส่งคะแนนที่แต่ละคณะสีกรอกตอนลงทะเบียน (ตรวจชื่อพิมพ์คล้ายกันและรวมให้เป็นคนเดียว) สแกน QR แล้วเข้าหน้ารายการที่รับผิดชอบ แตะเข้าลงคะแนนได้ทันทีโดยไม่ต้องใช้รหัสผ่าน</p>
@@ -172,6 +173,33 @@
                 <div class="modal-footer">
                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
                     <button class="btn btn-success" id="editRegSave" onclick="saveEditReg()"><i class="fas fa-save me-1"></i>บันทึก</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- เลือกรายการแข่งขันเพื่อพิมพ์การ์ด QR (แสดงผู้ส่งคะแนนของทุกสี) -->
+    <div class="modal fade" id="mcPickModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-list-check me-2"></i>พิมพ์การ์ด QR ตามรายการแข่งขัน</h5>
+                    <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="small text-muted mb-2">เลือกรายการที่ต้องการ ระบบจะพิมพ์การ์ดรายการละ 1 ใบ แสดงรายละเอียดการแข่งขัน และ QR ผู้ส่งคะแนนของทุกคณะสี</div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                        <select id="mpSport" class="form-select form-select-sm" style="width:auto" onchange="mpRender()"></select>
+                        <select id="mpDate" class="form-select form-select-sm" style="width:auto" onchange="mpRender()"></select>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="mpAll(true)">เลือกที่แสดงทั้งหมด</button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="mpAll(false)">ไม่เลือก</button>
+                        <span class="badge bg-primary ms-auto" id="mpCount"></span>
+                    </div>
+                    <div id="mpList"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
+                    <button class="btn btn-success" onclick="printMatchCards()"><i class="fas fa-print me-1"></i>พิมพ์การ์ดที่เลือก</button>
                 </div>
             </div>
         </div>
@@ -593,6 +621,71 @@
                 .c{border:3px dashed;border-radius:10px;padding:7mm;text-align:center;page-break-inside:avoid}.ev{font-size:11pt;color:#555}.ti{font-family:'Kanit',sans-serif;font-size:15pt;color:#1a237e}
                 img{width:52mm;height:52mm;margin:3mm 0}.nm{font-size:16pt;font-weight:700}.tm{font-size:13pt;font-weight:700}.sm{font-size:10pt;color:#555;margin-bottom:2mm}
                 ul{text-align:left;font-size:9.5pt;margin:2mm 0 0;padding-left:5mm}</style></head><body><div class="g">${cards}</div>
+                <script>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))<\/script></body></html>`);
+            w.document.close();
+        };
+
+        // ===== พิมพ์การ์ด QR ตามรายการแข่งขัน: 1 รายการ = 1 การ์ด แสดงผู้ส่งคะแนน + QR ของทุกคณะสี =====
+        const mpSel = new Set();
+        let mpReady = false;
+        window.openMatchCardPicker = () => {
+            const sp = [...new Set(matches.map(m => m.sport))], ds = [...new Set(matches.map(m => m.date).filter(Boolean))].sort();
+            const sSel = document.getElementById('mpSport'), dSel = document.getElementById('mpDate');
+            const sv = sSel.value, dv = dSel.value;
+            sSel.innerHTML = '<option value="all">ทุกกีฬา</option>' + sp.map(k => `<option value="${esc(k)}">${esc(sportName(k))}</option>`).join('');
+            dSel.innerHTML = '<option value="all">ทุกวัน</option>' + ds.map(d => `<option value="${esc(d)}">${esc(thaiDate(d))}</option>`).join('');
+            if ([...sSel.options].some(o => o.value === sv)) sSel.value = sv;
+            if ([...dSel.options].some(o => o.value === dv)) dSel.value = dv;
+            mpRender();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('mcPickModal')).show();
+        };
+        const mpShown = () => {
+            const sv = document.getElementById('mpSport').value, dv = document.getElementById('mpDate').value;
+            return matches.filter(m => (sv === 'all' || m.sport === sv) && (dv === 'all' || m.date === dv));
+        };
+        window.mpRender = () => {
+            const list = mpShown(), cards = scorerCards(matches);
+            let lastD = null, h = '';
+            list.forEach(m => {
+                if (m.date !== lastD) { lastD = m.date; h += `<div class="fw-bold text-primary mt-2 mb-1 border-bottom">${esc(thaiDate(m.date))}</div>`; }
+                const n = cards.filter(c => c.ms.some(x => x.id === m.id)).length;
+                h += `<label class="d-flex gap-2 align-items-center py-1 border-bottom" style="cursor:pointer"><input class="form-check-input mt-0" type="checkbox" ${mpSel.has(m.id) ? 'checked' : ''} onchange="mpTick('${m.id}', this.checked)">
+                    <span class="text-muted small" style="width:3.2em">${esc(m.time || '')}</span><span class="flex-grow-1">${esc(mLabel(m))}</span>
+                    <span class="badge ${n ? 'bg-secondary' : 'bg-warning text-dark'}">${n ? n + ' ผู้ส่งคะแนน' : 'ยังไม่มีผู้ส่งคะแนน'}</span></label>`;
+            });
+            document.getElementById('mpList').innerHTML = h || '<div class="text-center text-muted py-3">ไม่มีรายการ</div>';
+            mpCount();
+        };
+        const mpCount = () => { document.getElementById('mpCount').textContent = 'เลือก ' + mpSel.size + ' รายการ'; };
+        window.mpTick = (id, on) => { on ? mpSel.add(id) : mpSel.delete(id); mpCount(); };
+        window.mpAll = (on) => { mpShown().forEach(m => on ? mpSel.add(m.id) : mpSel.delete(m.id)); mpRender(); };
+        window.printMatchCards = () => {
+            const chosen = matches.filter(m => mpSel.has(m.id));
+            if (!chosen.length) return Swal.fire({ icon: 'info', title: 'ยังไม่ได้เลือกรายการ' });
+            const cards = scorerCards(matches), teams = activeTeams();
+            const ev = esc(`${settings.eventName || ''} ${settings.academicYear || ''}`.trim());
+            const html = chosen.map(m => {
+                const cols = teams.map(t => {
+                    const who = cards.filter(c => c.team === t.key && c.ms.some(x => x.id === m.id));
+                    return `<div class="tc" style="border-color:${esc(t.color || '#3949ab')}"><div class="tn" style="color:${esc(t.color || '#333')}">${esc(t.name)}</div>
+                        ${who.length ? `<div class="qs">${who.map(c => `<div class="q"><img src="${staffQr(c, 240)}"><div class="nm">${esc(c.name)}</div></div>`).join('')}</div>` : '<div class="no">ยังไม่ได้ระบุผู้ส่งคะแนน</div>'}</div>`;
+                }).join('');
+                return `<div class="c"><div class="hd"><div class="ev">${ev} • การ์ดผู้ส่งคะแนนประจำสนาม</div>
+                    <div class="ml">${esc(mLabel(m))}</div><div class="mt">${esc(thaiDate(m.date))} เวลา ${esc(m.time || '-')} น.${m.location ? ' • ' + esc(m.location) : ''}</div></div>
+                    <div class="cols">${cols}</div><div class="ft">สแกน QR ของตนเอง เพื่อเข้าลงคะแนนรายการที่ได้รับมอบหมาย</div></div>`;
+            }).join('');
+            const w = window.open('', '_blank');
+            if (!w) return Swal.fire({ icon: 'warning', title: 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์', text: 'กรุณาอนุญาต pop-up แล้วลองใหม่' });
+            w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>การ์ดผู้ส่งคะแนนตามรายการ</title>
+                <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&family=Kanit:wght@600&display=swap" rel="stylesheet">
+                <style>@page{size:A4;margin:10mm}body{font-family:'Sarabun',sans-serif;margin:0}
+                .c{border:2px solid #1a237e;border-radius:10px;padding:5mm;margin-bottom:6mm;page-break-inside:avoid;break-inside:avoid}
+                .hd{text-align:center;border-bottom:1px solid #ccc;padding-bottom:2mm;margin-bottom:3mm}.ev{font-size:10pt;color:#555}
+                .ml{font-family:'Kanit',sans-serif;font-size:16pt;color:#1a237e}.mt{font-size:11pt;color:#333}
+                .cols{display:grid;grid-template-columns:repeat(${Math.max(1, teams.length)},1fr);gap:4mm}
+                .tc{border:3px solid;border-radius:8px;padding:3mm;text-align:center}.tn{font-size:14pt;font-weight:700;margin-bottom:2mm}
+                .qs{display:flex;flex-wrap:wrap;justify-content:center;gap:3mm}.q{width:38mm}.q img{width:36mm;height:36mm}.nm{font-size:11pt;font-weight:700;line-height:1.2}
+                .no{font-size:11pt;color:#b71c1c;padding:10mm 0}.ft{text-align:center;font-size:9pt;color:#555;margin-top:2mm}</style></head><body>${html}
                 <script>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))<\/script></body></html>`);
             w.document.close();
         };
