@@ -614,7 +614,7 @@
                 }
 
                 const atSec = document.getElementById('awardTeacherSection');
-                const showAT = (type === 'closing_chairman' || type === 'closing_report');
+                const showAT = (type === 'closing_chairman');   // บทประกาศผลรางวัลใช้ช่องผู้มอบรายรายการแทน
                 atSec.classList.toggle('d-none', !showAT);
                 if (showAT) {
                     document.getElementById('awardTeacherList').innerHTML = cxList('award_teachers',
@@ -737,11 +737,26 @@
         }
 
         // ----- ผู้มอบรางวัลรายรายการ (กรอกอิสระ เว้นว่าง = ประธานมอบ) -----
+        // รายชื่อครูสำหรับ suggest (ดึงจากทะเบียนบุคลากร registry/people; ถ้าไม่มีครูใช้รายชื่อทั้งหมด)
+        let cxPeopleNames = [];
+        function cxPresenterNames() {
+            return [...new Set([...cxAwardTeachers().map(x => x.replace(/ \(.*\)$/, '')), ...cxPeopleNames].filter(Boolean))];
+        }
+        function cxLoadPeople() {
+            get(ref(db, 'registry/people')).then(sn => {
+                const v = sn.val() || {}, arr = (x) => (x && typeof x === 'object') ? Object.values(x) : [];
+                const nm = (a) => a.map(p => (p && (p.n || p.name) || '').toString().trim()).filter(Boolean);
+                const t = nm(arr(v.teachers));
+                cxPeopleNames = t.length ? t : nm(arr(v.students));
+                const dl = document.getElementById('awPresList');
+                if (dl) dl.innerHTML = cxPresenterNames().map(n => `<option value="${cxEsc(n)}">`).join('');
+            }).catch(() => {});
+        }
         window.renderAwardPresenters = () => {
             const sports = [...new Set(allMatchesArray.map(m => m.sport))];
             const aw = cxComputeAwards(sports);
             cd.award_pres = cd.award_pres || {};
-            const names = cxAwardTeachers().map(x => x.replace(/ \(.*\)$/, ''));
+            const names = cxPresenterNames();
             const row = (key, label) => `<div class="d-flex gap-2 align-items-center mb-1"><div class="small" style="flex:3"><i class="fas fa-trophy text-warning me-1"></i>${cxEsc(label)}</div>
                 <input type="text" list="awPresList" class="form-control form-control-sm" style="flex:2" data-key="${cxEsc(key)}" value="${cxEsc(cd.award_pres[key] || '')}" placeholder="ผู้มอบ (ว่าง = ประธาน)" oninput="cxSetPres(this)"></div>`;
             // ผู้มอบอยู่ในแถวของแต่ละกีฬา เทียบกับรายการรางวัลโดยตรง (กรอกได้ก่อนกดสร้างบท)
@@ -2103,7 +2118,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             // รอเข้าสู่ระบบแบบ anonymous ก่อนอ่านฐานข้อมูล (ไม่งั้นโดน permission denied แล้วตัวโหลดค้างตลอด)
-            authReady.then(() => { loadSettings(); loadMatches(); });
+            authReady.then(() => { loadSettings(); loadMatches(); cxLoadPeople(); });
         });
     </script>
 </body>
