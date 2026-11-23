@@ -12,6 +12,9 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx@9/dist/index.iife.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+    <script src="thai-docx.js"></script>
     
     <style>
         :root {
@@ -288,6 +291,13 @@
                             <i class="fas fa-bullhorn text-primary"></i>
                             <h6 class="fw-bold mb-1">บทพิธีกรบรรยายกีฬา</h6>
                             <small class="text-muted">ดึงทุกกีฬาจากตารางแข่งขัน เรียงตามเวลา แยกไฟล์ตามกีฬา / เกริ่นนำ / กล่าวปิด</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="doc-type-card" onclick="selectDocType('mc_book')">
+                            <i class="fas fa-book text-danger"></i>
+                            <h6 class="fw-bold mb-1">ส่งออกบทพิธีกรทั้งหมด (.docx)</h6>
+                            <small class="text-muted">ปกหน้า + กำหนดการ + บทพิธีกรทุกส่วน รวมเป็นไฟล์เดียว พิมพ์ครั้งเดียว</small>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -1131,11 +1141,12 @@
         }
 
         // ===== เอกสารพิธีเปิดเพิ่มเติม: กำหนดการ / บทพิธีกร / คำปฏิญาณและประวัตินักกีฬา =====
-        const EXTRA_TYPES = ['opening_schedule', 'opening_mc', 'mc_sport', 'oath', 'athlete_bio'];
+        const EXTRA_TYPES = ['opening_schedule', 'opening_mc', 'mc_sport', 'mc_book', 'oath', 'athlete_bio'];
         const EXTRA_TITLES = {
             opening_schedule: 'กำหนดการพิธีเปิด',
             opening_mc: 'บทพิธีกร พิธีเปิด',
             mc_sport: 'บทพิธีกรบรรยายกีฬา (ทุกชนิดกีฬา)',
+            mc_book: 'ส่งออกบทพิธีกรทั้งหมด (ปก + กำหนดการ + บทพิธีกร)',
             oath: 'คำกล่าวปฏิญาณตนของนักกีฬาอาวุโส',
             athlete_bio: 'ประวัตินักกีฬาอาวุโสและนักกีฬาวิ่งคบเพลิง'
         };
@@ -1207,18 +1218,19 @@
             s.classList.remove('d-none');
             s.classList.add('fade-in');
             document.getElementById('extraTitle').textContent = 'ขั้นตอนที่ 2: กรอกข้อมูล — ' + EXTRA_TITLES[type];
-            const forms = { opening_schedule: cxFormSchedule, opening_mc: cxFormMc, mc_sport: cxFormMcSport, oath: cxFormOath, athlete_bio: cxFormBio };
+            const forms = { opening_schedule: cxFormSchedule, opening_mc: cxFormMc, mc_sport: cxFormMcSport, mc_book: cxFormMcBook, oath: cxFormOath, athlete_bio: cxFormBio };
             const pullBar = `<div class="col-12"><div class="alert alert-info border-0 py-2 mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <small><i class="fas fa-qrcode me-1"></i>ข้อมูลที่พิธีกร/ประธานสีกรอกผ่านลิงก์ ดึงมาใส่ฟอร์มนี้ได้</small>
                 <button type="button" class="btn btn-sm btn-primary rounded-pill" onclick="cxPullRemote()"><i class="fas fa-cloud-arrow-down me-1"></i>ดึงข้อมูล</button></div></div>`;
             document.getElementById('extraForm').innerHTML = pullBar + forms[type]();
             saveCd();
             Object.keys(cxEditors).forEach(cxRenderList);
-            if (type === 'mc_sport') msRenderPicker();
+            if (type === 'mc_sport' || type === 'mc_book') msRenderPicker();
         }
 
         window.generateExtraDocument = () => {
             if (selectedDocType === 'mc_sport') { msGenerate(); return; }
+            if (selectedDocType === 'mc_book') { msBookExport(); return; }
             const docs = { opening_schedule: cxDocSchedule, opening_mc: cxDocMc, oath: cxDocOath, athlete_bio: cxDocBio };
             document.getElementById('documentContent').innerHTML = docs[selectedDocType]();
             new bootstrap.Modal(document.getElementById('previewModal')).show();
@@ -1863,13 +1875,72 @@
             return h;
         }
 
+        // =========================================================
+        // ส่งออกบทพิธีกรทั้งหมด (.docx): ปกหน้า + กำหนดการ + บทพิธีกรพิธีเปิด + บทบรรยายกีฬา รวมไฟล์เดียว
+        // =========================================================
+        let bkOpts = { cover: true, schedule: true, opening: true, sports: true };
+        window.bkOpt = (k, v) => { bkOpts[k] = v; };
+        function cxFormMcBook() {
+            // เตรียมค่าเริ่มต้นของข้อมูลทุกฟอร์มที่ต้องใช้ (กำหนดการ/บทพิธีกรพิธีเปิด) แม้ยังไม่เคยเปิดฟอร์มนั้น
+            cxFormSchedule(); cxFormMc();
+            const chk = (k, label) => `<div class="form-check"><input class="form-check-input" type="checkbox" id="bk_${k}" ${bkOpts[k] ? 'checked' : ''} onchange="bkOpt('${k}', this.checked)"><label class="form-check-label" for="bk_${k}">${label}</label></div>`;
+            return cxSec('ส่วนประกอบของเล่ม', 'fa-book', 'ไฟล์เดียวเรียงตามลำดับ: ปกหน้า → กำหนดการ → บทพิธีกรพิธีเปิด → บทบรรยายกีฬา (เริ่มหน้าใหม่ทุกส่วน) แก้ข้อมูลของกำหนดการ/บทพิธีกรพิธีเปิดได้ที่เมนูของเอกสารนั้น ๆ')
+                + `<div class="col-12"><div class="p-3 rounded-4 border bg-white">${chk('cover', 'ปกหน้า (มีรายการสารบัญและชื่อพิธีกร)')}${chk('schedule', 'กำหนดการพิธีเปิด')}${chk('opening', 'บทพิธีกร พิธีเปิด (ขบวน/พิธีการ)')}${chk('sports', 'บทพิธีกรบรรยายกีฬา (ตามกีฬาที่เลือกด้านล่าง)')}</div></div>`
+                + cxFormMcSport();
+        }
+        function bkCoverHtml(parts) {
+            const ev = cxEsc(systemSettings.eventName), yr = cxEsc(systemSettings.academicYear), S = cxEsc(systemSettings.schoolName);
+            const hasEv = (systemSettings.eventLogo || '').trim() !== '';
+            const logos = `<div style="display:flex; justify-content:center; align-items:center; gap:30px; margin-bottom:10px;"><img src="${systemSettings.schoolLogo}" style="height:4cm;">${hasEv ? `<img src="${systemSettings.eventLogo}" style="height:4cm;">` : ''}</div>`;
+            const mc = (n, full, cls) => (full || n) ? `<div style="text-align:center; font-size:18pt; margin-top:6px;">${cxEsc(full || n)}${(cls || '').trim() ? ' ชั้นมัธยมศึกษาปีที่ ' + cxEsc(cls) : ''}</div>` : '';
+            const toc = parts.map((t, i) => `<div style="font-size:16pt; margin-left:3cm; margin-top:4px;">${i + 1}. ${cxEsc(t)}</div>`).join('');
+            return `<div style="text-align:center; margin-top:40px;">${logos}</div>
+                <div style="text-align:center; font-size:44pt; font-weight:bold; margin-top:50px;">บทพิธีกร</div>
+                <div style="text-align:center; font-size:26pt; font-weight:bold; margin-top:12px;">"${ev}"</div>
+                <div style="text-align:center; font-size:22pt; margin-top:8px;">ประจำปีการศึกษา ${yr}</div>
+                <div style="text-align:center; font-size:20pt; margin-top:36px;">${S}</div>
+                <div style="text-align:center; font-size:18pt; margin-top:10px; font-weight:bold;">${cxDateLine()}</div>
+                <div style="text-align:center; font-size:18pt;">ณ ${cxDots(cd.x_venue, 25)}</div>
+                <div style="text-align:center; font-size:18pt; font-weight:bold; margin-top:50px;">พิธีกร</div>
+                ${mc(cd.mc1, cd.mc1_full, cd.mc1_cls)}${mc(cd.mc2, cd.mc2_full, cd.mc2_cls)}
+                <div style="text-align:center; font-size:18pt; font-weight:bold; margin-top:50px;">รายการในเล่ม</div>
+                ${toc}`;
+        }
+        window.msBookExport = async () => {
+            if (typeof docx === 'undefined' || typeof JSZip === 'undefined' || !window.ThaiDocx) {
+                Swal.fire({ icon: 'error', title: 'โหลดตัวสร้างไฟล์ .docx ไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้านี้' }); return;
+            }
+            let files = [];
+            if (bkOpts.sports) { files = msBuildFiles(true); if (files === null) return; }
+            const secs = [], toc = [];
+            if (bkOpts.schedule) { secs.push({ html: cxDocSchedule(), newPage: true }); toc.push('กำหนดการพิธีเปิด'); }
+            if (bkOpts.opening) { secs.push({ html: cxDocMc(), newPage: true }); toc.push('บทพิธีกร พิธีเปิด'); }
+            files.forEach(f => { secs.push({ html: f.html, newPage: true }); toc.push(f.title); });
+            if (!secs.length && !bkOpts.cover) { Swal.fire({ icon: 'warning', title: 'ยังไม่ได้เลือกส่วนประกอบ' }); return; }
+            if (bkOpts.sports && !files.length) { await Swal.fire({ icon: 'info', title: 'ไม่มีบทบรรยายกีฬา', text: 'ยังไม่ได้เลือกกีฬา หรือยังไม่มีรายการแข่งขัน จะส่งออกเฉพาะส่วนอื่น', timer: 2500, showConfirmButton: false }); }
+            if (bkOpts.cover) secs.unshift({ html: bkCoverHtml(toc), newPage: false });
+            Swal.fire({ title: 'กำลังสร้างไฟล์ .docx', text: 'รอสักครู่...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            try {
+                const blob = await ThaiDocx.build(secs, { title: `บทพิธีกร ${systemSettings.eventName} ${systemSettings.academicYear}`, footerText: 'เอกสารนี้พิมพ์จากระบบจัดการกีฬาภายใน พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `บทพิธีกรทั้งหมด_${msFileName(systemSettings.eventName)}_${systemSettings.academicYear}.docx`;
+                document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+                Swal.fire({ icon: 'success', title: 'ส่งออกเรียบร้อย', text: `รวม ${secs.length} ส่วน ในไฟล์เดียว`, timer: 2200, showConfirmButton: false });
+            } catch (err) {
+                console.error(err);
+                Swal.fire({ icon: 'error', title: 'สร้างไฟล์ไม่สำเร็จ', text: String(err && err.message || err) });
+            }
+        };
+
         const msFileName = (s) => String(s).replace(/[\\/:*?"<>|]+/g, '').trim();
-        window.msGenerate = () => {
-            if (!isMatchesLoaded) { Swal.fire({ icon: 'info', title: 'กำลังโหลดตารางแข่งขัน', text: 'รอสักครู่แล้วลองใหม่' }); return; }
+        // สร้างรายการไฟล์บทพิธีกรบรรยายกีฬา (ใช้ร่วมกันระหว่าง "สร้างบทแยกไฟล์" และ "ส่งออกรวมเล่ม") — silent=true: ไม่เด้งแจ้งเตือนเมื่อไม่มีรายการ
+        function msBuildFiles(silent) {
+            if (!isMatchesLoaded) { Swal.fire({ icon: 'info', title: 'กำลังโหลดตารางแข่งขัน', text: 'รอสักครู่แล้วลองใหม่' }); return null; }
             const sel = msState.sel || new Set();
             const matches = allMatchesArray.filter(m => sel.has(m.sport) && (msState.date === 'all' || m.date === msState.date))
                 .sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
-            if (!matches.length) { Swal.fire({ icon: 'warning', title: 'ยังไม่ได้เลือกกีฬา', text: 'ติ๊กเลือกกีฬาอย่างน้อย 1 ชนิดก่อนสร้างบท' }); return; }
+            if (!matches.length) { if (!silent) Swal.fire({ icon: 'warning', title: 'ยังไม่ได้เลือกกีฬา', text: 'ติ๊กเลือกกีฬาอย่างน้อย 1 ชนิดก่อนสร้างบท' }); return silent ? [] : null; }
             const files = [];
             const head = (t) => cxHead(t) + cxTitleBlock();
             if (msOpts.intro) files.push({ name: 'บทพิธีกร_1_เกริ่นนำ', title: 'บทเกริ่นนำ', note: `${matches.length} รายการที่จะแข่ง`, html: cxWrap(msIntroHtml(msKit(), matches)) });
@@ -1885,6 +1956,11 @@
                     html: cxWrap(head('บทพิธีกร บรรยายกีฬา เรียงตามเวลาแข่งขัน') + msBodyHtml(msKit(), matches, { withSport: true })) });
             }
             if (msOpts.close) files.push({ name: 'บทพิธีกร_9_กล่าวปิด', title: 'บทกล่าวปิด', note: 'สรุปผล/กล่าวขอบคุณ/ปิดงาน', html: cxWrap(msCloseHtml(msKit(), matches)) });
+            return files;
+        }
+        window.msGenerate = () => {
+            const files = msBuildFiles(false);
+            if (!files) return;
             msFiles = files;
             const box = document.getElementById('mcFiles');
             box.innerHTML = `<div class="p-3 rounded-4 border bg-white mt-2"><div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
