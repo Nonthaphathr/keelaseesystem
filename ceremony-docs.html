@@ -1907,8 +1907,40 @@
         };
         window.msDownloadAll = () => { msFiles.forEach((_, i) => setTimeout(() => msDownload(i), i * 600)); };
 
+        // ===== คำกล่าวพิธีการ: จัดให้พอดี 1 หน้า A4 =====
+        // ลดขนาดตัวอักษร/ขอบกระดาษทีละขั้นจนพอดี 1 หน้า แต่ไม่ต่ำกว่า ~12.8pt (สเกล 0.80 ของ 16pt)
+        const CX_SPEECH_TYPES = ['opening_chairman', 'opening_report', 'closing_chairman', 'closing_report'];
+        const CX_FIT_STAGES = [
+            { s: 1.00, mt: 20, mx: 25 },
+            { s: 0.94, mt: 20, mx: 25 },
+            { s: 0.90, mt: 18, mx: 22, tight: true },
+            { s: 0.86, mt: 15, mx: 20, tight: true },
+            { s: 0.86, mt: 15, mx: 20, tight: true, cols: true },
+            { s: 0.82, mt: 15, mx: 20, tight: true, cols: true },
+            { s: 0.80, mt: 12, mx: 18, tight: true, cols: true },
+            { s: 0.80, mt: 12, mx: 18, tight: true, xtight: true, cols: true },
+            { s: 0.80, mt: 12, mx: 18, tight: true, xtight: true, cols3: true }
+        ];
+        function cxFitOnePage(doc) {
+            const body = doc.body, root = doc.getElementById('doc');
+            const pageStyle = doc.getElementById('pageStyle');
+            const apply = (g) => {
+                body.style.setProperty('--s', g.s);
+                body.className = ['tight', 'xtight', 'cols', 'cols3'].filter(k => g[k]).join(' ');
+                pageStyle.textContent = `@page { size: A4; margin: ${g.mt}mm ${g.mx}mm; }`;
+                body.style.width = (210 - 2 * g.mx) + 'mm';
+            };
+            for (const g of CX_FIT_STAGES) {
+                apply(g);
+                const availPx = (297 - 2 * g.mt - 4) * 96 / 25.4;   // เผื่อ 4 มม. กันขอบเครื่องพิมพ์
+                if (root.offsetHeight <= availPx) return { fit: true, stage: g };
+            }
+            return { fit: false, stage: CX_FIT_STAGES[CX_FIT_STAGES.length - 1] };
+        }
+
         window.printDocument = () => {
             const element = document.getElementById('documentContent');
+            const isSpeech = CX_SPEECH_TYPES.includes(selectedDocType);
             const printWindow = window.open('', '', 'width=900,height=700');
             
             printWindow.document.write(`
@@ -1918,20 +1950,61 @@
                     <meta charset="UTF-8">
                     <title>พิมพ์เอกสาร - ${systemSettings.eventName} ${systemSettings.academicYear}</title>
                     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+                    <style id="pageStyle">@page { size: A4; margin: 20mm 25mm; }</style>
                     <style>
-                        @page { size: A4; margin: 20mm 25mm; }
-                        body { font-family: 'Sarabun', sans-serif; margin: 0; padding: 0; background: white; line-height: 1.5; font-size: 16pt; }
+                        body { --s: 1; font-family: 'Sarabun', sans-serif; margin: 0; padding: 0; background: white; line-height: 1.5; font-size: 16pt; }
                         @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
                         .speech-line { text-align: justify; text-justify: inter-word; margin-bottom: 10px; line-height: 1.6; }
                         .speech-indent { text-indent: 2.5cm; }
+                        #doc { display: flow-root; }
+                        ${isSpeech ? `
+                        #doc > div { font-size: calc(16pt * var(--s)) !important; }
+                        #doc h3 { font-size: calc(18pt * var(--s)) !important; }
+                        #doc h4 { font-size: calc(16pt * var(--s)) !important; }
+                        #doc img { height: calc(2cm * var(--s)) !important; }
+                        .speech-indent { text-indent: calc(2.5cm * var(--s)); }
+                        body.tight #doc > div { line-height: 1.5 !important; }
+                        body.tight .speech-line { margin-bottom: 6px !important; line-height: 1.5 !important; }
+                        body.tight #doc ol { line-height: 1.5 !important; }
+                        body.tight #doc div[style*="border-bottom: 3px double"] { margin-bottom: 10px !important; padding-bottom: 8px !important; }
+                        body.tight #doc div[style*="border-top:1px solid #ddd"] { margin-top: 18px !important; }
+                        body.xtight #doc > div, body.xtight #doc ol { line-height: 1.35 !important; }
+                        body.xtight .speech-line { line-height: 1.35 !important; margin-bottom: 4px !important; }
+                        body.xtight #doc img { height: calc(1.3cm * var(--s)) !important; margin-bottom: 2px !important; }
+                        body.xtight #doc div[style*="border-bottom: 3px double"] { margin-bottom: 6px !important; padding-bottom: 4px !important; }
+                        body.xtight #doc div[style*="margin-bottom: 20px"] { margin-bottom: 6px !important; }
+                        body.xtight #doc div[style*="margin-bottom: 15px"], body.xtight #doc div[style*="margin-bottom: 12px"] { margin-bottom: 6px !important; }
+                        body.xtight #doc div[style*="margin-top: 15px"], body.xtight #doc div[style*="margin-top: 12px"], body.xtight #doc strong[style*="margin-top: 15px"] { margin-top: 6px !important; }
+                        body.xtight #doc div[style*="margin-top: 30px"] { margin-top: 10px !important; }
+                        body.xtight #doc div[style*="border-top:1px solid #ddd"] { margin-top: 8px !important; padding-top: 4px !important; }
+                        body.xtight #doc ol { margin-top: 4px !important; }
+                        body.cols #doc ol, body.cols3 #doc ol { column-count: 2; column-gap: 8mm; }
+                        body.cols3 #doc ol { column-count: 3; column-gap: 6mm; padding-left: 22px !important; }
+                        body.cols #doc ol li, body.cols3 #doc ol li { break-inside: avoid; }
+                        ` : ''}
                     </style>
                 </head>
-                <body>${element.innerHTML}</body>
+                <body><div id="doc">${element.innerHTML}</div></body>
                 </html>
             `);
             
             printWindow.document.close();
-            setTimeout(() => { printWindow.focus(); printWindow.print(); printWindow.close(); }, 500);
+            const go = () => {
+                let res = null;
+                if (isSpeech) {
+                    res = cxFitOnePage(printWindow.document);
+                    if (!res.fit && window.Swal) {
+                        Swal.fire({ toast: true, position: 'top', icon: 'warning', timer: 5000, showConfirmButton: false,
+                            title: 'เนื้อหายาวเกิน 1 หน้า แม้ลดขนาดตัวอักษรถึงขั้นต่ำแล้ว (ประมาณ 12.8pt)' });
+                    }
+                }
+                printWindow.focus(); printWindow.print(); printWindow.close();
+            };
+            setTimeout(() => {
+                const f = printWindow.document.fonts;
+                const loaded = f ? Promise.all([f.load('16pt Sarabun'), f.load('bold 16pt Sarabun'), f.ready]) : Promise.resolve();
+                Promise.race([loaded, new Promise(r => setTimeout(r, 3000))]).then(go, go);
+            }, 500);
         };
 
         document.addEventListener('DOMContentLoaded', () => {

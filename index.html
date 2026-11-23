@@ -1717,6 +1717,7 @@
                     }
                     table { border-collapse: collapse; width: 100%; }
                     h1, h2, h3, h4, h5, h6 { color: #000 !important; }
+                    .sch-page { border-bottom: none !important; }
                 </style>
             </head>
             <body>${element.innerHTML}</body>
@@ -3247,6 +3248,7 @@
             return a.time.localeCompare(b.time);
         });
         
+        let isPaged = false;
         let dateTitle = filterDate === 'all' ? '' : ` วันที่ ${formatDateThaiLong(filterDate)}`;
         let sportTitle = filterSport === 'all' ? '' : ` - ${getSportName(filterSport)}`;
         
@@ -3312,57 +3314,102 @@
             html += `</tbody></table>`;
             
         } else {
+            // ===== แบบรายการ: แบ่งหน้า A4 เอง ขึ้นหน้าใหม่ทุกวัน และใส่หัววันที่ (ต่อ) ทุกหน้าที่ต่อเนื่อง =====
+            isPaged = true;
+            const headerHtml = html;
+            const footerHtml = `
+                <div style="text-align:center; font-size:8pt; margin-top:8px; color:#999; border-top:1px solid #eee; padding-top:6px;">
+                    พิมพ์จากระบบจัดการกีฬาภายใน | พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง | พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}
+                </div>`;
             const groupedByDate = {};
             filteredMatches.forEach(m => {
                 if (!groupedByDate[m.date]) groupedByDate[m.date] = [];
                 groupedByDate[m.date].push(m);
             });
-            
-            Object.keys(groupedByDate).sort().forEach(date => {
-                html += `
-                    <div style="background:#1a237e; color:#fff; padding:8px 15px; margin:15px 0 10px; border-radius:5px;">
-                        <strong>📅 ${formatDateThaiLong(date)}</strong>
-                    </div>
-                `;
-                
-                groupedByDate[date].forEach((m, idx) => {
-                    const statusIcon = m.status === 'done' ? '✅' : '⏰';
-                    const teams = m.teams || [];
-                    const scores = m.scores || {};
-                    let scoreTxt = 'รอแข่งขัน';
-                    
-                    if (m.status === 'done') {
-                        scoreTxt = teams.map(tk => {
-                            const team = getTeamByKey(tk);
-                            return `${team.name}: ${scores[tk]||0}`;
-                        }).join(' | ');
-                    }
-                    
-                    html += `
-                        <div style="display:flex; padding:8px 10px; border-bottom:1px solid #eee; align-items:center;">
-                            <div style="width:60px; font-weight:bold; color:#1a237e;">${m.time}</div>
-                            <div style="flex:1;">
-                                <strong>${getSportName(m.sport)}</strong>
-                                <span style="color:#666; font-size:0.9em;"> - ${m.category}</span>
-                                <div style="font-size:0.85em; color:#888;">📍 ${m.location || 'ไม่ระบุสถานที่'}</div>
-                                <div style="font-size:0.85em; margin-top:3px;">🎽 ${getMatchTeamsHTML(m)}</div>
-                            </div>
-                            <div style="text-align:right; min-width:150px;">
-                                <span style="font-size:0.85em;">${statusIcon} ${scoreTxt}</span>
-                            </div>
+
+            const bannerHtml = (date, cont) => `
+                <div style="background:#1a237e; color:#fff; padding:8px 15px; margin:0 0 10px; border-radius:5px;">
+                    <strong>📅 ${formatDateThaiLong(date)}${cont ? ' (ต่อ)' : ''}</strong>
+                </div>`;
+
+            const rowHtml = (m) => {
+                const statusIcon = m.status === 'done' ? '✅' : '⏰';
+                const teams = m.teams || [];
+                const scores = m.scores || {};
+                let scoreTxt = 'รอแข่งขัน';
+                if (m.status === 'done') {
+                    scoreTxt = teams.map(tk => {
+                        const team = getTeamByKey(tk);
+                        return `${team.name}: ${scores[tk]||0}`;
+                    }).join(' | ');
+                }
+                return `
+                    <div style="display:flex; padding:8px 10px; border-bottom:1px solid #eee; align-items:center; page-break-inside:avoid; break-inside:avoid;">
+                        <div style="width:60px; font-weight:bold; color:#1a237e;">${m.time}</div>
+                        <div style="flex:1;">
+                            <strong>${getSportName(m.sport)}</strong>
+                            <span style="color:#666; font-size:0.9em;"> - ${m.category}</span>
+                            <div style="font-size:0.85em; color:#888;">📍 ${m.location || 'ไม่ระบุสถานที่'}</div>
+                            <div style="font-size:0.85em; margin-top:3px;">🎽 ${getMatchTeamsHTML(m)}</div>
                         </div>
-                    `;
+                        <div style="text-align:right; min-width:150px;">
+                            <span style="font-size:0.85em;">${statusIcon} ${scoreTxt}</span>
+                        </div>
+                    </div>`;
+            };
+
+            // วัดความสูงจริงของแต่ละส่วน แล้วจัดลงหน้า A4 (พื้นที่พิมพ์ 180 x 277 มม.)
+            const MM = 3.7795;
+            const PAGE_H = 268;   // มม. ความสูงกล่องต่อ 1 หน้า
+            const SAFE = 12;      // มม. เผื่อความต่างของฟอนต์/เครื่องพิมพ์ กันล้นไปหน้าใหม่ที่ไม่มีหัววันที่
+            const wrapStyle = "font-family:'Kanit',sans-serif; font-size:12pt; line-height:1.5; color:#000;";
+            const meas = document.createElement('div');
+            meas.style.cssText = `position:absolute; left:-9999px; top:0; width:180mm; visibility:hidden; display:flow-root; ${wrapStyle}`;
+            document.body.appendChild(meas);
+            const hOf = (x) => { meas.innerHTML = x; return meas.offsetHeight; };
+            const headerH = hOf(headerHtml);
+            const footerH = hOf(footerHtml);
+            const limit = (PAGE_H - SAFE) * MM - footerH;
+
+            const pages = [];
+            Object.keys(groupedByDate).sort().forEach(date => {
+                let cur = null, used = 0, pageNo = 0;
+                const newPage = () => {
+                    pageNo++;
+                    const first = pages.length === 0;
+                    cur = { date, cont: pageNo > 1, hdr: first, rows: [] };
+                    used = hOf(bannerHtml(date, pageNo > 1)) + (first ? headerH : 0);
+                    pages.push(cur);
+                };
+                newPage();
+                groupedByDate[date].forEach(m => {
+                    const r = rowHtml(m);
+                    const rh = hOf(r);
+                    if (used + rh > limit && cur.rows.length > 0) newPage();
+                    cur.rows.push(r);
+                    used += rh;
                 });
             });
+            document.body.removeChild(meas);
+
+            html = pages.map((p, i) => `
+                <div class="sch-page" style="width:180mm; height:${PAGE_H}mm; box-sizing:border-box; overflow:hidden; ${i < pages.length - 1 ? 'page-break-after:always; break-after:page; border-bottom:1px dashed #bbb;' : ''} ${wrapStyle}">
+                    ${p.hdr ? headerHtml : ''}${bannerHtml(p.date, p.cont)}${p.rows.join('')}${i === pages.length - 1 ? footerHtml : ''}
+                </div>`).join('');
         }
         
-        html += `
-            <div style="text-align:center; font-size:8pt; margin-top:20px; color:#999; border-top:1px solid #eee; padding-top:10px;">
-                พิมพ์จากระบบจัดการกีฬาภายใน | พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง | พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}
-            </div>
-        `;
+        if (!isPaged) {
+            html += `
+                <div style="text-align:center; font-size:8pt; margin-top:20px; color:#999; border-top:1px solid #eee; padding-top:10px;">
+                    พิมพ์จากระบบจัดการกีฬาภายใน | พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง | พิมพ์เมื่อ ${new Date().toLocaleString('th-TH')}
+                </div>
+            `;
+        }
         
-        document.getElementById('scheduleContent').innerHTML = html;
+        const schedEl = document.getElementById('scheduleContent');
+        // แบบรายการใช้ขอบเท่ากับตอนพิมพ์ (กว้างเนื้อหา 180 มม.) เพื่อให้พรีวิวตรงกับกระดาษจริง
+        schedEl.style.padding = isPaged ? '10mm 15mm' : '';
+        schedEl.innerHTML = html;
         bootstrap.Modal.getInstance(document.getElementById('schedulePDFModal')).hide();
         new bootstrap.Modal(document.getElementById('schedulePreviewModal')).show();
     };

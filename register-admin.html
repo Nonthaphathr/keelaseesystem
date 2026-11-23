@@ -62,7 +62,7 @@
                     </div>
                 </div>
                 <div class="row g-3" id="teamCards"></div>
-                <small class="text-muted d-block mt-2">แต่ละคณะสีเห็นและแก้ไขได้เฉพาะรายการของคณะตัวเอง ไม่เห็นข้อมูลของอีกสี</small>
+                <small class="text-muted d-block mt-2">แต่ละคณะสีเห็นและแก้ไขได้เฉพาะรายการของคณะตัวเอง ไม่เห็นข้อมูลของอีกสี · ครูแก้ไขรายชื่อแทนคณะสีได้ที่ส่วน "ข้อมูลการลงทะเบียน" (แตะรายการ แล้วกดปุ่มแก้ไข)</small>
             </div>
 
             <div class="form-card">
@@ -142,6 +142,36 @@
                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
                     <a id="tplLine" class="btn btn-success" target="_blank" rel="noopener"><i class="fab fa-line me-1"></i>ส่งทาง LINE</a>
                     <button class="btn btn-primary" onclick="copyTpl()"><i class="fas fa-copy me-1"></i>คัดลอกข้อความ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- แก้ไขข้อมูลลงทะเบียนแทนคณะสี (ครู) -->
+    <div class="modal fade" id="editRegModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="fas fa-pen me-2"></i><span id="editRegTitle">แก้ไขข้อมูลลงทะเบียน</span></h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="editRegSub" class="small text-muted mb-3"></div>
+                    <div class="mb-3">
+                        <label class="fw-bold mb-1"><i class="fas fa-users me-1"></i>รายชื่อนักกีฬา <span class="badge bg-secondary" id="editRegCnt"></span></label>
+                        <div id="editRegPlayers"></div>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill mt-1" onclick="editRegAdd('p')"><i class="fas fa-plus me-1"></i>เพิ่มชื่อ</button>
+                    </div>
+                    <div class="mb-2">
+                        <label class="fw-bold mb-1"><i class="fas fa-clipboard-check me-1"></i>ผู้ส่งคะแนนประจำสนาม</label>
+                        <div id="editRegScorers"></div>
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill mt-1" onclick="editRegAdd('s')"><i class="fas fa-plus me-1"></i>เพิ่มชื่อ</button>
+                    </div>
+                    <div class="alert alert-warning border-0 small mb-0">การบันทึกจะเขียนทับรายชื่อที่คณะสีส่งมา และคณะสีจะเห็นข้อมูลที่ครูแก้ทันที</div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button class="btn btn-success" id="editRegSave" onclick="saveEditReg()"><i class="fas fa-save me-1"></i>บันทึก</button>
                 </div>
             </div>
         </div>
@@ -249,12 +279,62 @@
                         <div class="fw-bold mb-1">${esc(teamName(k))}</div>
                         ${names(m, k).length ? '<ol class="mb-1 ps-3">' + names(m, k).map(n => `<li>${esc(n)}</li>`).join('') + '</ol>' : '<div class="text-muted">— ยังไม่มีรายชื่อ —</div>'}
                         <div class="text-muted"><i class="fas fa-clipboard-check me-1"></i>ผู้ส่งคะแนน: ${scorers(m, k).length ? scorers(m, k).map(esc).join(', ') : '-'}</div>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill mt-2" onclick="event.stopPropagation(); openEditReg('${m.id}', '${k}')"><i class="fas fa-pen me-1"></i>แก้ไขรายชื่อ</button>
                     </div></div>`).join('')}</div>` : ''}
                 </div>`;
             });
             document.getElementById('matchList').innerHTML = html || '<div class="text-center text-muted py-4">ไม่พบรายการ</div>';
         };
         window.toggleRow = (id) => { expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderList(); };
+
+        // ===== ครูแก้ไขรายชื่อที่คณะสีส่งมา (เขียนที่ matches/{id}/players|scorers/{คณะสี} เหมือนหน้าลงทะเบียนของคณะสี) =====
+        let editCtx = null;
+        const editBox = (kind) => document.getElementById(kind === 's' ? 'editRegScorers' : 'editRegPlayers');
+        const editVals = (kind) => [...editBox(kind).querySelectorAll('input')].map(i => i.value);
+        function editDraw(kind, vals) {
+            const box = editBox(kind);
+            if (!vals.length) vals = [''];
+            box.innerHTML = vals.map((v, i) => `<div class="input-group input-group-sm mb-1">
+                <span class="input-group-text" style="min-width:2.4em;">${i + 1}</span>
+                <input class="form-control" value="${esc(v)}" placeholder="ชื่อ-สกุล" onkeydown="if(event.key==='Enter'){event.preventDefault();}" oninput="editRegCount()">
+                <button class="btn btn-outline-danger" type="button" title="ลบ" onclick="editRegDel('${kind}', ${i})"><i class="fas fa-xmark"></i></button></div>`).join('');
+            box.querySelectorAll('input').forEach(el => sugA.bind(el));
+            editRegCount();
+        }
+        window.editRegCount = () => {
+            const n = editVals('p').filter(v => v.trim()).length;
+            document.getElementById('editRegCnt').textContent = n + ' คน';
+        };
+        window.editRegAdd = (kind) => { const v = editVals(kind); v.push(''); editDraw(kind, v); const ins = editBox(kind).querySelectorAll('input'); ins[ins.length - 1].focus(); };
+        window.editRegDel = (kind, i) => { const v = editVals(kind); v.splice(i, 1); editDraw(kind, v); };
+        window.openEditReg = (id, tk) => {
+            const m = matches.find(x => x.id === id); if (!m) return;
+            editCtx = { id, tk };
+            document.getElementById('editRegTitle').textContent = `แก้ไขรายชื่อ — ${teamName(tk)}`;
+            document.getElementById('editRegSub').innerHTML = `<strong>${esc(mLabel(m))}</strong> · ${esc(thaiDate(m.date))} ${esc(m.time || '')} น.`;
+            editDraw('p', names(m, tk));
+            editDraw('s', scorers(m, tk));
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('editRegModal')).show();
+        };
+        window.saveEditReg = async () => {
+            if (!editCtx) return;
+            const clean = (a) => [...new Set(a.map(n => n.trim()).filter(Boolean))];
+            const players = clean(editVals('p')), sc = clean(editVals('s'));
+            const { id, tk } = editCtx;
+            const btn = document.getElementById('editRegSave'); btn.disabled = true;
+            try {
+                await authReady;
+                await Promise.all([
+                    set(ref(db, `matches/${id}/players/${tk}`), players),
+                    set(ref(db, `matches/${id}/scorers/${tk}`), sc)
+                ]);
+                bootstrap.Modal.getInstance(document.getElementById('editRegModal')).hide();
+                Swal.fire({ icon: 'success', title: 'บันทึกเรียบร้อย', text: `${teamName(tk)}: ${players.length} คน`, timer: 1400, showConfirmButton: false });
+            } catch (err) {
+                console.error(err);
+                Swal.fire('บันทึกไม่สำเร็จ', String((err && (err.code || err.message)) || err) + ' — ถ้าขึ้น PERMISSION_DENIED ต้องแก้ Firebase Rules ให้หน้าครูเขียน matches/*/players และ scorers ได้', 'error');
+            } finally { btn.disabled = false; }
+        };
 
         // ===== ลิงก์/QR แยกสี =====
         async function ensureTeamToken(tk, renew) {
