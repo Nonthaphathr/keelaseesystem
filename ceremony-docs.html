@@ -17,6 +17,9 @@
     <script src="thai-docx.js"></script>
     
     <style>
+        #sugBox { position: fixed; z-index: 3000; background: #fff; border: 1px solid #cfd8dc; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.2); max-height: 280px; overflow-y: auto; }
+        #sugBox .sug-item { padding: 10px 14px; display: flex; justify-content: space-between; gap: 10px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+        #sugBox .sug-item:hover { background: #e8f4f8; }
         :root {
             --glass-bg: rgba(255, 255, 255, 0.95);
             --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
@@ -416,6 +419,7 @@
 </div>
     </div>
 
+    <div id="sugBox" style="display:none;"></div>
     <div class="modal fade" id="previewModal" tabindex="-1">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg">
@@ -440,6 +444,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
         import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+        import { attachSuggest } from "./reg-utils.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -737,39 +742,36 @@
         }
 
         // ----- ผู้มอบรางวัลรายรายการ (กรอกอิสระ เว้นว่าง = ประธานมอบ) -----
-        // รายชื่อครูสำหรับ suggest (ดึงจากทะเบียนบุคลากร registry/people; ถ้าไม่มีครูใช้รายชื่อทั้งหมด)
-        let cxPeopleNames = [];
-        function cxPresenterNames() {
-            return [...new Set([...cxAwardTeachers().map(x => x.replace(/ \(.*\)$/, '')), ...cxPeopleNames].filter(Boolean))];
-        }
+        // รายชื่อครูสำหรับ suggest (ดึงจากทะเบียนบุคลากร registry/people แบบเดียวกับหน้าอื่น; ถ้าไม่มีครูใช้รายชื่อทั้งหมด)
+        let cxPeoplePool = [];
+        const cxSug = attachSuggest(document.getElementById('sugBox'), () => cxPeoplePool, (el, p) => { el.value = p.n; cxSetPres(el); });
+        document.addEventListener('scroll', () => { const b = document.getElementById('sugBox'); if (b) b.style.display = 'none'; }, true);
         function cxLoadPeople() {
             get(ref(db, 'registry/people')).then(sn => {
                 const v = sn.val() || {}, arr = (x) => (x && typeof x === 'object') ? Object.values(x) : [];
-                const nm = (a) => a.map(p => (p && (p.n || p.name) || '').toString().trim()).filter(Boolean);
-                const t = nm(arr(v.teachers));
-                cxPeopleNames = t.length ? t : nm(arr(v.students));
-                const dl = document.getElementById('awPresList');
-                if (dl) dl.innerHTML = cxPresenterNames().map(n => `<option value="${cxEsc(n)}">`).join('');
-            }).catch(() => {});
+                const pool = (a) => a.filter(p => p && (p.n || p.name)).map(p => ({ n: String(p.n || p.name).trim(), c: p.c || '' }));
+                const t = pool(arr(v.teachers));
+                cxPeoplePool = t.length ? t : pool(arr(v.students));
+            }).catch((e) => console.warn('โหลดรายชื่อบุคลากรไม่สำเร็จ', e));
         }
         window.renderAwardPresenters = () => {
             const sports = [...new Set(allMatchesArray.map(m => m.sport))];
             const aw = cxComputeAwards(sports);
             cd.award_pres = cd.award_pres || {};
-            const names = cxPresenterNames();
             const row = (key, label) => `<div class="d-flex gap-2 align-items-center mb-1"><div class="small" style="flex:3"><i class="fas fa-trophy text-warning me-1"></i>${cxEsc(label)}</div>
-                <input type="text" list="awPresList" class="form-control form-control-sm" style="flex:2" data-key="${cxEsc(key)}" value="${cxEsc(cd.award_pres[key] || '')}" placeholder="ผู้มอบ (ว่าง = ประธาน)" oninput="cxSetPres(this)"></div>`;
+                <input type="text" autocomplete="off" class="form-control form-control-sm" style="flex:2" data-key="${cxEsc(key)}" value="${cxEsc(cd.award_pres[key] || '')}" placeholder="ผู้มอบ (ว่าง = ประธาน)" oninput="cxSetPres(this)"></div>`;
             // ผู้มอบอยู่ในแถวของแต่ละกีฬา เทียบกับรายการรางวัลโดยตรง (กรอกได้ก่อนกดสร้างบท)
             sports.forEach(sk => {
                 const el = document.getElementById('awp_' + sk);
                 if (el) el.innerHTML = `<div class="small text-muted mb-1">ผู้มอบรางวัลของแต่ละรายการ</div>` + aw.awardList.filter(a => a.sport === sk).map(a => row(a.title, a.title)).join('');
             });
             const box = document.getElementById('awardPresenters');
-            if (box) box.innerHTML = `<datalist id="awPresList">${names.map(n => `<option value="${cxEsc(n)}">`).join('')}</datalist>
-                <div class="award-type-item"><h6 class="fw-bold text-dark mb-2"><i class="fas fa-medal text-warning me-2"></i>รางวัลรวมทุกกีฬา</h6>
+            if (box) box.innerHTML = `<div class="award-type-item"><h6 class="fw-bold text-dark mb-2"><i class="fas fa-medal text-warning me-2"></i>รางวัลรวมทุกกีฬา</h6>
                 ${row('__runnerup', 'ถ้วยรองชนะเลิศอันดับ 1')}${row('__overall', 'ถ้วยชนะเลิศ คะแนนรวมทุกกีฬา')}
                 <small class="text-muted d-block mt-2">พิมพ์ชื่อผู้มอบได้อิสระ บทจะเชิญผู้มอบขึ้นเวทีทีละท่านทีละรายการ (คนเดียวกันมอบติดกันจะเชิญครั้งเดียว) เว้นว่าง = ประธานในพิธีเป็นผู้มอบ</small></div>`;
+            document.querySelectorAll('#awardTypeContainer input[data-key]').forEach(el => cxSug.bind(el));
         };
+        // (ผูก suggest กับทุกช่องผู้มอบ ทำท้ายฟังก์ชัน renderAwardPresenters ผ่าน cxBindPres)
         window.cxSetPres = (el) => { cd.award_pres = cd.award_pres || {}; cd.award_pres[el.dataset.key] = el.value; saveCd(); };
 
         // ===== คำนวณรางวัล (รองรับ Dynamic Teams) =====
