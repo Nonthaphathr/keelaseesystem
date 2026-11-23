@@ -264,8 +264,8 @@
                     <div class="col-md-6">
                         <div class="doc-type-card" onclick="selectDocType('closing_report')">
                             <i class="fas fa-trophy text-warning"></i>
-                            <h6 class="fw-bold mb-1">คำกล่าวรายงาน (พิธีปิด)</h6>
-                            <small class="text-muted">คำกล่าวรายงานต่อประธานพร้อมสรุปผลรางวัล</small>
+                            <h6 class="fw-bold mb-1">บทพิธีกรประกาศผลรางวัล (พิธีปิด)</h6>
+                            <small class="text-muted">บทพิธีกร 2 คนสลับกันประกาศผลรางวัลทุกกีฬา เชิญผู้ชนะรับถ้วย</small>
                         </div>
                     </div>
                 </div>
@@ -607,9 +607,9 @@
                     awardSection.classList.add('d-none');
                     speakerLabel.textContent = 'ชื่อผู้กล่าวรายงาน';
                 } else if (type === 'closing_report') {
-                    chairmanContainer.classList.remove('d-none');
+                    chairmanContainer.classList.add('d-none');        // บทพิธีกรใช้ชื่อพิธีกรจากฟอร์มบทพิธีกร ไม่ต้องกรอกชื่อผู้กล่าว
                     awardSection.classList.remove('d-none');
-                    speakerLabel.textContent = 'ชื่อผู้กล่าวรายงาน';
+                    speakerLabel.textContent = 'ชื่อประธานในพิธี (ใช้ในบทเชิญประธานมอบรางวัล)';
                     renderAwardTypes();
                 }
 
@@ -856,7 +856,7 @@
                     html = generateClosingChairmanSpeech(speakerName, pronoun, ending, yearShort);
                     break;
                 case 'closing_report':
-                    html = generateClosingReportSpeech(speakerName, chairmanName, pronoun, ending, yearShort, sportListText, sportsInEvent);
+                    html = cxAwardMcDoc(speakerName, sportsInEvent);
                     break;
             }
             
@@ -1007,143 +1007,79 @@
             `;
         }
 
-        function generateClosingReportSpeech(reporter, chairman, pronoun, ending, yearShort, sportListText, sportsInEvent) {
-            let awardList = [];
-            let awardNumber = 1;
-
+        // ===== บทพิธีกรประกาศผลรางวัล (พิธีปิด) =====
+        // คำนวณรายการรางวัลตามตัวเลือกแยกรายการ/แยกเพศ/คะแนนรวม ของแต่ละกีฬา (ถ้ายังไม่ได้เลือกในหน้าจอ ใช้ "แยกรายการ")
+        function cxComputeAwards(sportsInEvent) {
+            const awardList = [];
             sportsInEvent.forEach(sportKey => {
                 const selectedRadio = document.querySelector(`input[name="award_${sportKey}"]:checked`);
                 const awardType = selectedRadio ? selectedRadio.value : 'separate';
-                
+                const sn = getSportName(sportKey);
                 if (awardType === 'combined') {
-                    awardList.push({ 
-                        number: awardNumber++, 
-                        title: `ถ้วยชนะเลิศการแข่งขัน${getSportName(sportKey)} (คะแนนรวม)`, 
-                        winner: calculateCombinedScore(sportKey) 
-                    });
+                    awardList.push({ sport: sportKey, title: `ถ้วยชนะเลิศการแข่งขัน${sn} (คะแนนรวม)`, winner: calculateCombinedScore(sportKey) });
                 } else if (awardType === 'gender') {
-                    const sportMatches = allMatchesArray.filter(m => m.sport === sportKey);
-                    const hasMale = sportMatches.some(m => detectGender(m.category) === 'male');
-                    const hasFemale = sportMatches.some(m => detectGender(m.category) === 'female');
-                    
-                    if (hasMale) {
-                        awardList.push({ 
-                            number: awardNumber++, 
-                            title: `ถ้วยชนะเลิศการแข่งขัน${getSportName(sportKey)} ประเภทชาย (คะแนนรวม)`, 
-                            winner: calculateCombinedScore(sportKey, 'male'),
-                            gender: 'male'
-                        });
-                    }
-                    if (hasFemale) {
-                        awardList.push({ 
-                            number: awardNumber++, 
-                            title: `ถ้วยชนะเลิศการแข่งขัน${getSportName(sportKey)} ประเภทหญิง (คะแนนรวม)`, 
-                            winner: calculateCombinedScore(sportKey, 'female'),
-                            gender: 'female'
-                        });
-                    }
+                    const sm = allMatchesArray.filter(m => m.sport === sportKey);
+                    if (sm.some(m => detectGender(m.category) === 'male')) awardList.push({ sport: sportKey, title: `ถ้วยชนะเลิศการแข่งขัน${sn} ประเภทชาย (คะแนนรวม)`, winner: calculateCombinedScore(sportKey, 'male') });
+                    if (sm.some(m => detectGender(m.category) === 'female')) awardList.push({ sport: sportKey, title: `ถ้วยชนะเลิศการแข่งขัน${sn} ประเภทหญิง (คะแนนรวม)`, winner: calculateCombinedScore(sportKey, 'female') });
                 } else {
-                    const awards = generateSeparateAwards(sportKey);
-                    awards.forEach(award => {
-                        awardList.push({ 
-                            number: awardNumber++, 
-                            title: `ถ้วยชนะเลิศการแข่งขัน${getSportName(sportKey)} ${award.category}`, 
-                            winner: award.winner,
-                            gender: award.gender
-                        });
-                    });
+                    generateSeparateAwards(sportKey).forEach(a => awardList.push({ sport: sportKey, title: `ถ้วยชนะเลิศการแข่งขัน${sn} ${a.category}`, winner: a.winner }));
                 }
             });
-            
-            // คำนวณคะแนนรวมทุกทีม
-            const teamTotalWins = {};
-            const activeTeams = getActiveTeams();
-            
-            activeTeams.forEach(team => {
-                teamTotalWins[team.key] = 0;
-            });
-            
-            allMatchesArray.forEach(m => { 
-                if(m.status === 'done' && m.winner && m.winner !== 'draw' && m.winner !== 'none') { 
-                    teamTotalWins[m.winner] = (teamTotalWins[m.winner] || 0) + 1;
-                } 
-            });
-            
-            // หาทีมที่ชนะมากสุด
-            const maxWins = Math.max(...Object.values(teamTotalWins), 0);
-            const topTeams = Object.keys(teamTotalWins).filter(k => teamTotalWins[k] === maxWins);
-            
-            let w_overall = '...............';
-            let w_runnerup = '...............';
-            
-            if (topTeams.length === 1) {
-                w_overall = getTeamByKey(topTeams[0]).name;
-                // หา Runner-up
-                const remainingTeams = Object.keys(teamTotalWins).filter(k => k !== topTeams[0]);
-                if (remainingTeams.length > 0) {
-                    const secondMax = Math.max(...remainingTeams.map(k => teamTotalWins[k]), 0);
-                    const runnerUpTeams = remainingTeams.filter(k => teamTotalWins[k] === secondMax);
-                    w_runnerup = runnerUpTeams.map(k => getTeamByKey(k).name).join(' และ ');
-                }
-            } else if (topTeams.length > 1) {
-                w_overall = topTeams.map(k => getTeamByKey(k).name).join(' และ ') + ' (เสมอกัน)';
-                w_runnerup = '-';
-            }
+            // ผลรวมทุกกีฬา: ชนะเลิศ / รองชนะเลิศ
+            const total = {}; getActiveTeams().forEach(t => { total[t.key] = 0; });
+            allMatchesArray.forEach(m => { if (m.status === 'done' && m.winner && m.winner !== 'draw' && m.winner !== 'none') total[m.winner] = (total[m.winner] || 0) + 1; });
+            const maxWins = Math.max(...Object.values(total), 0);
+            const top = Object.keys(total).filter(k => total[k] === maxWins);
+            let overall = '...............', runnerup = '...............';
+            if (top.length === 1) {
+                overall = getTeamByKey(top[0]).name;
+                const rest = Object.keys(total).filter(k => k !== top[0]);
+                if (rest.length) { const m2 = Math.max(...rest.map(k => total[k]), 0); runnerup = rest.filter(k => total[k] === m2).map(k => getTeamByKey(k).name).join(' และ '); }
+            } else if (top.length > 1) { overall = top.map(k => getTeamByKey(k).name).join(' และ ') + ' (เสมอกัน)'; runnerup = '-'; }
+            return { awardList, overall, runnerup, maxWins, done: Object.values(total).some(v => v > 0) };
+        }
 
-            return `
-                <div style="line-height: 1.6; font-size: 16pt; font-family: 'Sarabun', sans-serif;">
-                    ${getDocumentHeader('คำกล่าวรายงานต่อประธานในพิธีปิด', `${systemSettings.eventName} ประจำปีการศึกษา 25${yearShort}`)}
-                    
-                    <div style="text-align: center; margin-bottom: 20px; font-weight:bold;">
-                        โดยประธานผู้จัดการแข่งขัน (${reporter})
-                    </div>
-                    
-                    <div style="margin-bottom: 12px;">
-                        <strong>เรียน</strong> ${chairman} ประธานในพิธีที่เคารพอย่างสูง
-                    </div>
-                    
-                    <div class="speech-line speech-indent">
-                        ${pronoun} ${reporter} ในนามคณะกรรมการจัดการแข่งขัน คณะครู และนักเรียน${systemSettings.schoolName} ขอขอบพระคุณที่ท่านให้เกียรติมาเป็นประธานในพิธีปิดการแข่งขันกีฬาภายใน "${systemSettings.eventName}" ประจำปีการศึกษา 25${yearShort} ซึ่งกำลังจะเสร็จสิ้นในวันนี้
-                    </div>
-                    
-                    <div class="speech-line speech-indent">
-                        การแข่งขันในครั้งนี้ประกอบด้วยคณะสี ${activeTeams.length} สี คือ ${activeTeams.map(t => t.name).join(' ')} ได้ดำเนินการแข่งขันกีฬาหลายประเภท ได้แก่ ${sportListText} การแข่งขันกีฬาทุกประเภทได้ดำเนินการมาด้วยความเรียบร้อย และบรรลุตามวัตถุประสงค์ทุกประการ ด้วยความร่วมมือร่วมใจจากผู้บริหาร คณาจารย์ ผู้ปกครอง ศิษย์เก่า และนักเรียน${systemSettings.schoolName}ทุกคน
-                    </div>
-                    
-                    <div class="speech-line speech-indent">
-                        บัดนี้ การแข่งขันกีฬาภายใน "${systemSettings.eventName}" ประจำปีการศึกษา 25${yearShort} ได้ถึงบทสรุปลงแล้ว ${pronoun}ขอกราบเรียนเชิญท่านประธานได้มอบถ้วยรางวัลและโล่รางวัลแก่ผู้ชนะการแข่งขัน ดังต่อไปนี้
-                    </div>
-
-                    ${cxAwardTeachers().length ? `<div class="speech-line speech-indent">
-                        ในการนี้ ขอเรียนเชิญคณะครูผู้ร่วมมอบรางวัล ได้แก่ ${cxJoinThai(cxAwardTeachers())} ร่วมมอบรางวัลแก่ผู้ชนะการแข่งขัน
-                    </div>` : ''}
-                    
-                    <div style="margin-top: 12px; margin-bottom: 12px;">
-                        <strong>รางวัลการแข่งขันแต่ละประเภท</strong>
-                        <ol style="margin-top: 8px; padding-left: 30px; line-height: 1.8;">
-                            ${awardList.map(award => `<li>${award.title} ได้แก่ <strong>${award.winner}</strong></li>`).join('')}
-                        </ol>
-                        
-                        <strong style="margin-top: 15px; display: block;">รางวัลชนะเลิศรวมกีฬา</strong>
-                        <ol start="${awardNumber}" style="margin-top: 8px; padding-left: 30px; line-height: 1.8;">
-                            <li>ถ้วยชนะเลิศการแข่งขันกีฬาภายในโรงเรียน คะแนนรวม ได้แก่ <strong>${w_overall}</strong> (รวม ${maxWins} ถ้วยรางวัล)</li>
-                            <li>ถ้วยรองชนะเลิศอันดับ 1 ได้แก่ <strong>${w_runnerup}</strong></li>
-                        </ol>
-                    </div>
-                    
-                    <div class="speech-line speech-indent" style="margin-top: 15px;">
-                        และลำดับต่อไป ${pronoun}ขอกราบเรียนเชิญท่านประธานได้กล่าวให้โอวาทต่อนักกีฬา กรรมการ เจ้าหน้าที่ และผู้เกี่ยวข้องทั้งหลาย ประกอบพิธีปิดการแข่งขันกีฬาภายใน "${systemSettings.eventName}" ประจำปีการศึกษา 25${yearShort}
-                    </div>
-                    
-                    <div style="text-align: right; margin-top: 30px; margin-right: 50px;">
-                        ขอกราบเรียนเชิญ${ending}
-                    </div>
-                    
-                    <div style="text-align:center; font-size:10pt; margin-top:50px; color:#666; border-top:1px solid #ddd; padding-top:10px;">
-                        เอกสารนี้พิมพ์จากระบบจัดการกีฬาภายใน พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง
-                    </div>
-                </div>
-            `;
+        // เนื้อหาบท (HTML) ใช้ชุดเครื่องมือเดียวกับบทพิธีกรอื่น (พิธีกร 1 = ผม/ครับ, พิธีกร 2 = ดิฉัน/ค่ะ สลับกันพูด)
+        function cxAwardMcHtml(kit, sportsInEvent, chairmanName) {
+            const ev = cxEsc(systemSettings.eventName), year = cxEsc(systemSettings.academicYear), S = cxEsc(systemSettings.schoolName);
+            const { awardList, overall, runnerup, maxWins, done } = cxComputeAwards(sportsInEvent);
+            const chair = (chairmanName || cd.chairman || '').trim();
+            const chairTxt = chair ? `${cxEsc(chair)} ${cxEsc(cd.chairman_pos || 'ประธานในพิธี')}` : 'ท่านประธานในพิธี';
+            const T = cxAwardTeachers();
+            const team = (w) => (!w || /^\.+$/.test(w)) ? '.'.repeat(20) : (w === '-' ? '-' : 'คณะ' + cxEsc(w));
+            const say = (fn) => { const s = kit.next(); return fn(s); };
+            let h = cxHead('บทพิธีกร ประกาศผลรางวัลและมอบรางวัล') + cxTitleBlock();
+            h += cxH('ช่วงประกาศผลการแข่งขัน');
+            h += kit.D('เมื่อการแข่งขันรายการสุดท้ายเสร็จสิ้น ให้นักกีฬาทุกคณะสีเข้าแถวหน้าเวที เตรียมถ้วยรางวัลและเกียรติบัตรให้พร้อม');
+            h += say(s => kit.L(s.n, `บัดนี้ การแข่งขันกีฬาภายใน ${ev} ประจำปีการศึกษา ${year} ได้เดินทางมาถึงช่วงที่ทุกคนรอคอย คือช่วงประกาศผลการแข่งขันและมอบรางวัล ${s.e}`));
+            h += say(s => kit.L(s.n, `ก่อนอื่น ขอเรียนเชิญ ${chairTxt} ขึ้นสู่เวที เพื่อทำหน้าที่มอบถ้วยรางวัลและโล่รางวัลแก่ผู้ชนะการแข่งขัน ${s.e}`));
+            if (T.length) h += say(s => kit.L(s.n, `ขอเรียนเชิญคณะครูผู้ร่วมมอบรางวัล ได้แก่ ${cxJoinThai(T)} ขึ้นสู่เวทีพร้อมกัน ${s.e}`));
+            h += kit.D('ประธานและคณะครูผู้มอบรางวัลขึ้นประจำที่ ดนตรีเบา ๆ');
+            // รางวัลแต่ละกีฬา (เรียงตามกีฬา)
+            const bySport = []; awardList.forEach(a => { let g = bySport.find(x => x.sport === a.sport); if (!g) bySport.push(g = { sport: a.sport, items: [] }); g.items.push(a); });
+            bySport.forEach((g, gi) => {
+                const sn = cxEsc(getSportName(g.sport));
+                h += cxH(`รางวัลการแข่งขัน${sn}`);
+                h += say(s => kit.L(s.n, `${gi === 0 ? 'เริ่มจากรางวัล' : (gi % 2 ? 'ต่อไปเป็นรางวัล' : 'มาถึงรางวัล')}การแข่งขัน${sn} ${s.e}`));
+                g.items.forEach((a, ai) => {
+                    h += say(s => kit.L(s.n, `${cxEsc(a.title)} ได้แก่ ${team(a.winner)} ${s.e} ขอเชิญตัวแทนนักกีฬาขึ้นรับถ้วยรางวัลบนเวที ${s.e}`));
+                    h += kit.D('ตัวแทนคณะสีผู้ชนะขึ้นรับถ้วยรางวัลจากประธาน / ถ่ายภาพร่วมกัน เสียงปรบมือ');
+                });
+            });
+            h += cxH('รางวัลรวมทุกประเภทกีฬา');
+            h += say(s => kit.L(s.n, `และแล้วก็มาถึงช่วงลุ้นระทึกที่สุดของวัน คือรางวัลสูงสุดของการแข่งขันกีฬาภายใน ${s.e}`));
+            h += say(s => kit.L(s.n, `รางวัลรองชนะเลิศอันดับ 1 ได้แก่ ${team(runnerup)} ${s.e} ขอเชิญตัวแทนขึ้นรับรางวัลพร้อมเสียงปรบมือ ${s.e}`));
+            h += kit.D('ตัวแทนคณะสีรองชนะเลิศขึ้นรับรางวัล');
+            h += say(s => kit.L(s.n, `ส่วนรางวัลชนะเลิศการแข่งขันกีฬาภายใน${S} ประจำปีการศึกษา ${year} คะแนนรวมทุกประเภท${done && maxWins ? ` (ชนะรวม ${maxWins} รายการ)` : ''} ได้แก่ ${team(overall)} ${s.e} ขอแสดงความยินดีด้วย${s.e === 'ครับ' ? 'ครับ' : 'ค่ะ'}`));
+            h += kit.D('ตัวแทนและนักกีฬาคณะสีชนะเลิศขึ้นรับถ้วยรางวัลชนะเลิศ ถ่ายภาพร่วมกับประธาน');
+            h += say(s => kit.L(s.n, `ขอขอบคุณนักกีฬาทุกคณะสีที่แสดงน้ำใจนักกีฬา และขอแสดงความยินดีกับผู้ได้รับรางวัลทุกท่าน ${s.e}`));
+            h += say(s => kit.L(s.n, `ลำดับต่อไป ขอเรียนเชิญ ${chairTxt} กล่าวให้โอวาทแก่นักกีฬา กรรมการ และผู้เกี่ยวข้อง พร้อมประกอบพิธีปิดการแข่งขันกีฬาภายใน ขอเรียนเชิญ${s.e}`));
+            h += kit.D('ประธานกล่าวให้โอวาทและปิดการแข่งขัน');
+            return h;
+        }
+        function cxAwardMcDoc(chairmanName, sportsInEvent) {
+            cxFormMc();   // เตรียมค่าเริ่มต้นชื่อพิธีกร/ประธาน ถ้ายังไม่เคยเปิดฟอร์มบทพิธีกร
+            return cxWrap(cxAwardMcHtml(msKit(), sportsInEvent, chairmanName && !/^\.+$/.test(chairmanName) ? chairmanName : ''));
         }
 
         // ===== เอกสารพิธีเปิดเพิ่มเติม: กำหนดการ / บทพิธีกร / คำปฏิญาณและประวัตินักกีฬา =====
@@ -1884,14 +1820,14 @@
         // =========================================================
         // ส่งออกบทพิธีกรทั้งหมด (.docx): ปกหน้า + กำหนดการ + บทพิธีกรพิธีเปิด + บทบรรยายกีฬา รวมไฟล์เดียว
         // =========================================================
-        let bkOpts = { cover: true, schedule: true, opening: true, sports: true };
+        let bkOpts = { cover: true, schedule: true, opening: true, sports: true, awards: true };
         window.bkOpt = (k, v) => { bkOpts[k] = v; };
         function cxFormMcBook() {
             // เตรียมค่าเริ่มต้นของข้อมูลทุกฟอร์มที่ต้องใช้ (กำหนดการ/บทพิธีกรพิธีเปิด) แม้ยังไม่เคยเปิดฟอร์มนั้น
             cxFormSchedule(); cxFormMc();
             const chk = (k, label) => `<div class="form-check"><input class="form-check-input" type="checkbox" id="bk_${k}" ${bkOpts[k] ? 'checked' : ''} onchange="bkOpt('${k}', this.checked)"><label class="form-check-label" for="bk_${k}">${label}</label></div>`;
             return cxSec('ส่วนประกอบของเล่ม', 'fa-book', 'ไฟล์เดียวเรียงตามลำดับ: ปกหน้า → กำหนดการ → บทพิธีกรพิธีเปิด → บทบรรยายกีฬา (เริ่มหน้าใหม่ทุกส่วน) แก้ข้อมูลของกำหนดการ/บทพิธีกรพิธีเปิดได้ที่เมนูของเอกสารนั้น ๆ')
-                + `<div class="col-12"><div class="p-3 rounded-4 border bg-white">${chk('cover', 'ปกหน้า (มีรายการสารบัญและชื่อพิธีกร)')}${chk('schedule', 'กำหนดการพิธีเปิด')}${chk('opening', 'บทพิธีกร พิธีเปิด (ขบวน/พิธีการ)')}${chk('sports', 'บทพิธีกรบรรยายกีฬา (ตามกีฬาที่เลือกด้านล่าง)')}</div></div>`
+                + `<div class="col-12"><div class="p-3 rounded-4 border bg-white">${chk('cover', 'ปกหน้า (มีรายการสารบัญและชื่อพิธีกร)')}${chk('schedule', 'กำหนดการพิธีเปิด')}${chk('opening', 'บทพิธีกร พิธีเปิด (ขบวน/พิธีการ)')}${chk('sports', 'บทพิธีกรบรรยายกีฬา (ตามกีฬาที่เลือกด้านล่าง)')}${chk('awards', 'บทพิธีกรประกาศผลรางวัล (ตั้งค่าแยกรายการ/แยกเพศ/คะแนนรวม และครูผู้มอบรางวัลที่เมนู “บทพิธีกรประกาศผลรางวัล”)')}</div></div>`
                 + cxFormMcSport();
         }
         function bkCoverHtml(parts) {
@@ -1940,7 +1876,12 @@
             const secs = [], toc = [];
             if (bkOpts.schedule) { secs.push({ html: cxDocSchedule(), newPage: true }); toc.push('กำหนดการพิธีเปิด'); }
             if (bkOpts.opening) { secs.push({ html: cxDocMc(), newPage: true, line: 312 }); toc.push('บทพิธีกร พิธีเปิด'); }
-            files.forEach(f => { secs.push({ html: f.html, newPage: true, line: 312 }); toc.push(f.title); });
+            const closeIdx = files.findIndex(f => f.name === 'บทพิธีกร_9_กล่าวปิด');
+            files.forEach((f, i) => {
+                if (i === closeIdx && bkOpts.awards) { secs.push({ html: cxAwardMcDoc('', [...new Set(allMatchesArray.map(m => m.sport))]), newPage: true, line: 312 }); toc.push('บทพิธีกรประกาศผลรางวัล'); }
+                secs.push({ html: f.html, newPage: true, line: 312 }); toc.push(f.title);
+            });
+            if (bkOpts.awards && closeIdx < 0 && isMatchesLoaded) { secs.push({ html: cxAwardMcDoc('', [...new Set(allMatchesArray.map(m => m.sport))]), newPage: true, line: 312 }); toc.push('บทพิธีกรประกาศผลรางวัล'); }
             if (!secs.length && !bkOpts.cover) { Swal.fire({ icon: 'warning', title: 'ยังไม่ได้เลือกส่วนประกอบ' }); return; }
             if (bkOpts.sports && !files.length) { await Swal.fire({ icon: 'info', title: 'ไม่มีบทบรรยายกีฬา', text: 'ยังไม่ได้เลือกกีฬา หรือยังไม่มีรายการแข่งขัน จะส่งออกเฉพาะส่วนอื่น', timer: 2500, showConfirmButton: false }); }
             if (bkOpts.cover) secs.unshift({ html: bkCoverHtml(toc), newPage: false });
@@ -2015,7 +1956,7 @@
 
         // ===== คำกล่าวพิธีการ: จัดให้พอดี 1 หน้า A4 =====
         // ลดขนาดตัวอักษร/ขอบกระดาษทีละขั้นจนพอดี 1 หน้า แต่ไม่ต่ำกว่า ~12.8pt (สเกล 0.80 ของ 16pt)
-        const CX_SPEECH_TYPES = ['opening_chairman', 'opening_report', 'closing_chairman', 'closing_report', 'athlete_bio', 'opening_schedule'];
+        const CX_SPEECH_TYPES = ['opening_chairman', 'opening_report', 'closing_chairman', 'athlete_bio', 'opening_schedule'];
         const CX_FIT_STAGES = [
             { s: 1.00, mt: 20, mx: 25 },
             { s: 0.94, mt: 20, mx: 25 },
