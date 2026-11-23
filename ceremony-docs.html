@@ -727,6 +727,7 @@
                                 </div>
                             </div>
                         </div>
+                        <div id="awp_${sport.key}" class="mt-2 pt-2 border-top"></div>
                     </div>`;
             });
             
@@ -737,19 +738,22 @@
 
         // ----- ผู้มอบรางวัลรายรายการ (กรอกอิสระ เว้นว่าง = ประธานมอบ) -----
         window.renderAwardPresenters = () => {
-            const box = document.getElementById('awardPresenters');
-            if (!box) return;
             const sports = [...new Set(allMatchesArray.map(m => m.sport))];
             const aw = cxComputeAwards(sports);
-            const items = aw.awardList.map(a => ({ key: a.title, label: a.title })).concat([
-                { key: '__runnerup', label: 'ถ้วยรองชนะเลิศอันดับ 1 (รวมทุกกีฬา)' }, { key: '__overall', label: 'ถ้วยชนะเลิศ คะแนนรวมทุกกีฬา' }]);
             cd.award_pres = cd.award_pres || {};
             const names = cxAwardTeachers().map(x => x.replace(/ \(.*\)$/, ''));
-            box.innerHTML = `<div class="border-top pt-3"><h6 class="fw-bold text-primary"><i class="fas fa-hand-holding-heart me-2"></i>ผู้มอบรางวัลแต่ละรายการ</h6>
-                <small class="text-muted d-block mb-2">พิมพ์ชื่อครูหรือผู้มอบได้อิสระ บทจะเชิญผู้มอบขึ้นเวทีทีละท่านทีละรายการ ไม่ขึ้นพร้อมกัน (เว้นว่าง = ประธานในพิธีเป็นผู้มอบ) พิมพ์ชื่อเดียวกับรายการครูผู้มอบรางวัลจะมีตัวช่วยเลือก</small>
-                <datalist id="awPresList">${names.map(n => `<option value="${cxEsc(n)}">`).join('')}</datalist>
-                ${items.map(it => `<div class="d-flex gap-2 align-items-center mb-1"><div class="small flex-grow-1" style="flex:3">${cxEsc(it.label)}</div>
-                    <input type="text" list="awPresList" class="form-control form-control-sm" style="flex:2" data-key="${cxEsc(it.key)}" value="${cxEsc(cd.award_pres[it.key] || '')}" placeholder="ผู้มอบ (ว่าง = ประธาน)" oninput="cxSetPres(this)"></div>`).join('')}</div>`;
+            const row = (key, label) => `<div class="d-flex gap-2 align-items-center mb-1"><div class="small" style="flex:3"><i class="fas fa-trophy text-warning me-1"></i>${cxEsc(label)}</div>
+                <input type="text" list="awPresList" class="form-control form-control-sm" style="flex:2" data-key="${cxEsc(key)}" value="${cxEsc(cd.award_pres[key] || '')}" placeholder="ผู้มอบ (ว่าง = ประธาน)" oninput="cxSetPres(this)"></div>`;
+            // ผู้มอบอยู่ในแถวของแต่ละกีฬา เทียบกับรายการรางวัลโดยตรง (กรอกได้ก่อนกดสร้างบท)
+            sports.forEach(sk => {
+                const el = document.getElementById('awp_' + sk);
+                if (el) el.innerHTML = `<div class="small text-muted mb-1">ผู้มอบรางวัลของแต่ละรายการ</div>` + aw.awardList.filter(a => a.sport === sk).map(a => row(a.title, a.title)).join('');
+            });
+            const box = document.getElementById('awardPresenters');
+            if (box) box.innerHTML = `<datalist id="awPresList">${names.map(n => `<option value="${cxEsc(n)}">`).join('')}</datalist>
+                <div class="award-type-item"><h6 class="fw-bold text-dark mb-2"><i class="fas fa-medal text-warning me-2"></i>รางวัลรวมทุกกีฬา</h6>
+                ${row('__runnerup', 'ถ้วยรองชนะเลิศอันดับ 1')}${row('__overall', 'ถ้วยชนะเลิศ คะแนนรวมทุกกีฬา')}
+                <small class="text-muted d-block mt-2">พิมพ์ชื่อผู้มอบได้อิสระ บทจะเชิญผู้มอบขึ้นเวทีทีละท่านทีละรายการ (คนเดียวกันมอบติดกันจะเชิญครั้งเดียว) เว้นว่าง = ประธานในพิธีเป็นผู้มอบ</small></div>`;
         };
         window.cxSetPres = (el) => { cd.award_pres = cd.award_pres || {}; cd.award_pres[el.dataset.key] = el.value; saveCd(); };
 
@@ -1070,6 +1074,11 @@
             const pres = (key) => ((cd.award_pres || {})[key] || '').trim();
             const presTxt = (key) => pres(key) ? cxEsc(pres(key)) : 'ท่านประธาน';
             const presInv = (key) => pres(key) ? cxEsc(pres(key)) : chairTxt;   // ชื่อสำหรับเชิญขึ้นเวที (ว่าง = ประธาน)
+            // ลำดับการมอบทั้งหมด: ผู้มอบคนเดียวกันมอบรายการติดกัน = เชิญขึ้นเวทีครั้งเดียว ไม่ต้องเชิญซ้ำ
+            const seq = awardList.map(a => a.title).concat(['__runnerup', '__overall']);
+            const pid = (k) => pres(k) || '__chair';
+            let seqIdx = 0;
+            const turn = () => { const i = seqIdx++; return { first: i === 0 || pid(seq[i]) !== pid(seq[i - 1]), last: i === seq.length - 1 || pid(seq[i]) !== pid(seq[i + 1]) }; };
             let h = cxHead('บทพิธีกร ประกาศผลรางวัลและมอบรางวัล') + cxTitleBlock();
             h += cxH('ช่วงประกาศผลการแข่งขัน');
             h += kit.D('เมื่อการแข่งขันรายการสุดท้ายเสร็จสิ้น ให้นักกีฬาทุกคณะสีเข้าแถวหน้าเวที เตรียมถ้วยรางวัลและเกียรติบัตรให้พร้อม');
@@ -1084,18 +1093,21 @@
                 h += say(s => kit.L(s.n, `${gi === 0 ? 'เริ่มจากรางวัล' : (gi % 2 ? 'ต่อไปเป็นรางวัล' : 'มาถึงรางวัล')}การแข่งขัน${sn} ${s.e}`));
                 g.items.forEach((a, ai) => {
                     h += say(s => kit.L(s.n, `${cxEsc(a.title)} ได้แก่ ${team(a.winner)} ${s.e} ขอเชิญตัวแทนนักกีฬาขึ้นรับถ้วยรางวัลบนเวที ${s.e}`));
-                    h += say(s => kit.L(s.n, `ขอเรียนเชิญ ${presInv(a.title)} ขึ้นสู่เวที เพื่อมอบถ้วยรางวัลรายการนี้ ${s.e}`));
-                    h += kit.D(`${presTxt(a.title)}ขึ้นเวทีมอบถ้วยรางวัลแก่ตัวแทนคณะสี / ถ่ายภาพร่วมกัน เสียงปรบมือ แล้วลงจากเวที`);
+                    const tn = turn();
+                    if (tn.first) h += say(s => kit.L(s.n, `ขอเรียนเชิญ ${presInv(a.title)} ขึ้นสู่เวที เพื่อมอบถ้วยรางวัล ${s.e}`));
+                    h += kit.D(`${presTxt(a.title)}${tn.first ? 'ขึ้นเวที' : 'ยังอยู่บนเวที'}มอบถ้วยรางวัลแก่ตัวแทนคณะสี / ถ่ายภาพร่วมกัน เสียงปรบมือ${tn.last ? ' แล้วลงจากเวที' : ''}`);
                 });
             });
             h += cxH('รางวัลรวมทุกประเภทกีฬา');
             h += say(s => kit.L(s.n, `และแล้วก็มาถึงช่วงลุ้นระทึกที่สุดของวัน คือรางวัลสูงสุดของการแข่งขันกีฬาภายใน ${s.e}`));
             h += say(s => kit.L(s.n, `รางวัลรองชนะเลิศอันดับ 1 ได้แก่ ${team(runnerup)} ${s.e} ขอเชิญตัวแทนขึ้นรับรางวัลพร้อมเสียงปรบมือ ${s.e}`));
-            h += say(s => kit.L(s.n, `ขอเรียนเชิญ ${presInv('__runnerup')} ขึ้นสู่เวที เพื่อมอบรางวัลรองชนะเลิศอันดับ 1 ${s.e}`));
-            h += kit.D(`${presTxt('__runnerup')}ขึ้นเวทีมอบรางวัลรองชนะเลิศ / ถ่ายภาพร่วมกัน แล้วลงจากเวที`);
+            const tr = turn();
+            if (tr.first) h += say(s => kit.L(s.n, `ขอเรียนเชิญ ${presInv('__runnerup')} ขึ้นสู่เวที เพื่อมอบรางวัลรองชนะเลิศอันดับ 1 ${s.e}`));
+            h += kit.D(`${presTxt('__runnerup')}${tr.first ? 'ขึ้นเวที' : 'ยังอยู่บนเวที'}มอบรางวัลรองชนะเลิศ / ถ่ายภาพร่วมกัน${tr.last ? ' แล้วลงจากเวที' : ''}`);
             h += say(s => kit.L(s.n, `ส่วนรางวัลชนะเลิศการแข่งขันกีฬาภายใน${S} ประจำปีการศึกษา ${year} คะแนนรวมทุกประเภท${done && maxWins ? ` (ชนะรวม ${maxWins} รายการ)` : ''} ได้แก่ ${team(overall)} ${s.e} ขอเชิญตัวแทนและนักกีฬาขึ้นรับถ้วยรางวัลชนะเลิศ ขอแสดงความยินดีด้วย${s.e}`));
-            h += say(s => kit.L(s.n, `ขอเรียนเชิญ ${presInv('__overall')} ขึ้นสู่เวที เพื่อมอบถ้วยรางวัลชนะเลิศ ${s.e}`));
-            h += kit.D(`${presTxt('__overall')}ขึ้นเวทีมอบถ้วยรางวัลชนะเลิศ / นักกีฬาทั้งคณะสีร่วมถ่ายภาพ แล้วผู้มอบลงจากเวที`);
+            const to = turn();
+            if (to.first) h += say(s => kit.L(s.n, `ขอเรียนเชิญ ${presInv('__overall')} ขึ้นสู่เวที เพื่อมอบถ้วยรางวัลชนะเลิศ ${s.e}`));
+            h += kit.D(`${presTxt('__overall')}${to.first ? 'ขึ้นเวที' : 'ยังอยู่บนเวที'}มอบถ้วยรางวัลชนะเลิศ / นักกีฬาทั้งคณะสีร่วมถ่ายภาพ แล้วผู้มอบลงจากเวที`);
             h += say(s => kit.L(s.n, `ขอขอบคุณนักกีฬาทุกคณะสีที่แสดงน้ำใจนักกีฬา และขอแสดงความยินดีกับผู้ได้รับรางวัลทุกท่าน ${s.e}`));
             h += say(s => kit.L(s.n, `ลำดับต่อไป ขอเรียนเชิญ ${chairTxt} กล่าวให้โอวาทแก่นักกีฬา กรรมการ และผู้เกี่ยวข้อง พร้อมประกอบพิธีปิดการแข่งขันกีฬาภายใน ขอเรียนเชิญ${s.e}`));
             h += kit.D('ประธานกล่าวให้โอวาทและปิดการแข่งขัน');
