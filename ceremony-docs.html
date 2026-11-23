@@ -708,13 +708,13 @@
                             <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-2 rounded">
                                 <div class="form-check form-check-inline m-0 me-2">
                                     <input class="form-check-input" type="radio" name="award_${sport.key}" 
-                                           id="${sport.key}_separate" value="separate" checked>
+                                           id="${sport.key}_separate" value="separate" checked onchange="renderAwardPresenters()">
                                     <label class="form-check-label small" for="${sport.key}_separate">แยกรายการ</label>
                                 </div>
                                 ${hasGenderSplit ? `
                                 <div class="form-check form-check-inline m-0 me-2">
                                     <input class="form-check-input" type="radio" name="award_${sport.key}" 
-                                           id="${sport.key}_gender" value="gender">
+                                           id="${sport.key}_gender" value="gender" onchange="renderAwardPresenters()">
                                     <label class="form-check-label small text-success fw-bold" for="${sport.key}_gender">
                                         <i class="fas fa-venus-mars"></i> แยกเพศ
                                     </label>
@@ -722,7 +722,7 @@
                                 ` : ''}
                                 <div class="form-check form-check-inline m-0">
                                     <input class="form-check-input" type="radio" name="award_${sport.key}" 
-                                           id="${sport.key}_combined" value="combined">
+                                           id="${sport.key}_combined" value="combined" onchange="renderAwardPresenters()">
                                     <label class="form-check-label small" for="${sport.key}_combined">คะแนนรวม</label>
                                 </div>
                             </div>
@@ -730,9 +730,28 @@
                     </div>`;
             });
             
-            container.innerHTML = html;
+            container.innerHTML = html + `<div id="awardPresenters" class="mt-3"></div>`;
             badge.textContent = `${Object.keys(sportsMap).length} กีฬา`;
+            renderAwardPresenters();
         }
+
+        // ----- ผู้มอบรางวัลรายรายการ (กรอกอิสระ เว้นว่าง = ประธานมอบ) -----
+        window.renderAwardPresenters = () => {
+            const box = document.getElementById('awardPresenters');
+            if (!box) return;
+            const sports = [...new Set(allMatchesArray.map(m => m.sport))];
+            const aw = cxComputeAwards(sports);
+            const items = aw.awardList.map(a => ({ key: a.title, label: a.title })).concat([
+                { key: '__runnerup', label: 'ถ้วยรองชนะเลิศอันดับ 1 (รวมทุกกีฬา)' }, { key: '__overall', label: 'ถ้วยชนะเลิศ คะแนนรวมทุกกีฬา' }]);
+            cd.award_pres = cd.award_pres || {};
+            const names = cxAwardTeachers().map(x => x.replace(/ \(.*\)$/, ''));
+            box.innerHTML = `<div class="border-top pt-3"><h6 class="fw-bold text-primary"><i class="fas fa-hand-holding-heart me-2"></i>ผู้มอบรางวัลแต่ละรายการ</h6>
+                <small class="text-muted d-block mb-2">พิมพ์ชื่อครูหรือผู้มอบได้อิสระ (เว้นว่าง = ประธานในพิธีเป็นผู้มอบ) พิมพ์ชื่อเดียวกับรายการครูผู้มอบรางวัลจะมีตัวช่วยเลือก</small>
+                <datalist id="awPresList">${names.map(n => `<option value="${cxEsc(n)}">`).join('')}</datalist>
+                ${items.map(it => `<div class="d-flex gap-2 align-items-center mb-1"><div class="small flex-grow-1" style="flex:3">${cxEsc(it.label)}</div>
+                    <input type="text" list="awPresList" class="form-control form-control-sm" style="flex:2" data-key="${cxEsc(it.key)}" value="${cxEsc(cd.award_pres[it.key] || '')}" placeholder="ผู้มอบ (ว่าง = ประธาน)" oninput="cxSetPres(this)"></div>`).join('')}</div>`;
+        };
+        window.cxSetPres = (el) => { cd.award_pres = cd.award_pres || {}; cd.award_pres[el.dataset.key] = el.value; saveCd(); };
 
         // ===== คำนวณรางวัล (รองรับ Dynamic Teams) =====
         function calculateGoldWinner(sportType, categoryFilter = null, genderFilter = null) {
@@ -1048,13 +1067,18 @@
             const T = cxAwardTeachers();
             const team = (w) => (!w || /^\.+$/.test(w)) ? '.'.repeat(20) : (w === '-' ? '-' : 'คณะ' + cxEsc(w));
             const say = (fn) => { const s = kit.next(); return fn(s); };
+            const pres = (key) => ((cd.award_pres || {})[key] || '').trim();
+            const presTxt = (key) => pres(key) ? cxEsc(pres(key)) : 'ท่านประธาน';
+            const anyDefault = awardList.some(a => !pres(a.title)) || !pres('__runnerup') || !pres('__overall');
+            const presenters = [...new Set([...awardList.map(a => pres(a.title)), pres('__runnerup'), pres('__overall')].filter(Boolean))];
             let h = cxHead('บทพิธีกร ประกาศผลรางวัลและมอบรางวัล') + cxTitleBlock();
             h += cxH('ช่วงประกาศผลการแข่งขัน');
             h += kit.D('เมื่อการแข่งขันรายการสุดท้ายเสร็จสิ้น ให้นักกีฬาทุกคณะสีเข้าแถวหน้าเวที เตรียมถ้วยรางวัลและเกียรติบัตรให้พร้อม');
             h += say(s => kit.L(s.n, `บัดนี้ การแข่งขันกีฬาภายใน ${ev} ประจำปีการศึกษา ${year} ได้เดินทางมาถึงช่วงที่ทุกคนรอคอย คือช่วงประกาศผลการแข่งขันและมอบรางวัล ${s.e}`));
-            h += say(s => kit.L(s.n, `ก่อนอื่น ขอเรียนเชิญ ${chairTxt} ขึ้นสู่เวที เพื่อทำหน้าที่มอบถ้วยรางวัลและโล่รางวัลแก่ผู้ชนะการแข่งขัน ${s.e}`));
+            const inviteList = [...(anyDefault ? [chairTxt] : []), ...presenters.map(cxEsc)];
+            h += say(s => kit.L(s.n, `ก่อนอื่น ขอเรียนเชิญ ${cxJoinThai(inviteList.length ? inviteList : [chairTxt])} ขึ้นสู่เวที เพื่อทำหน้าที่มอบถ้วยรางวัลและโล่รางวัลแก่ผู้ชนะการแข่งขัน ${s.e}`));
             if (T.length) h += say(s => kit.L(s.n, `ขอเรียนเชิญคณะครูผู้ร่วมมอบรางวัล ได้แก่ ${cxJoinThai(T)} ขึ้นสู่เวทีพร้อมกัน ${s.e}`));
-            h += kit.D('ประธานและคณะครูผู้มอบรางวัลขึ้นประจำที่ ดนตรีเบา ๆ');
+            h += kit.D('ผู้มอบรางวัลขึ้นประจำที่ ดนตรีเบา ๆ');
             // รางวัลแต่ละกีฬา (เรียงตามกีฬา)
             const bySport = []; awardList.forEach(a => { let g = bySport.find(x => x.sport === a.sport); if (!g) bySport.push(g = { sport: a.sport, items: [] }); g.items.push(a); });
             bySport.forEach((g, gi) => {
@@ -1062,16 +1086,16 @@
                 h += cxH(`รางวัลการแข่งขัน${sn}`);
                 h += say(s => kit.L(s.n, `${gi === 0 ? 'เริ่มจากรางวัล' : (gi % 2 ? 'ต่อไปเป็นรางวัล' : 'มาถึงรางวัล')}การแข่งขัน${sn} ${s.e}`));
                 g.items.forEach((a, ai) => {
-                    h += say(s => kit.L(s.n, `${cxEsc(a.title)} ได้แก่ ${team(a.winner)} ${s.e} ขอเชิญตัวแทนนักกีฬาขึ้นรับถ้วยรางวัลบนเวที ${s.e}`));
-                    h += kit.D('ตัวแทนคณะสีผู้ชนะขึ้นรับถ้วยรางวัลจากประธาน / ถ่ายภาพร่วมกัน เสียงปรบมือ');
+                    h += say(s => kit.L(s.n, `${cxEsc(a.title)} ได้แก่ ${team(a.winner)} ${s.e} ขอเชิญตัวแทนนักกีฬาขึ้นรับถ้วยรางวัลบนเวที โดย ${presTxt(a.title)} เป็นผู้มอบ ${s.e}`));
+                    h += kit.D(`ตัวแทนคณะสีผู้ชนะขึ้นรับถ้วยรางวัลจาก${presTxt(a.title)} / ถ่ายภาพร่วมกัน เสียงปรบมือ`);
                 });
             });
             h += cxH('รางวัลรวมทุกประเภทกีฬา');
             h += say(s => kit.L(s.n, `และแล้วก็มาถึงช่วงลุ้นระทึกที่สุดของวัน คือรางวัลสูงสุดของการแข่งขันกีฬาภายใน ${s.e}`));
-            h += say(s => kit.L(s.n, `รางวัลรองชนะเลิศอันดับ 1 ได้แก่ ${team(runnerup)} ${s.e} ขอเชิญตัวแทนขึ้นรับรางวัลพร้อมเสียงปรบมือ ${s.e}`));
-            h += kit.D('ตัวแทนคณะสีรองชนะเลิศขึ้นรับรางวัล');
-            h += say(s => kit.L(s.n, `ส่วนรางวัลชนะเลิศการแข่งขันกีฬาภายใน${S} ประจำปีการศึกษา ${year} คะแนนรวมทุกประเภท${done && maxWins ? ` (ชนะรวม ${maxWins} รายการ)` : ''} ได้แก่ ${team(overall)} ${s.e} ขอแสดงความยินดีด้วย${s.e === 'ครับ' ? 'ครับ' : 'ค่ะ'}`));
-            h += kit.D('ตัวแทนและนักกีฬาคณะสีชนะเลิศขึ้นรับถ้วยรางวัลชนะเลิศ ถ่ายภาพร่วมกับประธาน');
+            h += say(s => kit.L(s.n, `รางวัลรองชนะเลิศอันดับ 1 ได้แก่ ${team(runnerup)} ${s.e} ขอเชิญตัวแทนขึ้นรับรางวัลพร้อมเสียงปรบมือ โดย ${presTxt('__runnerup')} เป็นผู้มอบ ${s.e}`));
+            h += kit.D(`ตัวแทนคณะสีรองชนะเลิศขึ้นรับรางวัลจาก${presTxt('__runnerup')}`);
+            h += say(s => kit.L(s.n, `ส่วนรางวัลชนะเลิศการแข่งขันกีฬาภายใน${S} ประจำปีการศึกษา ${year} คะแนนรวมทุกประเภท${done && maxWins ? ` (ชนะรวม ${maxWins} รายการ)` : ''} ได้แก่ ${team(overall)} ${s.e} ขอเชิญตัวแทนและนักกีฬาขึ้นรับถ้วยรางวัลชนะเลิศ โดย ${presTxt('__overall')} เป็นผู้มอบ ขอแสดงความยินดีด้วย${s.e}`));
+            h += kit.D(`ตัวแทนและนักกีฬาคณะสีชนะเลิศขึ้นรับถ้วยรางวัลชนะเลิศจาก${presTxt('__overall')} ถ่ายภาพร่วมกัน`);
             h += say(s => kit.L(s.n, `ขอขอบคุณนักกีฬาทุกคณะสีที่แสดงน้ำใจนักกีฬา และขอแสดงความยินดีกับผู้ได้รับรางวัลทุกท่าน ${s.e}`));
             h += say(s => kit.L(s.n, `ลำดับต่อไป ขอเรียนเชิญ ${chairTxt} กล่าวให้โอวาทแก่นักกีฬา กรรมการ และผู้เกี่ยวข้อง พร้อมประกอบพิธีปิดการแข่งขันกีฬาภายใน ขอเรียนเชิญ${s.e}`));
             h += kit.D('ประธานกล่าวให้โอวาทและปิดการแข่งขัน');
