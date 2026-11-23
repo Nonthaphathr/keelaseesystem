@@ -458,6 +458,7 @@
         let allMatchesArray = [];
         let selectedDocType = null;
         let isMatchesLoaded = false;
+        let matchesLoadError = '';
         let isSettingsLoaded = false;
 
         let systemSettings = {
@@ -527,7 +528,12 @@
                 if (selectedDocType === 'closing_report') {
                     renderAwardTypes();
                 }
-                if (selectedDocType === 'mc_sport') msRenderPicker();
+                if (selectedDocType === 'mc_sport' || selectedDocType === 'mc_book') msRenderPicker();
+            }, (err) => {
+                console.error('โหลดตารางแข่งขันไม่สำเร็จ', err);
+                matchesLoadError = String((err && (err.code || err.message)) || err);
+                const box = document.getElementById('msPicker');
+                if (box) box.innerHTML = `<div class="col-12 text-danger small"><i class="fas fa-triangle-exclamation me-1"></i>โหลดตารางแข่งขันไม่สำเร็จ (${cxEsc(matchesLoadError)}) — รีเฟรชหน้านี้อีกครั้ง หรือตรวจสอบสิทธิ์ Firebase</div>`;
             });
         }
 
@@ -1723,7 +1729,7 @@
         function msRenderPicker() {
             const box = document.getElementById('msPicker');
             if (!box) return;
-            if (!isMatchesLoaded) { box.innerHTML = '<div class="col-12 text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>กำลังโหลดตารางแข่งขัน...</div>'; return; }
+            if (!isMatchesLoaded) { box.innerHTML = matchesLoadError ? `<div class="col-12 text-danger small">โหลดตารางแข่งขันไม่สำเร็จ (${cxEsc(matchesLoadError)}) — รีเฟรชหน้านี้อีกครั้ง</div>` : '<div class="col-12 text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>กำลังโหลดตารางแข่งขัน...</div>'; return; }
             const dates = [...new Set(allMatchesArray.map(m => m.date).filter(Boolean))].sort();
             const dsel = document.getElementById('msDate');
             if (dsel && !dsel.dataset.ready) {
@@ -2119,8 +2125,8 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadSettings();
-            loadMatches();
+            // รอเข้าสู่ระบบแบบ anonymous ก่อนอ่านฐานข้อมูล (ไม่งั้นโดน permission denied แล้วตัวโหลดค้างตลอด)
+            authReady.then(() => { loadSettings(); loadMatches(); });
         });
     </script>
 </body>
