@@ -1421,12 +1421,17 @@
                 <div class="speech-line speech-indent" style="page-break-inside:avoid;"><strong>ประวัติการศึกษา</strong> ${cxBr(cd.sr_edu)}</div>
                 <div class="speech-line speech-indent" style="page-break-inside:avoid;"><strong>ประวัติการกีฬา</strong> ${cxBr(cd.sr_sport)}</div>
                 <div class="speech-line speech-indent" style="page-break-inside:avoid;">${cxBr(cd.sr_close)}</div>`;
+            // แยกคนละหน้า: หน้า 1 นักกีฬาอาวุโส / หน้า 2 นักกีฬาวิ่งคบเพลิง (แต่ละหน้าถูกจัดให้พอดี 1 หน้า ตอนพิมพ์)
             return cxWrap(`
-                ${cxHead('ประวัตินักกีฬาอาวุโสและนักกีฬาวิ่งคบเพลิง')}
-                ${cxH('ประวัตินักกีฬาอาวุโส')}
-                ${sr}
-                ${cxH('ขอเชิญรับฟังประวัตินักกีฬาวิ่งคบเพลิง')}
-                ${torchHtml}`);
+                <div class="bio-page">
+                    ${cxHead('ประวัตินักกีฬาอาวุโส')}
+                    ${sr}
+                </div>
+                <div class="bio-page" style="page-break-before:always; break-before:page;">
+                    ${cxHead('ประวัตินักกีฬาวิ่งคบเพลิง')}
+                    ${cxH('ขอเชิญรับฟังประวัตินักกีฬาวิ่งคบเพลิง')}
+                    ${torchHtml}
+                </div>`);
         }
 
         // =========================================================
@@ -1909,7 +1914,7 @@
 
         // ===== คำกล่าวพิธีการ: จัดให้พอดี 1 หน้า A4 =====
         // ลดขนาดตัวอักษร/ขอบกระดาษทีละขั้นจนพอดี 1 หน้า แต่ไม่ต่ำกว่า ~12.8pt (สเกล 0.80 ของ 16pt)
-        const CX_SPEECH_TYPES = ['opening_chairman', 'opening_report', 'closing_chairman', 'closing_report'];
+        const CX_SPEECH_TYPES = ['opening_chairman', 'opening_report', 'closing_chairman', 'closing_report', 'athlete_bio'];
         const CX_FIT_STAGES = [
             { s: 1.00, mt: 20, mx: 25 },
             { s: 0.94, mt: 20, mx: 25 },
@@ -1933,7 +1938,14 @@
             for (const g of CX_FIT_STAGES) {
                 apply(g);
                 const availPx = (297 - 2 * g.mt - 4) * 96 / 25.4;   // เผื่อ 4 มม. กันขอบเครื่องพิมพ์
-                if (root.offsetHeight <= availPx) return { fit: true, stage: g };
+                const parts = root.querySelectorAll('.bio-page');   // เอกสารหลายหน้า (ประวัตินักกีฬา): ต้องพอดีทุกหน้า
+                let h = root.offsetHeight;
+                if (parts.length) {   // หน้าสุดท้ายรวมท้ายกระดาษ (ผู้รับผิดชอบ/ลายเซ็น) ที่อยู่นอก .bio-page ด้วย
+                    const heights = [...parts].map(e => e.offsetHeight);
+                    const others = heights.slice(0, -1).reduce((a, b) => a + b, 0);
+                    h = Math.max(...heights.slice(0, -1), root.offsetHeight - others);
+                }
+                if (h <= availPx) return { fit: true, stage: g };
             }
             return { fit: false, stage: CX_FIT_STAGES[CX_FIT_STAGES.length - 1] };
         }
