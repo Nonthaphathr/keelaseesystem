@@ -1906,6 +1906,25 @@
                 <div style="text-align:center; font-size:18pt; font-weight:bold; margin-top:50px;">รายการในเล่ม</div>
                 ${toc}`;
         }
+        // ปรับหน้าตาบทพิธีกรสำหรับไฟล์ .docx: พิธีกร 1 = น้ำเงินเข้ม, พิธีกร 2 = น้ำตาลเข้ม, ข้อความในวงเล็บ/คำบรรยายเป็นสีดำ, เพิ่มช่องไฟระหว่างย่อหน้า
+        const BK_COLOR = { mc1: '#0B2A6F', mc2: '#5C3317' };
+        function bkStyleHtml(html) {
+            const doc = new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html');
+            const n1 = (cd.mc1 || 'พิธีกร 1').trim(), n2 = (cd.mc2 || 'พิธีกร 2').trim();
+            doc.body.querySelectorAll('div').forEach(d => {
+                const st = d.firstElementChild;
+                if (st && st.tagName === 'STRONG' && d.firstChild === st && /^\(.*\)$/.test(st.textContent.trim())) {
+                    const who = st.textContent.trim().slice(1, -1).trim();
+                    const c = who === n1 ? BK_COLOR.mc1 : who === n2 ? BK_COLOR.mc2 : '';
+                    if (c) { d.style.color = c; d.style.marginBottom = '22px'; }
+                }
+                if (/font-style:\s*italic/.test(d.getAttribute('style') || '') && /^\(/.test(d.textContent.trim())) { d.style.marginTop = '14px'; d.style.marginBottom = '16px'; }
+                if (/display:\s*flex/.test(d.getAttribute('style') || '') && d.textContent.trim().startsWith('○')) d.style.marginBottom = '16px';
+                if (/border:\s*1px solid #888/.test(d.getAttribute('style') || '')) d.style.marginBottom = '20px';
+            });
+            doc.body.querySelectorAll('[style*="#555"]').forEach(e => { e.style.color = '#000000'; });   // คำบรรยาย/วงเล็บ = สีดำ
+            return doc.body.innerHTML;
+        }
         window.msBookExport = async () => {
             if (typeof docx === 'undefined' || typeof JSZip === 'undefined' || !window.ThaiDocx) {
                 Swal.fire({ icon: 'error', title: 'โหลดตัวสร้างไฟล์ .docx ไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้านี้' }); return;
@@ -1914,14 +1933,14 @@
             if (bkOpts.sports) { files = msBuildFiles(true); if (files === null) return; }
             const secs = [], toc = [];
             if (bkOpts.schedule) { secs.push({ html: cxDocSchedule(), newPage: true }); toc.push('กำหนดการพิธีเปิด'); }
-            if (bkOpts.opening) { secs.push({ html: cxDocMc(), newPage: true }); toc.push('บทพิธีกร พิธีเปิด'); }
-            files.forEach(f => { secs.push({ html: f.html, newPage: true }); toc.push(f.title); });
+            if (bkOpts.opening) { secs.push({ html: cxDocMc(), newPage: true, line: 312 }); toc.push('บทพิธีกร พิธีเปิด'); }
+            files.forEach(f => { secs.push({ html: f.html, newPage: true, line: 312 }); toc.push(f.title); });
             if (!secs.length && !bkOpts.cover) { Swal.fire({ icon: 'warning', title: 'ยังไม่ได้เลือกส่วนประกอบ' }); return; }
             if (bkOpts.sports && !files.length) { await Swal.fire({ icon: 'info', title: 'ไม่มีบทบรรยายกีฬา', text: 'ยังไม่ได้เลือกกีฬา หรือยังไม่มีรายการแข่งขัน จะส่งออกเฉพาะส่วนอื่น', timer: 2500, showConfirmButton: false }); }
             if (bkOpts.cover) secs.unshift({ html: bkCoverHtml(toc), newPage: false });
             Swal.fire({ title: 'กำลังสร้างไฟล์ .docx', text: 'รอสักครู่...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             try {
-                const blob = await ThaiDocx.build(secs, { title: `บทพิธีกร ${systemSettings.eventName} ${systemSettings.academicYear}`, footerText: 'เอกสารนี้พิมพ์จากระบบจัดการกีฬาภายใน พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง' });
+                const blob = await ThaiDocx.build(secs.map(x => ({ ...x, html: bkStyleHtml(x.html) })), { title: `บทพิธีกร ${systemSettings.eventName} ${systemSettings.academicYear}`, footerText: 'เอกสารนี้พิมพ์จากระบบจัดการกีฬาภายใน พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
                 a.download = `บทพิธีกรทั้งหมด_${msFileName(systemSettings.eventName)}_${systemSettings.academicYear}.docx`;

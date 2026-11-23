@@ -202,7 +202,7 @@
             sp.runs.forEach(r => runs.push(runOf(r, sp.size)));
             const o = {
                 children: runs, alignment: ALIGN[sp.align] || D.AlignmentType.LEFT,
-                spacing: { before: sp.before || 0, after: sp.after == null ? 0 : sp.after, line: 276, lineRule: D.LineRuleType.AUTO },
+                spacing: { before: sp.before || 0, after: sp.after == null ? 0 : sp.after, line: sp.line || opts.line || 276, lineRule: D.LineRuleType.AUTO },
                 indent: (sp.left || sp.hanging) ? { left: sp.left + (sp.hanging || 0), hanging: sp.hanging || undefined } : undefined,
                 pageBreakBefore: !!sp.pageBreak, keepLines: !!sp.keep, keepNext: !!sp.keepNext
             };
@@ -289,6 +289,7 @@
         docs.forEach((d, idx) => {
             const part = convertChildren(d.body, { size: BASE_PT }, imgs, []);
             if (part.length && sections[idx].newPage && specs.length) part[0].pageBreak = true;
+            if (sections[idx].line) part.forEach(sp => { sp.line = sections[idx].line; });
             specs.push(...part);
         });
         const blob = await docx.Packer.toBlob(buildDocx(specs, opts));
