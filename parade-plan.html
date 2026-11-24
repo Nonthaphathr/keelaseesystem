@@ -563,7 +563,12 @@ async function peopleFixer(root) {   // แทนไอคอนคนที่�
         el.replaceWith(im);
     });
 }
-async function renderStageCanvas(o, caption, SC = 2, hideItems = false) {
+const walkNote = () => walk === '2'
+    ? 'หมายเหตุ: ขบวนโรงเรียน (หมายเลข 1) เดินออกก่อน เดินขึ้นตรง ขวาหันตามเส้นประไปเลนขวา ซ้ายหันขึ้นไป แล้วซ้ายหันเดินผ่านหน้าปะรำ ทำความเคารพประธาน และเลี้ยวออกนอกสนาม\n' +
+      'จากนั้นขบวนคณะสีเริ่มจากคณะขวาสุด (หมายเลข 2) แล้วไล่มาทางซ้ายตามหมายเลข 3, 4, ... โดยแต่ละคณะ "ขวาหัน" ในตำแหน่งที่ยืนอยู่ เดินขยับไปทางขวาให้ตรงกับกรวยขวาสุด (เลนขวา) ทั้งขบวนพร้อมกัน แล้วเดินตรงขึ้นไปเลี้ยวซ้ายครั้งเดียว เดินผ่านหน้าปะรำ ทำความเคารพประธาน และเลี้ยวออกนอกสนาม ขบวนถัดไปเลื่อนมาแทนที่เมื่อขบวนก่อนหน้าออกไปแล้ว'
+    : 'หมายเหตุ: ขบวนโรงเรียน (หมายเลข 1) เดินออกก่อน เดินขึ้นตรง ขวาหันตามเส้นประไปเลนขวา ซ้ายหันขึ้นไป แล้วซ้ายหันเดินผ่านหน้าปะรำ ทำความเคารพประธาน และเลี้ยวออกนอกสนาม\n' +
+      'ขบวนคณะสีเดินตามลำดับหมายเลข 2, 3, 4, ... โดยแต่ละคณะเดินตรงขึ้นตามเส้นประของตนเอง ขวาหันเดินทับไลน์ขบวนโรงเรียนไปเลนขวา ซ้ายหันขึ้นไป แล้วซ้ายหันเดินผ่านหน้าปะรำ ทำความเคารพประธาน และเลี้ยวออกนอกสนาม · ระยะห่างระหว่างเส้นทางบนกับล่าง 10–15 เมตร';
+async function renderStageCanvas(o, caption, SC = 2, hideItems = false, note = '') {
     const fix = await peopleFixer(o.stage);
     const prevT = o.stage.style.transform; o.stage.style.transform = 'none';
     let cv;
@@ -573,12 +578,23 @@ async function renderStageCanvas(o, caption, SC = 2, hideItems = false) {
     } finally { o.stage.style.transform = prevT; }
     // หัวเรื่องบรรทัดเดียว (ลดขนาดอักษรอัตโนมัติไม่ให้ตกบรรทัด)
     const title = document.getElementById('printTitle').textContent + (caption ? ' · ' + caption : '');
-    const th = 70 * SC, out = document.createElement('canvas'); out.width = cv.width; out.height = cv.height + th;
+    const nfs = 15 * SC, lines = [], nf = `600 ${nfs}px Sarabun, Kanit, sans-serif`;
+    if (note) {   // หมายเหตุสีแดงใต้ผัง (ตัดบรรทัดตามคำไทย)
+        const tc = document.createElement('canvas').getContext('2d'); tc.font = nf; const maxW = cv.width - 40 * SC;
+        note.split('\n').forEach(par => {
+            const segs = window.Intl && Intl.Segmenter ? [...new Intl.Segmenter('th', { granularity: 'word' }).segment(par)].map(x => x.segment) : [...par];
+            let cur = ''; segs.forEach(sg => { if (cur && tc.measureText(cur + sg).width > maxW) { lines.push(cur.trim()); cur = sg; } else cur += sg; });
+            if (cur.trim()) lines.push(cur.trim());
+        });
+    }
+    const fh = lines.length ? lines.length * nfs * 1.5 + 28 * SC : 0;
+    const th = 70 * SC, out = document.createElement('canvas'); out.width = cv.width; out.height = cv.height + th + fh;
     const g = out.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, out.width, out.height);
     let fs = 30 * SC; g.font = `600 ${fs}px Kanit, Sarabun, sans-serif`;
     while (g.measureText(title).width > out.width - 40 * SC && fs > 12 * SC) { fs -= 2; g.font = `600 ${fs}px Kanit, Sarabun, sans-serif`; }
     g.fillStyle = '#111'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(title, out.width / 2, th / 2);
     g.drawImage(cv, 0, th);
+    if (lines.length) { g.font = nf; g.fillStyle = '#c62828'; g.textAlign = 'left'; g.textBaseline = 'middle'; lines.forEach((ln, i) => g.fillText(ln, 20 * SC, th + cv.height + 16 * SC + (i + .5) * nfs * 1.5)); }
     return out;
 }
 let gifProgress = () => {};
@@ -629,7 +645,7 @@ async function exportPlan(fmt) {
     const cap = (i) => stages.length > 1 ? (i === 0 ? 'ไม่มีวงดุริยางค์' : 'มีวงดุริยางค์') : '';
     const base = 'ผังขบวนพาเหรด' + (mode === 'band' ? '-มีวงดุริยางค์' : mode === 'plain' ? '-ไม่มีวงดุริยางค์' : '');
     if (fmt === 'gif') { const pv = stages.map(o => o.stage.style.transform); try { await exportGif(base, cap); } finally { fit(); } return; }
-    const cvs = []; for (let i = 0; i < stages.length; i++) cvs.push(await renderStageCanvas(stages[i], cap(i)));
+    const cvs = []; for (let i = 0; i < stages.length; i++) cvs.push(await renderStageCanvas(stages[i], cap(i), 2, false, walkNote()));
     fit();
     if (fmt === 'png') {
         cvs.forEach((c, i) => { const a = document.createElement('a'); a.download = base + (cvs.length > 1 ? '-' + (i + 1) : '') + '.png'; a.href = c.toDataURL('image/png'); document.body.appendChild(a); setTimeout(() => { a.click(); a.remove(); }, i * 400); });
