@@ -89,9 +89,18 @@
                         <select id="scTeam" class="form-select form-select-sm" style="width:auto" onchange="renderScorers()"></select>
                         <button class="btn btn-sm btn-primary rounded-pill" onclick="printScorerCards()"><i class="fas fa-print me-1"></i>พิมพ์การ์ด (รายบุคคล)</button>
                         <button class="btn btn-sm btn-success rounded-pill" onclick="openMatchCardPicker()"><i class="fas fa-list-check me-1"></i>พิมพ์ตามรายการแข่งขัน</button>
+                        <button class="btn btn-sm btn-warning rounded-pill" onclick="openNoScorer()"><i class="fas fa-user-pen me-1"></i>รายการที่ยังไม่มีผู้ส่งคะแนน <span class="badge bg-danger" id="noScBadge"></span></button>
                     </div>
                 </div>
-                <p class="small text-muted mb-2">รายชื่อนักเรียนผู้ส่งคะแนนที่แต่ละคณะสีกรอกตอนลงทะเบียน (ตรวจชื่อพิมพ์คล้ายกันและรวมให้เป็นคนเดียว) สแกน QR แล้วเข้าหน้ารายการที่รับผิดชอบ แตะเข้าลงคะแนนได้ทันทีโดยไม่ต้องใช้รหัสผ่าน</p>
+                <div class="alert alert-light border small py-2 mb-2">
+                    <b><i class="fas fa-circle-info text-primary me-1"></i>ขั้นตอนการทำงานโดยสรุป</b>
+                    <ol class="mb-0 ps-3">
+                        <li>คณะสีกรอกชื่อนักเรียนผู้ส่งคะแนนของแต่ละรายการในลิงก์ลงทะเบียน (ระบบรวมชื่อที่พิมพ์คล้ายกันให้เป็นคนเดียว)</li>
+                        <li>ครูตรวจรายชื่อที่หน้านี้ — ถ้ามีรายการที่ยังไม่มีผู้ส่งคะแนน กดปุ่มสีเหลืองเพื่อกรอกเพิ่มได้ · เปิด "กำหนดรายการละ 1 คน" ถ้าต้องการให้แต่ละรายการมีผู้ส่งคะแนนคนเดียว</li>
+                        <li>พิมพ์การ์ด QR แจกนักเรียน (รายบุคคล หรือแยกตามรายการแข่งขัน)</li>
+                        <li>วันแข่ง นักเรียนสแกน QR ของตนเอง จะเห็นเฉพาะรายการที่รับผิดชอบ แตะเข้าลงคะแนนได้ทันที ไม่ต้องใช้รหัสผ่าน</li>
+                    </ol>
+                </div>
                 <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="scOne" onchange="toggleScOne(this.checked)">
                     <label class="form-check-label small" for="scOne"><b>กำหนดรายการละ 1 คน</b> (ข้อมูลที่ส่งมาทุกสีจะมี 2 คนต่อรายการ ระบบจะแบ่งให้ผู้รับผิดชอบสีละครึ่ง เพื่อไม่ให้ส่งคะแนนซ้ำซ้อน — มีผลกับการ์ด QR และหน้ารายการของผู้ส่งคะแนน)</label></div>
                 <div id="scWarn" class="mb-2"></div>
@@ -203,6 +212,23 @@
                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button>
                     <button class="btn btn-success" onclick="printMatchCards()"><i class="fas fa-print me-1"></i>พิมพ์การ์ดที่เลือก</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="noScModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="fas fa-user-pen me-2"></i>รายการที่ยังไม่มีผู้ส่งคะแนน</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="small text-muted mb-2">เลือกคณะสี พิมพ์ชื่อนักเรียนผู้ส่งคะแนนของรายการนั้น แล้วกด "บันทึก" (บันทึกเข้ารายการของคณะสีนั้นทันที)</div>
+                    <datalist id="scNames"></datalist>
+                    <div id="noScList"></div>
+                </div>
+                <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">ปิด</button></div>
             </div>
         </div>
     </div>
@@ -621,7 +647,7 @@
             const cards = list.map(c => { const t = settings.teams[c.team] || {};
                 return `<div class="c" style="border-color:${esc(t.color || '#3949ab')}"><div class="ev">${ev}</div><div class="ti">การ์ดส่งคะแนนประจำสนาม</div>
                 <img src="${staffQr(c, 260)}"><div class="nm">${esc(c.name)}</div><div class="tm" style="color:${esc(t.color || '#333')}">${esc(teamName(c.team))}</div>
-                <div class="sm">สแกนเพื่อเข้าลงคะแนนรายการที่รับผิดชอบ (${c.ms.length} รายการ)</div>
+                <div class="sm">สแกน QR → แตะรายการที่รับผิดชอบ (${c.ms.length} รายการ) → ลงคะแนนระหว่างการแข่งขัน</div>
                 <ul>${c.ms.slice(0, 8).map(m => `<li>${esc(mLabel(m))} • ${thaiDate(m.date)} ${esc(m.time)} น.</li>`).join('')}${c.ms.length > 8 ? '<li>...</li>' : ''}</ul></div>`; }).join('');
             const w = window.open('', '_blank');
             if (!w) return Swal.fire({ icon: 'warning', title: 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์', text: 'กรุณาอนุญาต pop-up แล้วลองใหม่' });
@@ -674,15 +700,16 @@
             if (!chosen.length) return Swal.fire({ icon: 'info', title: 'ยังไม่ได้เลือกรายการ' });
             const cards = scCards(), teams = activeTeams();
             const ev = esc(`${settings.eventName || ''} ${settings.academicYear || ''}`.trim());
+            const one = !!settings.scorerOnePerMatch;
             const html = chosen.map(m => {
-                const cols = teams.map(t => {
+                const cols = (one ? teams.filter(t => cards.some(c => c.team === t.key && c.ms.some(x => x.id === m.id))) : teams).map(t => {
                     const who = cards.filter(c => c.team === t.key && c.ms.some(x => x.id === m.id));
                     return `<div class="tc" style="border-color:${esc(t.color || '#3949ab')}"><div class="tn" style="color:${esc(t.color || '#333')}">${esc(t.name)}</div>
                         ${who.length ? `<div class="qs">${who.map(c => `<div class="q"><img src="${staffQr(c, 240)}"><div class="nm">${esc(c.name)}</div></div>`).join('')}</div>` : '<div class="no">ยังไม่ได้ระบุผู้ส่งคะแนน</div>'}</div>`;
                 }).join('');
                 return `<div class="c"><div class="hd"><div class="ev">${ev} • การ์ดผู้ส่งคะแนนประจำสนาม</div>
                     <div class="ml">${esc(mLabel(m))}</div><div class="mt">${esc(thaiDate(m.date))} เวลา ${esc(m.time || '-')} น.${m.location ? ' • ' + esc(m.location) : ''}</div></div>
-                    <div class="cols">${cols}</div><div class="ft">สแกน QR ของตนเอง เพื่อเข้าลงคะแนนรายการที่ได้รับมอบหมาย</div></div>`;
+                    <div class="cols">${cols || '<div class="tc"><div class="no">ยังไม่ได้ระบุผู้ส่งคะแนน</div></div>'}</div><div class="ft">สแกน QR ของตนเอง → แตะรายการที่ได้รับมอบหมาย → ลงคะแนนระหว่างการแข่งขัน</div></div>`;
             }).join('');
             const w = window.open('', '_blank');
             if (!w) return Swal.fire({ icon: 'warning', title: 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์', text: 'กรุณาอนุญาต pop-up แล้วลองใหม่' });
@@ -692,12 +719,39 @@
                 .c{border:2px solid #1a237e;border-radius:10px;padding:5mm;margin-bottom:6mm;page-break-inside:avoid;break-inside:avoid}
                 .hd{text-align:center;border-bottom:1px solid #ccc;padding-bottom:2mm;margin-bottom:3mm}.ev{font-size:10pt;color:#555}
                 .ml{font-family:'Kanit',sans-serif;font-size:16pt;color:#1a237e}.mt{font-size:11pt;color:#333}
-                .cols{display:grid;grid-template-columns:repeat(${Math.max(1, teams.length)},1fr);gap:4mm}
+                .cols{display:grid;grid-template-columns:repeat(${one ? 1 : Math.max(1, teams.length)},1fr);gap:4mm;${one ? 'justify-items:center;' : ''}}
+                ${one ? '.tc{width:75mm}.q{width:58mm}.q img{width:56mm;height:56mm}.nm{font-size:14pt}' : ''}
                 .tc{border:3px solid;border-radius:8px;padding:3mm;text-align:center}.tn{font-size:14pt;font-weight:700;margin-bottom:2mm}
                 .qs{display:flex;flex-wrap:wrap;justify-content:center;gap:3mm}.q{width:38mm}.q img{width:36mm;height:36mm}.nm{font-size:11pt;font-weight:700;line-height:1.2}
                 .no{font-size:11pt;color:#b71c1c;padding:10mm 0}.ft{text-align:center;font-size:9pt;color:#555;margin-top:2mm}</style></head><body>${html}
                 <script>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))<\/script></body></html>`);
             w.document.close();
+        };
+
+        // ===== รายการที่ยังไม่มีผู้ส่งคะแนน (ครูกรอกเพิ่มได้) =====
+        const noScList = () => { const cov = new Set(); scCards().forEach(c => c.ms.forEach(m => cov.add(m.id))); return matches.filter(m => !cov.has(m.id)); };
+        window.renderNoSc = () => {
+            const list = noScList(), b = document.getElementById('noScBadge'); if (b) b.textContent = list.length || '';
+            const box = document.getElementById('noScList'); if (!box) return;
+            document.getElementById('scNames').innerHTML = [...new Set(scorerCards(matches).flatMap(c => c.variants))].map(n => `<option value="${esc(n)}">`).join('');
+            let lastD = null, h = '';
+            list.forEach(m => {
+                if (m.date !== lastD) { lastD = m.date; h += `<div class="fw-bold text-primary mt-2 mb-1 border-bottom">${esc(thaiDate(m.date))}</div>`; }
+                const tks = teamsOf(m).filter(k => settings.teams[k]);
+                h += `<div class="row g-1 align-items-center py-1 border-bottom"><div class="col-12 col-md-4"><span class="text-muted small">${esc(m.time || '')}</span> ${esc(mLabel(m))}</div>
+                    <div class="col-5 col-md-3"><select class="form-select form-select-sm" id="nsT_${m.id}">${tks.map(k => `<option value="${esc(k)}">${esc(teamName(k))}</option>`).join('')}</select></div>
+                    <div class="col-7 col-md-3"><input class="form-control form-control-sm" id="nsN_${m.id}" list="scNames" placeholder="ชื่อผู้ส่งคะแนน"></div>
+                    <div class="col-12 col-md-2 d-grid"><button class="btn btn-sm btn-success" onclick="saveNoSc('${m.id}')"><i class="fas fa-floppy-disk me-1"></i>บันทึก</button></div></div>`;
+            });
+            box.innerHTML = h || '<div class="text-center text-success py-4"><i class="fas fa-circle-check fa-2x mb-2"></i><div>ทุกรายการมีผู้ส่งคะแนนแล้ว</div></div>';
+        };
+        window.openNoScorer = () => { renderNoSc(); bootstrap.Modal.getOrCreateInstance(document.getElementById('noScModal')).show(); };
+        window.saveNoSc = async (id) => {
+            const tk = document.getElementById('nsT_' + id).value, name = document.getElementById('nsN_' + id).value.replace(/\s+/g, ' ').trim();
+            if (!name) return Swal.fire({ icon: 'info', title: 'กรุณากรอกชื่อผู้ส่งคะแนน' });
+            const m = matches.find(x => x.id === id); if (!m) return;
+            try { await authReady; await set(ref(db, `matches/${id}/scorers/${tk}`), [...new Set([...scorers(m, tk), name])]); }
+            catch (e) { Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: String(e.message || e) }); }
         };
 
         // ===== เริ่มต้น =====
@@ -717,7 +771,7 @@
                 onValue(ref(db, 'matches'), (snap) => {
                     const d = snap.val();
                     matches = d ? Object.keys(d).map(k => ({ ...d[k], id: k })).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)) : [];
-                    renderTeams(); renderFilters(); renderList(); renderConflicts(); renderScorers();
+                    renderTeams(); renderFilters(); renderList(); renderConflicts(); renderScorers(); renderNoSc();
                 });
                 onValue(ref(db, 'mcData'), (snap) => { mc = snap.val() || {}; renderSchoolParade(); renderParadeRows(); renderConflicts(); });
                 get(ref(db, 'registry/people')).then(sn => { const v = sn.val() || {}; const a = (x) => (x && typeof x === 'object') ? Object.values(x) : []; people = { students: a(v.students), teachers: a(v.teachers) }; }).catch(() => {});
