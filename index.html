@@ -347,6 +347,8 @@
         .rp-tbl th, .rp-tbl td { border: 1px solid #333; padding: 2px 8px; vertical-align: top; }
         .rp-tbl th { background: #eee; text-align: center; }
         .rp-tbl td.c { text-align: center; width: 48px; }
+        .rp-vs { margin: 0 0 10px; break-inside: avoid; page-break-inside: avoid; }
+        .rp-vs .rp-mt { background: #f3f3f3; text-align: left; font-size: 13.5pt; }
         .rp-sub { font-weight: 700; margin: 10px 0 3px; font-size: 13.5pt; break-after: avoid; }
         .rp-two { column-count: 2; column-gap: 18px; }
         .rp-two div { break-inside: avoid; border-bottom: 1px dotted #999; padding: 1px 0; }
@@ -1772,7 +1774,28 @@
         }));
         return Object.values(map).sort((a, b) => rpCmp(a.name, b.name));
     }
+    function rpVs(keys) {   // ตารางคู่แข่ง: แยกนักกีฬา 2 สี (ฝั่งละคอลัมน์) ไล่ตามรายการ
+        const tms = systemSettings.teams || {};
+        const txt = (c) => { const h = String(c || '#999').replace('#', ''), f = h.length === 3 ? h.split('').map(z => z + z).join('') : h; const v = [0, 2, 4].map(i => parseInt(f.slice(i, i + 2), 16) || 0); return (0.299 * v[0] + 0.587 * v[1] + 0.114 * v[2]) > 160 ? '#000' : '#fff'; };
+        const ms = allMatchesArray.filter(m => (m.teams || []).some(t => keys.includes(t)))
+            .sort((a, b) => rpCmp(rpLabel(a), rpLabel(b)) || String(a.date || '').localeCompare(String(b.date || '')) || String(a.time || '').localeCompare(String(b.time || '')));
+        let h = `<div class="rp-head">${systemSettings.schoolLogo ? `<img src="${rpEsc(systemSettings.schoolLogo)}" alt="">` : ''}
+            <h2>รายชื่อนักกีฬาแยกตามรายการแข่งขัน</h2><div>${rpEsc(systemSettings.eventName || '')} ${systemSettings.academicYear ? 'ประจำปีการศึกษา ' + rpEsc(systemSettings.academicYear) : ''} · ${rpEsc(systemSettings.schoolName || '')}</div></div>`;
+        if (!ms.length) return `<div class="rp-page">${h}<div style="text-align:center;margin-top:24px">ยังไม่มีรายการแข่งขัน</div></div>`;
+        ms.forEach(m => {
+            const ts = (m.teams || []).filter(t => tms[t]);
+            const lists = ts.map(t => ((m.players || {})[t] || []).filter(Boolean));
+            const rows = Math.max(1, ...lists.map(l => l.length));
+            const w = (100 - 6) / Math.max(1, ts.length);
+            h += `<table class="rp-tbl rp-vs"><thead><tr><th colspan="${ts.length + 1}" class="rp-mt">${rpEsc(rpLabel(m))} <span style="font-weight:400">· ${rpEsc(rpDate(m.date))} ${rpEsc(m.time || '')}${m.time ? ' น.' : ''}</span></th></tr>
+                <tr><th style="width:6%">ที่</th>${ts.map(t => `<th style="width:${w}%;background:${rpEsc(tms[t].color || '#999')};color:${txt(tms[t].color)};-webkit-print-color-adjust:exact;print-color-adjust:exact">คณะ${rpEsc(tms[t].name)} (${((m.players || {})[t] || []).filter(Boolean).length} คน)</th>`).join('')}</tr></thead><tbody>
+                ${Array.from({ length: rows }, (_, i) => `<tr><td class="c">${i + 1}</td>${lists.map(l => `<td>${rpEsc(l[i] || '')}</td>`).join('')}</tr>`).join('')}
+                </tbody></table>`;
+        });
+        return `<div class="rp-page">${h}</div>`;
+    }
     function rpHTML(keys, fmt) {
+        if (fmt === 'vs') return rpVs(keys);
         const head = (tm, sub) => `<div class="rp-head">${systemSettings.schoolLogo ? `<img src="${rpEsc(systemSettings.schoolLogo)}" alt="">` : ''}
             <h2>รายชื่อนักกีฬาคณะ${rpEsc(tm.name)}</h2><div>${rpEsc(systemSettings.eventName || '')} ${systemSettings.academicYear ? 'ประจำปีการศึกษา ' + rpEsc(systemSettings.academicYear) : ''} · ${rpEsc(systemSettings.schoolName || '')}</div>${sub}</div>`;
         return keys.map(tk => {
@@ -1807,7 +1830,8 @@
                 <select id="rpTeam" class="form-select mb-2"><option value="*">ทุกคณะสี (แยกหน้าละคณะ)</option>${teams.map(tm => `<option value="${rpEsc(tm.key)}">คณะ${rpEsc(tm.name)}</option>`).join('')}</select>
                 <label class="fw-bold">รูปแบบ</label>
                 <div class="form-check"><input class="form-check-input" type="radio" name="rpFmt" id="rpF1" value="all" checked><label class="form-check-label" for="rpF1">รวมรายชื่อ (ไม่ซ้ำ) พร้อมรายการที่เข้าร่วม</label></div>
-                <div class="form-check"><input class="form-check-input" type="radio" name="rpFmt" id="rpF2" value="sport"><label class="form-check-label" for="rpF2">แยกตามรายการแข่งขัน</label></div></div>`,
+                <div class="form-check"><input class="form-check-input" type="radio" name="rpFmt" id="rpF2" value="sport"><label class="form-check-label" for="rpF2">แยกตามรายการแข่งขัน</label></div>
+                <div class="form-check"><input class="form-check-input" type="radio" name="rpFmt" id="rpF3" value="vs"><label class="form-check-label" for="rpF3">ตารางคู่แข่ง แยกนักกีฬา 2 สีไล่ตามรายการ</label></div></div>`,
             showCancelButton: true, confirmButtonText: '<i class="fas fa-print me-1"></i>พิมพ์', cancelButtonText: 'ยกเลิก',
             preConfirm: () => ({ team: document.getElementById('rpTeam').value, fmt: document.querySelector('input[name=rpFmt]:checked').value })
         }).then(r => {
