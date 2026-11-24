@@ -122,6 +122,13 @@
             </label>
             <button class="btn btn-success btn-sm rounded-pill ms-auto" id="btnPrint"><i class="fas fa-file-export me-1"></i>ส่งออกผัง</button>
         </div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mt-2 small">
+            <span class="text-muted">การเดินออก:</span>
+            <select id="walk" class="form-select form-select-sm w-auto"><option value="1">แบบที่ 1 · เดินตามเส้นทางตัว C</option><option value="2">แบบที่ 2 · ขวาหันเลื่อนแทนที่ตามกัน</option></select>
+            <span class="text-muted ms-2">ซ้ายของ รร.:</span><select id="selL" class="form-select form-select-sm w-auto"></select>
+            <span class="text-muted">ขวาของ รร.:</span><select id="selR" class="form-select form-select-sm w-auto"></select>
+            <span class="text-muted">(ใช้กับผังแบบไม่มีวงดุริยางค์)</span>
+        </div>
         <div class="d-flex flex-wrap gap-3 mt-2 small">
             <span class="text-muted">แสดง:</span>
             <label><input type="checkbox" class="lay" data-l="path" checked> เส้นทางรอยเท้า</label>
@@ -176,6 +183,7 @@ let zoom = 1;
 let settings = { schoolName: 'โรงเรียนกระดุมทองวิทยา', eventName: 'กระดุมทองเกมส์', academicYear: '', schoolLogo: '', teams: {} };
 let mc = {};
 let mode = localStorage.getItem('paradeMode') || '';
+let walk = localStorage.getItem('paradeWalk') || '1', selL = localStorage.getItem('paradeSelL') || '', selR = localStorage.getItem('paradeSelR') || '';
 let stages = [];
 let t = 0, playing = false, speed = 1, lastTs = 0, T_TOTAL = 10;
 
@@ -257,8 +265,12 @@ function teamCol(tm, order) {
     // ประธานสี
     h += rowHTML(person(c, 46), 'ประธานสี', nm(d.leader), tInfo());
     // หลีดเดอร์ (ถ้ามี)
-    if (String(d.cheer_sign || '').trim())
+    if (String(d.cheer_sign || '').trim()) {
         h += rowHTML(person(c, 46), 'ผู้ถือป้ายหลีดเดอร์', nm(d.cheer_sign), tInfo());
+        // คณะหลีดเดอร์ 9 คน แถวละ 3 ตามหลังผู้ถือป้าย
+        h += `<div class="rw clickable" ${tInfo()}><div class="grid" style="grid-template-columns:repeat(3,30px);gap:3px 5px">${Array.from({ length: 9 }, () => person(c, 34)).join('')}</div>
+            <div class="lbl"><b>คณะหลีดเดอร์ 9 คน</b></div></div>`;
+    }
     // นักกีฬา
     let g = ''; for (let i = 0; i < shown; i++) g += person(c, 28);
     h += `<div class="rw clickable" ${tInfo()}><div class="grid" style="grid-template-columns:repeat(8,22px)">${g}</div>
@@ -291,20 +303,40 @@ function buildStage(withBand) {
     const contentW = n * COLW + (n - 1) * GAP;
     const W = Math.max(700, contentW + 2 * (PAD + LANE)), x0 = (W - contentW) / 2;
     const R = W - 40;                                  // เลนขวา (ทางเดินขวาหัน→ซ้ายหัน)
-    const sp = withBand ? n - 1 : Math.floor(n / 2);   // ตำแหน่งขบวนโรงเรียน: มีวงฯ = ขวาสุด, ไม่มีวงฯ = กลาง
+    // ผังช่องเดิน ซ้าย→ขวา ('S' = ขบวนโรงเรียน): มีวงฯ = โรงเรียนขวาสุด, ไม่มีวงฯ = กลาง (เลือกคณะซ้าย/ขวาของ รร. ได้)
+    let slots;
+    if (withBand) slots = [...teams, 'S'];
+    else {
+        const Lt = teams.find(x => x.key === selL), Rt = teams.find(x => x.key === selR && x !== Lt);
+        if (!Lt && !Rt) { const hf = Math.floor(n / 2); slots = [...teams.slice(0, hf), 'S', ...teams.slice(hf)]; }
+        else {
+            const others = teams.filter(x => x !== Lt && x !== Rt); let L = Lt, Rr = Rt;
+            if (!L) L = others.pop();
+            if (!Rr) Rr = others.pop();
+            slots = [...others, L, 'S', Rr].filter(Boolean);
+        }
+    }
+    const sp = slots.indexOf('S');
     const slotX = (k) => x0 + k * (COLW + GAP) + COLW / 2;
     const wrap = document.createElement('div'); wrap.className = 'stage-wrap';
     const stage = document.createElement('div'); stage.className = 'stage'; stage.style.width = W + 'px';
     wrap.appendChild(stage);
-    // ลำดับเดินขบวน: โรงเรียนก่อน แล้วคณะสีตามลำดับ
+    // ลำดับเดินขบวน: โรงเรียนก่อน — แบบ 1 คณะสีตามลำดับ / แบบ 2 คณะฝั่งขวาก่อน แล้วฝั่งซ้ายขวาหันเลื่อนมาแทนที่
+    let route;
+    if (walk === '2') {
+        const rs = [], ls = [];
+        for (let i = sp + 1; i < slots.length; i++) rs.push(i);
+        for (let i = sp - 1; i >= 0; i--) ls.push(i);
+        route = (rs.length ? [...rs, ...ls] : ls).map(i => ({ tm: slots[i], slot: i }));
+    } else route = teams.map(tm => ({ tm, slot: slots.indexOf(tm) }));
     const cols = [{ html: schoolCol(withBand, 1), xc: slotX(sp), name: 'ขบวนโรงเรียน' }];
-    let slot = 0;
-    teams.forEach((tm, i) => { if (slot === sp) slot++; cols.push({ html: teamCol(tm, i + 2), xc: slotX(slot), name: 'คณะ' + tm.name }); slot++; });
+    route.forEach((r, i) => cols.push({ html: teamCol(r.tm, i + 2), xc: slotX(r.slot), name: 'คณะ' + r.tm.name }));
+    if (walk === '2' && cols.length > 2) { const lx = cols[1].xc; cols.forEach((c, k) => { c.slide = k >= 2 ? lx - c.xc : 0; }); }
     const cx = W / 2;   // ปะรำอยู่กึ่งกลางหน้ากระดาษพอดี
     stage.innerHTML = `<div class="pav" style="left:${cx - 115}px;top:${PAV_TOP}px"><img src="parade-assets/pavilion.png" alt="ปะรำพิธี" onerror="this.classList.add('imgerr')"><div class="lbl"><b>ปะรำพิธี</b></div></div>` +
         cols.map(c => `<div class="col" style="left:${c.xc - COLW / 2}px;top:${Y_HEAD}px">${c.html}</div>`).join('');
     const o = { cx, R, wrap, stage, W, H: 0, n, teams, cols: [] };
-    [...stage.querySelectorAll('.col')].forEach((el, i) => o.cols.push({ el, xc: cols[i].xc, name: cols[i].name, delay: 0 }));
+    [...stage.querySelectorAll('.col')].forEach((el, i) => o.cols.push({ el, xe: cols[i].xc, xc: cols[i].xc + (cols[i].slide || 0), slide: cols[i].slide || 0, name: cols[i].name, delay: 0 }));
     return o;
 }
 
@@ -328,7 +360,7 @@ function overlay(o) {
     o.stage.style.height = o.H + 'px';
     // เรขาคณิตเส้นทาง: ขึ้นตรง → ขวาหัน (เดินขวาตามเส้น L1) → ซ้ายหันขึ้น (เลนขวา) → ซ้ายหันเดินผ่านหน้าปะรำ (L2) → ออกซ้าย
     o.cols.forEach(c => {
-        c.Ybot = Y_HEAD + c.colH + 30;
+        c.Ybot = Y_HEAD + c.colH + 30; c.stageR = R;
         c.len1 = c.Ybot - L1Y; c.len2 = R - c.xc; c.len3 = L1Y - L2Y; c.len4 = R + 320;
         c.total = c.len1 + c.len2 + c.len3 + c.len4;
         c.items.forEach(it => { it.cy = Y_HEAD + it.dy + it.h / 2; it.s0 = c.Ybot - it.cy; });
@@ -343,14 +375,24 @@ function overlay(o) {
             c.delay = Math.max(c.delay, q.delay + (q.len0 + c.xc - q.xc + 70) / V);
         }
         if (k > 0) c.delay = Math.max(c.delay, o.cols[k - 1].delay + 0.8);
+        // แบบ 2: คณะที่เลื่อน (ขวาหัน/ซ้ายหัน) รอขบวนก่อนหน้าพ้นช่องก่อน แล้วเลื่อนไปแทนที่ แล้วค่อยเดินตามไลน์
+        if (c.slide) { const q = o.cols[k - 1]; c.slideStart = q.delay + (q.len0 + 70) / V; c.delay = Math.max(c.delay, c.slideStart + Math.abs(c.slide) / V + 0.3); }
     });
     // ===== เส้นทาง SVG =====
     const cone = (x, y, label) => `<g class="l-cone"><polygon points="${x},${y - 26} ${x - 11},${y} ${x + 11},${y}" fill="#ff9800" stroke="#e65100" stroke-width="2"/>
         <rect x="${x - 14}" y="${y}" width="28" height="5" rx="2" fill="#e65100"/>
         <text x="${x}" y="${y + 22}" font-size="13" font-weight="700" fill="#b71c1c" text-anchor="middle">${label}</text></g>`;
     const dot = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5d4037" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 11"/>`;
-    const minX = Math.min(...o.cols.map(c => c.xc));
-    let path = o.cols.map(c => dot(c.xc, Y_HEAD + c.minDy - 10, c.xc, L1Y)).join('');
+    const fixed = o.cols.filter(c => !c.slide), sliders = o.cols.filter(c => c.slide);
+    const minX = Math.min(...fixed.map(c => c.xc));
+    let path = fixed.map(c => dot(c.xc, Y_HEAD + c.minDy - 10, c.xc, L1Y)).join('');
+    if (sliders.length) {
+        const ly = Y_HEAD + Math.min(...o.cols.map(c => c.minDy)) - 16;
+        sliders.forEach(c => {
+            path += dot(c.xe, Y_HEAD + c.minDy - 10, c.xe, ly) + dot(c.xe, ly, c.xc, ly) +
+                `<text x="${c.xe + Math.sign(c.slide) * 14}" y="${ly - 8}" font-size="12" font-weight="700" fill="#b71c1c" text-anchor="${c.slide > 0 ? 'start' : 'end'}">${c.slide > 0 ? 'ขวาหัน ▶' : '◀ ซ้ายหัน'}</text>`;
+        });
+    }
     path += dot(minX, L1Y, R, L1Y) + dot(R, L1Y, R, L2Y) + dot(R, L2Y, 12, L2Y);
     const school = o.cols[0];
     const yA1 = L2Y + 14, yA2 = L1Y - 38, ym = (L2Y + L1Y) / 2;
@@ -396,13 +438,18 @@ function posAt(c, s) {
     s -= c.len3; return [c.stageR - s, L2Y];
 }
 const scaleAt = (c, s) => s <= c.len1 - 50 ? 1 : s >= c.len1 + 30 ? .45 : 1 - .55 * ((s - (c.len1 - 50)) / 80);
+function itemPose(c, it, tt) {   // [เลื่อนแกน x, เลื่อนแกน y, สเกล] ของแต่ละแถว ณ เวลา tt
+    const d = Math.max(0, V * (tt - c.delay));
+    if (d === 0) { const sd = c.slide ? Math.sign(c.slide) * Math.min(Math.abs(c.slide), Math.max(0, V * (tt - c.slideStart))) : 0; return [sd, 0, 1]; }
+    const s = it.s0 + d, [x, y] = posAt(c, s);
+    return [x - c.xe, y - it.cy, scaleAt(c, s)];
+}
 function applyTime(tt) {
     stages.forEach(o => o.cols.forEach(c => {
-        c.stageR = o.R;
         const d = Math.max(0, V * (tt - c.delay));
         c.items.forEach(it => {
-            const s = it.s0 + d, [x, y] = posAt(c, s), k = scaleAt(c, s);
-            it.el.style.transform = d === 0 ? '' : `translate(${x - c.xc}px,${y - it.cy}px) scale(${k})`;
+            const [dx, dy, k] = itemPose(c, it, tt);
+            it.el.style.transform = (dx || dy || k !== 1) ? `translate(${dx}px,${dy}px) scale(${k})` : '';
         });
         // ป้าย "ทำความเคารพ" เมื่อหัวขบวนผ่านหน้าปะรำ
         const hs = c.headS0 + d, [hx, hy] = posAt(c, hs);
@@ -454,6 +501,8 @@ function renderAll() {
     if (!mode) mode = hasBand ? 'band' : 'plain';
     document.querySelectorAll('#modeGroup button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
     renderStatus();
+    { const tl = teamList(), fill = (id, v) => { const el = document.getElementById(id); el.innerHTML = '<option value="">อัตโนมัติ</option>' + tl.map(x => `<option value="${esc(x.key)}">คณะ${esc(x.name)}</option>`).join(''); el.value = tl.some(x => x.key === v) ? v : ''; };
+      fill('selL', selL); fill('selR', selR); document.getElementById('walk').value = walk; }
     const box = document.getElementById('stages'); box.innerHTML = '';
     stages = []; T_TOTAL = 10;
     if (!teamList().length) { box.innerHTML = '<div class="col-12 text-center text-muted py-5">ยังไม่มีคณะสีในระบบ (ตั้งค่าที่เมนู "ตั้งค่าระบบ" ในหน้าหลัก)</div>'; return; }
@@ -481,6 +530,11 @@ document.getElementById('modeGroup').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     mode = b.dataset.mode; localStorage.setItem('paradeMode', mode); renderAll();
 });
+document.getElementById('walk').onchange = (e) => { walk = e.target.value; localStorage.setItem('paradeWalk', walk); setPlaying(false); t = 0; renderAll(); };
+['selL', 'selR'].forEach(id => document.getElementById(id).onchange = (e) => {
+    if (id === 'selL') selL = e.target.value; else selR = e.target.value;
+    localStorage.setItem('paradeSel' + id.slice(3), e.target.value); setPlaying(false); t = 0; renderAll();
+});
 document.getElementById('btnPlay').onclick = () => setPlaying(!playing);
 document.getElementById('btnReset').onclick = () => { setPlaying(false); t = 0; applyTime(0); };
 document.getElementById('speed').oninput = (e) => { speed = parseFloat(e.target.value); document.getElementById('speedTxt').textContent = speed + 'x'; };
@@ -495,19 +549,23 @@ const tintPerson = (() => { const cache = {}; return async (color) => {
     const x = c.getContext('2d'); x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
     return (cache[color] = c.toDataURL('image/png'));
 }; })();
-async function renderStageCanvas(o, caption) {
-    const SC = 2, colors = {};
-    for (const el of o.stage.querySelectorAll('.ppl')) { const c = getComputedStyle(el).getPropertyValue('--c').trim(); if (c && !colors[c]) colors[c] = await tintPerson(c); }
+async function peopleFixer(root) {   // แทนไอคอนคนที่ใช้ CSS mask ด้วยภาพที่ย้อมสีแล้ว (html2canvas ไม่รองรับ mask)
+    const colors = {};
+    for (const el of root.querySelectorAll('.ppl')) { const c = el.style.getPropertyValue('--c').trim(); if (c && !colors[c]) colors[c] = await tintPerson(c); }
+    return (doc) => doc.querySelectorAll('.ppl').forEach(el => {
+        const u = colors[el.style.getPropertyValue('--c').trim()]; if (!u) return;
+        const im = doc.createElement('img'); im.src = u;
+        im.style.cssText = `display:inline-block;width:${el.style.width};height:${el.style.height};object-fit:contain;flex:none`;
+        el.replaceWith(im);
+    });
+}
+async function renderStageCanvas(o, caption, SC = 2, hideItems = false) {
+    const fix = await peopleFixer(o.stage);
     const prevT = o.stage.style.transform; o.stage.style.transform = 'none';
     let cv;
     try {
         cv = await html2canvas(o.stage, { scale: SC, backgroundColor: '#e9f5dc', useCORS: true, logging: false, width: o.W, height: o.H, windowWidth: o.W + 200,
-            onclone: (doc) => doc.querySelectorAll('.ppl').forEach(el => {
-                const c = el.style.getPropertyValue('--c').trim(), u = colors[c]; if (!u) return;
-                const im = doc.createElement('img'); im.src = u;
-                im.style.cssText = `display:inline-block;width:${el.style.width};height:${el.style.height};object-fit:contain;flex:none`;
-                el.replaceWith(im);
-            }) });
+            onclone: (doc) => { fix(doc); doc.querySelectorAll('.salute').forEach(e => e.style.display = 'none'); if (hideItems) doc.querySelectorAll('.col').forEach(e => e.style.visibility = 'hidden'); } });
     } finally { o.stage.style.transform = prevT; }
     // หัวเรื่องบรรทัดเดียว (ลดขนาดอักษรอัตโนมัติไม่ให้ตกบรรทัด)
     const title = document.getElementById('printTitle').textContent + (caption ? ' · ' + caption : '');
@@ -519,11 +577,54 @@ async function renderStageCanvas(o, caption) {
     g.drawImage(cv, 0, th);
     return out;
 }
+let gifProgress = () => {};
+const GIFENC_URL = window.GIFENC_URL || 'https://cdn.jsdelivr.net/npm/gifenc@1.0.3/dist/gifenc.esm.js';
+async function exportGif(base, cap) {
+    const { GIFEncoder, quantize, applyPalette } = await import(GIFENC_URL);
+    const STEP = 0.125;                                   // วินาทีของแอนิเมชันต่อ 1 เฟรม (8 เฟรม/วินาที เท่าเวลาจริง)
+    for (let si = 0; si < stages.length; si++) {
+        const o = stages[si], gs = Math.min(1, 640 / o.W), th = 70 * gs;
+        gifProgress(`ผังที่ ${si + 1}/${stages.length}: เตรียมภาพ...`, 0);
+        const bg = await renderStageCanvas(o, cap(si), gs, true);            // พื้นหลัง+เส้นทาง (ไม่มีตัวละคร)
+        const sprites = [];
+        for (const c of o.cols) { const fix = await peopleFixer(c.el); for (const it of c.items) sprites.push({ c, it, cv: await html2canvas(it.el, { scale: 1, backgroundColor: null, useCORS: true, logging: false, onclone: fix }) }); }
+        const W = bg.width, H = bg.height, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        const g = cv.getContext('2d', { willReadFrequently: true }), enc = GIFEncoder();
+        const nF = Math.ceil(o.T / STEP) + 1;
+        for (let f = 0; f < nF; f++) {
+            const tt = Math.min(f * STEP, o.T);
+            g.drawImage(bg, 0, 0);
+            sprites.forEach(({ c, it, cv: sp }) => {
+                const [dx, dy, k] = itemPose(c, it, tt);
+                g.save(); g.translate((c.xe + dx) * gs, th + (it.cy + dy) * gs); g.scale(k * gs, k * gs); g.drawImage(sp, -sp.width / 2, -sp.height / 2); g.restore();
+            });
+            o.cols.forEach(c => {   // ป้ายทำความเคารพ
+                const d = Math.max(0, V * (tt - c.delay)); if (!d) return;
+                const [hx, hy] = posAt(c, c.headS0 + d);
+                if (hy !== L2Y || Math.abs(hx - o.cx) >= 170) return;
+                const txt = 'ทำความเคารพ · ' + c.name; g.font = `700 ${12 * gs * 1.1}px Sarabun, Kanit, sans-serif`;
+                const w = g.measureText(txt).width + 24 * gs, h = 22 * gs, x = hx * gs - w / 2, y = th + (L2Y - 62) * gs;
+                g.fillStyle = '#c62828'; g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, h / 2) : g.rect(x, y, w, h); g.fill();
+                g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, hx * gs, y + h / 2 + 1);
+            });
+            const { data } = g.getImageData(0, 0, W, H);
+            const palette = quantize(data, 256, { format: 'rgb444' }), idx = applyPalette(data, palette, 'rgb444');
+            enc.writeFrame(idx, W, H, { palette, delay: f === 0 ? 800 : f === nF - 1 ? 2000 : Math.round(STEP * 1000), repeat: 0 });
+            if (f % 4 === 0) { gifProgress(`ผังที่ ${si + 1}/${stages.length}: สร้างเฟรม ${f + 1}/${nF}`, (f + 1) / nF); await new Promise(r => setTimeout(r)); }
+        }
+        enc.finish();
+        const a = document.createElement('a'); a.download = base + (stages.length > 1 ? '-' + (si + 1) : '') + '.gif';
+        a.href = URL.createObjectURL(new Blob([enc.bytes()], { type: 'image/gif' })); document.body.appendChild(a); a.click(); a.remove();
+        await new Promise(r => setTimeout(r, 400));
+    }
+    applyTime(0);
+}
 async function exportPlan(fmt) {
     setPlaying(false); t = 0; applyTime(0);
     await (document.fonts ? document.fonts.ready : Promise.resolve());
     const cap = (i) => stages.length > 1 ? (i === 0 ? 'ไม่มีวงดุริยางค์' : 'มีวงดุริยางค์') : '';
     const base = 'ผังขบวนพาเหรด' + (mode === 'band' ? '-มีวงดุริยางค์' : mode === 'plain' ? '-ไม่มีวงดุริยางค์' : '');
+    if (fmt === 'gif') { const pv = stages.map(o => o.stage.style.transform); try { await exportGif(base, cap); } finally { fit(); } return; }
     const cvs = []; for (let i = 0; i < stages.length; i++) cvs.push(await renderStageCanvas(stages[i], cap(i)));
     fit();
     if (fmt === 'png') {
@@ -541,11 +642,13 @@ async function exportPlan(fmt) {
 }
 document.getElementById('btnPrint').onclick = async () => {
     if (!stages.length) return;
-    const r = await Swal.fire({ title: 'ส่งออกผัง', text: 'เลือกรูปแบบไฟล์ (ส่งออกตามโหมดที่แสดงอยู่)', showDenyButton: true, showCancelButton: true,
-        confirmButtonText: '<i class="fas fa-image me-1"></i>PNG', denyButtonText: '<i class="fas fa-file-pdf me-1"></i>PDF', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#2e7d32', denyButtonColor: '#c62828' });
-    if (r.isDismissed) return;
-    Swal.fire({ title: 'กำลังสร้างไฟล์...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    try { await exportPlan(r.isConfirmed ? 'png' : 'pdf'); Swal.close(); }
+    const r = await Swal.fire({ title: 'ส่งออกผัง', text: 'ส่งออกตามโหมดที่แสดงอยู่', input: 'radio', inputValue: 'png',
+        inputOptions: { png: 'PNG · ภาพนิ่ง', pdf: 'PDF · A4 แนวตั้ง', gif: 'GIF · แอนิเมชันการเดินขบวน (ใช้เวลาสร้างสักครู่)' },
+        showCancelButton: true, confirmButtonText: 'ส่งออก', cancelButtonText: 'ยกเลิก' });
+    if (!r.isConfirmed || !r.value) return;
+    Swal.fire({ title: r.value === 'gif' ? 'กำลังสร้าง GIF...' : 'กำลังสร้างไฟล์...', html: '<div id="expPg" class="small text-muted"></div>', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    gifProgress = (msg) => { const e = document.getElementById('expPg'); if (e) e.textContent = msg; };
+    try { await exportPlan(r.value); Swal.close(); }
     catch (e) { console.error(e); Swal.fire('ส่งออกไม่สำเร็จ', String(e.message || e), 'error'); }
 };
 document.getElementById('stages').addEventListener('click', e => {
@@ -564,7 +667,7 @@ function demoData() {
     const teams = {}, mt = {};
     for (let i = 0; i < n; i++) {
         teams['team' + i] = { name: pal[i][0], color: pal[i][1], active: true, order: i };
-        mt['team' + i] = i === 1 ? { alias: 'ราชสีห์ทอง', leader: 'ด.ช.สมชาย ใจดี', level: '5', concept: 'พลังแห่งความสามัคคี', count: '38', sign: 'ด.ญ.มานี, ด.ช.ปิติ', flag: 'ด.ช.ชูใจ' }
+        mt['team' + i] = i === 1 ? { alias: 'ราชสีห์ทอง', leader: 'ด.ช.สมชาย ใจดี', level: '5', concept: 'พลังแห่งความสามัคคี', count: '38', sign: 'ด.ญ.มานี, ด.ช.ปิติ', flag: 'ด.ช.ชูใจ', cheer_sign: 'ด.ญ.ใจดี' }
             : { alias: 'พยัคฆ์น้ำเงิน', leader: 'ด.ญ.สุดา รักเรียน', level: '4', count: '30', sign: 'ด.ช.เอก', flag: '' };
     }
     return { s: { schoolName: 'โรงเรียนกระดุมทองวิทยา', eventName: 'กระดุมทองเกมส์', academicYear: '2569', teams }, m: { shared: { mj: 'ด.ช.อาทิตย์', sign_school: 'ด.ญ.แก้ว', flag_school: 'ด.ช.ธง', band_teachers: 'ครูก, ครูข' }, teams: mt } };
