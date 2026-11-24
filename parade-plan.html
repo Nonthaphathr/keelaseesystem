@@ -353,10 +353,10 @@ function overlay(o) {
     let path = o.cols.map(c => dot(c.xc, Y_HEAD + c.minDy - 10, c.xc, L1Y)).join('');
     path += dot(minX, L1Y, R, L1Y) + dot(R, L1Y, R, L2Y) + dot(R, L2Y, 12, L2Y);
     const school = o.cols[0];
-    const yA1 = L2Y + 12, yA2 = L1Y - 12, ym = (L2Y + L1Y) / 2;
-    const ax = Math.abs(school.xc - (cx - 110)) > Math.abs(school.xc - (cx + 110)) ? cx - 110 : cx + 110;   // หลบกรวย
+    const yA1 = L2Y + 14, yA2 = L1Y - 38, ym = (L2Y + L1Y) / 2;
+    const ax = cx;   // กึ่งกลางหน้ากระดาษ (ปลายล่างหยุดเหนือกรวย "ขวาหัน" ไม่ทับ)
     const svg = `<svg class="ov" width="${W}" height="${o.H}" viewBox="0 0 ${W} ${o.H}">
-        <defs><marker id="ah" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c62828"/></marker></defs>
+        <defs><marker id="ah" markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto-start-reverse"><path d="M0,0 L5,2.5 L0,5 z" fill="#c62828"/></marker></defs>
         <g class="l-path">${path}</g>
         <g class="l-dist"><line x1="${ax}" y1="${yA1}" x2="${ax}" y2="${yA2}" stroke="#c62828" stroke-width="2" marker-start="url(#ah)" marker-end="url(#ah)"/>
           <rect x="${ax - 50}" y="${ym - 11}" width="100" height="22" rx="11" fill="#fff" stroke="#c62828" stroke-width="1.5"/>
