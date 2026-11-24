@@ -146,7 +146,7 @@
                         <div class="col-md-4"><label class="form-label small fw-bold mb-1">กำหนดส่ง</label><input id="tplDeadline" class="form-control form-control-sm" placeholder="เช่น วันที่ 25 พ.ย. 2569" oninput="genTpl()"></div>
                         <div class="col-md-4"><label class="form-label small fw-bold mb-1">ผู้ประสานงาน/เบอร์ติดต่อ</label><input id="tplContact" class="form-control form-control-sm" placeholder="เช่น ครูนนท์ 08x-xxx-xxxx" oninput="genTpl()"></div>
                     </div>
-                    <div class="mb-3" id="tplMeetRow" style="display:none"><label class="form-label small fw-bold mb-1">วัน เวลา สถานที่นัดพบ (ใช้กับข้อความนัดพบผู้ส่งคะแนนฯ)</label><input id="tplMeet" class="form-control form-control-sm" placeholder="เช่น วันที่ 25 พ.ย. 2569 เวลา 15.30 น. ห้องประชุม..." oninput="genTpl()"></div>
+                    <div class="mb-3" id="tplMeetRow" style="display:none"><label class="form-label small fw-bold mb-1">วัน เวลา สถานที่นัดพบ (ใช้กับข้อความนัดพบผู้ส่งคะแนนฯ)</label><input id="tplMeetTxt" class="form-control form-control-sm" placeholder="เช่น วันที่ 25 พ.ย. 2569 เวลา 15.30 น. ห้องประชุม..." oninput="genTpl()"></div>
                     <textarea id="tplText" class="form-control tpl" rows="16"></textarea>
                     <small class="text-muted">แก้ไขข้อความในกล่องได้ก่อนคัดลอก (เปลี่ยนตัวเลือกด้านบนจะสร้างข้อความใหม่)</small>
                 </div>
@@ -437,7 +437,7 @@
             document.getElementById(type === 'follow' ? 'tplFollow' : type === 'meet' ? 'tplMeet' : 'tplInvite').checked = true;
             try {
                 const p = JSON.parse(localStorage.getItem('regTplPrefs') || '{}');
-                document.getElementById('tplDeadline').value = p.deadline || ''; document.getElementById('tplContact').value = p.contact || ''; document.getElementById('tplMeet').value = p.meet || '';
+                document.getElementById('tplDeadline').value = p.deadline || ''; document.getElementById('tplContact').value = p.contact || ''; document.getElementById('tplMeetTxt').value = p.meet || '';
             } catch (e) {}
             // เตรียมลิงก์ทุกสีไว้ก่อน เพื่อใส่ในข้อความได้ทันที
             try { for (const t of activeTeams()) await ensureTeamToken(t.key, false); } catch (e) { console.warn(e); }
@@ -533,7 +533,7 @@
         window.genTpl = () => {
             const type = document.querySelector('input[name=tplType]:checked').value;
             const tk = document.getElementById('tplTeam').value;
-            const deadline = document.getElementById('tplDeadline').value.trim(), contact = document.getElementById('tplContact').value.trim(), meet = document.getElementById('tplMeet').value.trim();
+            const deadline = document.getElementById('tplDeadline').value.trim(), contact = document.getElementById('tplContact').value.trim(), meet = document.getElementById('tplMeetTxt').value.trim();
             document.getElementById('tplMeetRow').style.display = type === 'meet' ? '' : 'none';
             try { localStorage.setItem('regTplPrefs', JSON.stringify({ deadline, contact, meet })); } catch (e) {}
             const text = buildTpl(tk === 'all' && type !== 'meet' ? 'follow' : type, tk, deadline, contact, meet);
