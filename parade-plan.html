@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <style>
@@ -75,7 +77,7 @@
         @media print {
             html, body { margin: 0; }
             body { background: #fff; }
-            .print-title { display: block; text-align: center; font-family: 'Kanit', sans-serif; font-size: 15pt; font-weight: 600; margin-bottom: 4px; }
+            .print-title { display: block; white-space: nowrap; text-align: center; font-family: 'Kanit', sans-serif; font-size: 12pt; font-weight: 600; margin-bottom: 4px; }
             #stages { margin: 0 !important; display: block; }
             #stages > div { padding: 0 !important; width: 100% !important; max-width: 100% !important; break-after: page; page-break-after: always; }
             #stages > div:last-child { break-after: auto; page-break-after: auto; }
@@ -118,7 +120,7 @@
             <label class="small d-flex align-items-center gap-2">ขนาดผัง
                 <input type="range" id="zoom" min="40" max="150" step="5" value="100" style="width:100px"><span id="zoomTxt">100%</span>
             </label>
-            <button class="btn btn-success btn-sm rounded-pill ms-auto" id="btnPrint"><i class="fas fa-print me-1"></i>พิมพ์ผัง / PDF</button>
+            <button class="btn btn-success btn-sm rounded-pill ms-auto" id="btnPrint"><i class="fas fa-file-export me-1"></i>ส่งออกผัง</button>
         </div>
         <div class="d-flex flex-wrap gap-3 mt-2 small">
             <span class="text-muted">แสดง:</span>
@@ -269,8 +271,9 @@ function schoolCol(withBand, order) {
     const sInfo = (t2) => info(t2, ib([['คฑากรนำขบวน', nm(s.mj)], ['ผู้ถือป้ายโรงเรียน', nm(s.sign_school)],
         ['ผู้ถือธงโรงเรียน', nm(s.flag_school)], ['ครูผู้ฝึกซ้อมวงดุริยางค์', nm(s.band_teachers)]]));
     const fx = withBand ? '' : 'fx';
-    let h = `<div class="chd"><span class="num">${order}</span><span class="pill" style="background:#111;color:#fff">ขบวนโรงเรียน</span></div>
-        <div class="alias">เดินนำขบวนก่อน</div>`;
+    const ah = withBand ? '' : ' data-ahead="1"';
+    let h = `<div class="chd"${ah}><span class="num">${order}</span><span class="pill" style="background:#111;color:#fff">ขบวนโรงเรียน</span></div>
+        <div class="alias"${ah}>เดินนำขบวนก่อน</div>`;
     h += rowHTML(`${asset('staff.png', 70)}${person('#111', 46)}`, 'คฑากรนำขบวน', nm(s.mj), sInfo('คฑากรนำขบวน'), withBand ? '' : 'ahead');
     h += rowHTML(`${asset('school-sign.png', 66)}${person('#111', 46)}`, 'ผู้ถือป้ายโรงเรียน', nm(s.sign_school), sInfo('ผู้ถือป้ายโรงเรียน'), fx);
     h += rowHTML(`${asset('flag-red.png', 56)}${person('#111', 46)}`, 'ผู้ถือธงโรงเรียน', nm(s.flag_school), sInfo('ผู้ถือธงโรงเรียน'), fx);
@@ -311,8 +314,9 @@ function overlay(o) {
     let maxH = 0;
     o.cols.forEach(c => {
         const kids = [...c.el.children];
-        c.items = kids.map(k => ({ el: k, dy: k.offsetTop, h: k.offsetHeight, ahead: k.classList.contains('ahead') }));
-        c.items.forEach(it => { if (it.ahead) { it.dy = -(it.h + 6); it.el.style.left = '0'; } });
+        c.items = kids.map(k => ({ el: k, dy: k.offsetTop, h: k.offsetHeight, ahead: k.classList.contains('ahead') || k.dataset.ahead === '1' }));
+        { const ref = c.items.find(it => !it.ahead); let y = ref ? ref.dy : 0;   // ป้ายขบวน → คฑากร วางเรียงขึ้นไปข้างหน้าแถวป้าย
+          for (let i = c.items.length - 1; i >= 0; i--) { const it = c.items[i]; if (it.ahead) { y -= it.h + (it.el.classList.contains('alias') ? 0 : 4); it.dy = y; } } }
         c.colH = Math.max(...c.items.map(it => it.dy + it.h));
         c.minDy = Math.min(0, ...c.items.map(it => it.dy));
         c.len0 = c.colH - c.minDy;
@@ -348,14 +352,15 @@ function overlay(o) {
     const minX = Math.min(...o.cols.map(c => c.xc));
     let path = o.cols.map(c => dot(c.xc, Y_HEAD + c.minDy - 10, c.xc, L1Y)).join('');
     path += dot(minX, L1Y, R, L1Y) + dot(R, L1Y, R, L2Y) + dot(R, L2Y, 12, L2Y);
-    const yA1 = PAV_TOP + 178, yA2 = L2Y - 14;
     const school = o.cols[0];
+    const yA1 = L2Y + 12, yA2 = L1Y - 12, ym = (L2Y + L1Y) / 2;
+    const ax = Math.abs(school.xc - (cx - 110)) > Math.abs(school.xc - (cx + 110)) ? cx - 110 : cx + 110;   // หลบกรวย
     const svg = `<svg class="ov" width="${W}" height="${o.H}" viewBox="0 0 ${W} ${o.H}">
         <defs><marker id="ah" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c62828"/></marker></defs>
         <g class="l-path">${path}</g>
-        <g class="l-dist"><line x1="${cx}" y1="${yA1}" x2="${cx}" y2="${yA2}" stroke="#c62828" stroke-width="2" marker-start="url(#ah)" marker-end="url(#ah)"/>
-          <rect x="${cx + 10}" y="${yA1 + 8}" width="100" height="22" rx="11" fill="#fff" stroke="#c62828" stroke-width="1.5"/>
-          <text x="${cx + 60}" y="${yA1 + 23}" font-size="12" font-weight="700" fill="#c62828" text-anchor="middle">10–15 เมตร</text></g>
+        <g class="l-dist"><line x1="${ax}" y1="${yA1}" x2="${ax}" y2="${yA2}" stroke="#c62828" stroke-width="2" marker-start="url(#ah)" marker-end="url(#ah)"/>
+          <rect x="${ax - 50}" y="${ym - 11}" width="100" height="22" rx="11" fill="#fff" stroke="#c62828" stroke-width="1.5"/>
+          <text x="${ax}" y="${ym + 4}" font-size="12" font-weight="700" fill="#c62828" text-anchor="middle">10–15 เมตร</text></g>
         ${cone(school.xc, L1Y - 4, 'ขวาหัน')}${cone(R, L1Y - 4, 'ซ้ายหัน')}${cone(R, L2Y - 4, 'ซ้ายหัน')}
         ${cone(cx + 110, L2Y - 4, 'เคารพประธาน')}${cone(70, L2Y - 4, 'เลี้ยวออกนอกสนาม')}
     </svg>`;
@@ -482,7 +487,67 @@ document.getElementById('speed').oninput = (e) => { speed = parseFloat(e.target.
 document.getElementById('scrub').oninput = (e) => { setPlaying(false); t = (e.target.value / 1000) * T_TOTAL; applyTime(t); };
 document.querySelectorAll('.lay').forEach(cb => cb.onchange = syncLayers);
 document.getElementById('zoom').oninput = (e) => { zoom = e.target.value / 100; document.getElementById('zoomTxt').textContent = e.target.value + '%'; fit(); };
-document.getElementById('btnPrint').onclick = () => window.print();
+
+const tintPerson = (() => { const cache = {}; return async (color) => {
+    if (cache[color]) return cache[color];
+    const img = await loadImg('parade-assets/person-black.png'); if (!img) return null;
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const x = c.getContext('2d'); x.drawImage(img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
+    return (cache[color] = c.toDataURL('image/png'));
+}; })();
+async function renderStageCanvas(o, caption) {
+    const SC = 2, colors = {};
+    for (const el of o.stage.querySelectorAll('.ppl')) { const c = getComputedStyle(el).getPropertyValue('--c').trim(); if (c && !colors[c]) colors[c] = await tintPerson(c); }
+    const prevT = o.stage.style.transform; o.stage.style.transform = 'none';
+    let cv;
+    try {
+        cv = await html2canvas(o.stage, { scale: SC, backgroundColor: '#e9f5dc', useCORS: true, logging: false, width: o.W, height: o.H, windowWidth: o.W + 200,
+            onclone: (doc) => doc.querySelectorAll('.ppl').forEach(el => {
+                const c = el.style.getPropertyValue('--c').trim(), u = colors[c]; if (!u) return;
+                const im = doc.createElement('img'); im.src = u;
+                im.style.cssText = `display:inline-block;width:${el.style.width};height:${el.style.height};object-fit:contain;flex:none`;
+                el.replaceWith(im);
+            }) });
+    } finally { o.stage.style.transform = prevT; }
+    // หัวเรื่องบรรทัดเดียว (ลดขนาดอักษรอัตโนมัติไม่ให้ตกบรรทัด)
+    const title = document.getElementById('printTitle').textContent + (caption ? ' · ' + caption : '');
+    const th = 70 * SC, out = document.createElement('canvas'); out.width = cv.width; out.height = cv.height + th;
+    const g = out.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, out.width, out.height);
+    let fs = 30 * SC; g.font = `600 ${fs}px Kanit, Sarabun, sans-serif`;
+    while (g.measureText(title).width > out.width - 40 * SC && fs > 12 * SC) { fs -= 2; g.font = `600 ${fs}px Kanit, Sarabun, sans-serif`; }
+    g.fillStyle = '#111'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(title, out.width / 2, th / 2);
+    g.drawImage(cv, 0, th);
+    return out;
+}
+async function exportPlan(fmt) {
+    setPlaying(false); t = 0; applyTime(0);
+    await (document.fonts ? document.fonts.ready : Promise.resolve());
+    const cap = (i) => stages.length > 1 ? (i === 0 ? 'ไม่มีวงดุริยางค์' : 'มีวงดุริยางค์') : '';
+    const base = 'ผังขบวนพาเหรด' + (mode === 'band' ? '-มีวงดุริยางค์' : mode === 'plain' ? '-ไม่มีวงดุริยางค์' : '');
+    const cvs = []; for (let i = 0; i < stages.length; i++) cvs.push(await renderStageCanvas(stages[i], cap(i)));
+    fit();
+    if (fmt === 'png') {
+        cvs.forEach((c, i) => { const a = document.createElement('a'); a.download = base + (cvs.length > 1 ? '-' + (i + 1) : '') + '.png'; a.href = c.toDataURL('image/png'); document.body.appendChild(a); setTimeout(() => { a.click(); a.remove(); }, i * 400); });
+    } else {
+        const { jsPDF } = window.jspdf, pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+        const pw = 210, ph = 297, m = 8;
+        cvs.forEach((c, i) => {
+            if (i) pdf.addPage();
+            const sc = Math.min((pw - 2 * m) / c.width, (ph - 2 * m) / c.height), w = c.width * sc, h = c.height * sc;
+            pdf.addImage(c.toDataURL('image/jpeg', .95), 'JPEG', (pw - w) / 2, m, w, h);
+        });
+        pdf.save(base + '.pdf');
+    }
+}
+document.getElementById('btnPrint').onclick = async () => {
+    if (!stages.length) return;
+    const r = await Swal.fire({ title: 'ส่งออกผัง', text: 'เลือกรูปแบบไฟล์ (ส่งออกตามโหมดที่แสดงอยู่)', showDenyButton: true, showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-image me-1"></i>PNG', denyButtonText: '<i class="fas fa-file-pdf me-1"></i>PDF', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#2e7d32', denyButtonColor: '#c62828' });
+    if (r.isDismissed) return;
+    Swal.fire({ title: 'กำลังสร้างไฟล์...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try { await exportPlan(r.isConfirmed ? 'png' : 'pdf'); Swal.close(); }
+    catch (e) { console.error(e); Swal.fire('ส่งออกไม่สำเร็จ', String(e.message || e), 'error'); }
+};
 document.getElementById('stages').addEventListener('click', e => {
     const el = e.target.closest('[data-info]'); if (!el) return;
     const it = INFO[el.dataset.info]; if (!it) return;
@@ -522,7 +587,7 @@ async function init() {
     }
 }
 init();
-window.__parade = { renderAll, applyTime, fitPrint, fit, get stages() { return stages; }, get T() { return T_TOTAL; } };
+window.__parade = { renderAll, exportPlan, applyTime, fitPrint, fit, get stages() { return stages; }, get T() { return T_TOTAL; } };
 </script>
 </body>
 </html>
