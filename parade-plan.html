@@ -38,7 +38,17 @@
         .chd { display: flex; align-items: center; gap: 8px; }
         .num { width: 30px; height: 30px; border-radius: 50%; background: #111; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-family: 'Kanit', sans-serif; }
         .pill { padding: 4px 14px; border-radius: 999px; font-weight: 700; font-family: 'Kanit', sans-serif; font-size: 15px; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
-        .alias { font-size: 12px; color: #37474f; text-align: center; margin-top: -2px; min-height: 16px; }
+        .alias { font-size: 12px; line-height: 1.3; color: #37474f; text-align: center; margin-top: -2px; height: 32px; overflow: hidden; width: 100%; }
+        .rw.fx .ic { height: 70px; }
+        .rw.fx .lbl { min-height: 50px; }
+        .col > .ahead { position: absolute; left: 0; width: 100%; }
+        .ib { text-align: left; font-size: 14px; }
+        .ib-r { display: grid; grid-template-columns: 7.5em 1fr; gap: 10px; padding: 7px 4px; border-bottom: 1px solid #eceff1; }
+        .ib-r:last-child { border-bottom: 0; }
+        .ib-k { font-weight: 600; color: #455a64; }
+        .ib-v { word-break: break-word; overflow-wrap: anywhere; }
+        .swal2-title { font-size: 1.15rem !important; font-family: 'Kanit', sans-serif; }
+        .swal2-html-container { max-height: 65vh; overflow: auto; margin: .6em 1em !important; }
         .rw { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 4px 2px; border-radius: 10px; }
         .clickable { cursor: pointer; transition: background .15s; }
         .clickable:hover { background: rgba(255,255,255,.65); }
@@ -157,7 +167,7 @@ const Q = new URLSearchParams(location.search);
 const DEMO = Q.get('demo');            // ?demo=2|3|4 ใช้ข้อมูลตัวอย่าง ไม่เชื่อม Firebase
 
 // ---------- ค่าคงที่ของเวที ----------
-const COLW = 220, GAP = 20, PAD = 20, LANE = 70, PAV_TOP = 10, L2Y = 255, L1Y = 440, Y_HEAD = 510;
+const COLW = 220, GAP = 20, PAD = 20, LANE = 70, PAV_TOP = 10, L2Y = 255, L1Y = 440, Y_HEAD = 600;
 const V = 240;   // ความเร็วเดินขบวน (px/วินาที ที่ 1x)
 let zoom = 1;
 
@@ -181,7 +191,8 @@ const info = (title, html) => { const id = 'i' + (++infoSeq); INFO[id] = { title
 
 const person = (color, h = 46) => `<span class="ppl" style="--c:${esc(color)};--m:url('parade-assets/person-black.png');width:${Math.round(h * 0.76)}px;height:${h}px"></span>`;
 const asset = (file, h, tint, sat) => `<img class="as" src="parade-assets/${file}" style="height:${h}px" alt="" ${tint ? `data-ts="${file}" data-tc="${esc(tint)}" data-tsat="${sat || .35}"` : ''} onerror="this.classList.add('imgerr')">`;
-const rowHTML = (icons, label, name, infoAttr) => `<div class="rw clickable" ${infoAttr}><div class="ic">${icons}</div><div class="lbl"><b>${label}</b><span>${name}</span></div></div>`;
+const ib = (rows) => `<div class="ib">${rows.filter(Boolean).map(([k, v]) => `<div class="ib-r"><div class="ib-k">${k}</div><div class="ib-v">${v}</div></div>`).join('')}</div>`;
+const rowHTML = (icons, label, name, infoAttr, cls = '') => `<div class="rw clickable ${cls}" ${infoAttr}><div class="ic">${icons}</div><div class="lbl"><b>${label}</b><span>${name}</span></div></div>`;
 
 const teamList = () => Object.entries(settings.teams || {})
     .map(([key, v], i) => ({ key, name: v.name || key, color: v.color || '#999', active: v.active !== false, order: v.order ?? 1e6 + i, d: (mc.teams || {})[key] || {} }))
@@ -227,20 +238,20 @@ function teamCol(tm, order) {
     const signs = splitNames(d.sign);
     const cnt = parseInt(String(d.count || '').replace(/\D/g, '')) || 0;
     const N = cnt || 24, shown = Math.min(N, 120);
-    const tInfo = (extra) => info('คณะ' + tm.name, `<table class="table table-sm text-start mb-0"><tbody>
-        <tr><th>ชื่อขบวน</th><td>${nm(d.alias)}</td></tr><tr><th>ประธานสี</th><td>${nm(d.leader)}${d.level ? ' (ม.' + esc(d.level) + ')' : ''}</td></tr>
-        <tr><th>ผู้ถือป้ายคณะสี</th><td>${nm(d.sign)}</td></tr><tr><th>ผู้ถือธงคณะสี</th><td>${nm(d.flag)}</td></tr>
-        ${String(d.cheer_sign || '').trim() ? `<tr><th>ผู้ถือป้ายหลีดเดอร์</th><td>${nm(d.cheer_sign)}</td></tr>` : ''}
-        <tr><th>จำนวนสมาชิก</th><td>${cnt ? cnt + ' คน' : '<span class="miss">ยังไม่ได้กรอก (ภาพแสดงตัวอย่าง 24 คน)</span>'}</td></tr>
-        <tr><th>คอนเซปต์</th><td>${nm(d.concept)}</td></tr></tbody></table>${extra || ''}`);
+    const tInfo = (extra) => info('คณะ' + tm.name, ib([
+        ['ชื่อขบวน', nm(d.alias)], ['ประธานสี', nm(d.leader) + (d.level ? ' (ม.' + esc(d.level) + ')' : '')],
+        ['ผู้ถือป้ายคณะสี', nm(d.sign)], ['ผู้ถือธงคณะสี', nm(d.flag)],
+        String(d.cheer_sign || '').trim() ? ['ผู้ถือป้ายหลีดเดอร์', nm(d.cheer_sign)] : null,
+        ['จำนวนสมาชิก', cnt ? cnt + ' คน' : '<span class="miss">ยังไม่ได้กรอก (ภาพแสดงตัวอย่าง 24 คน)</span>'],
+        ['คอนเซปต์', nm(d.concept)]]) + (extra || ''));
     const alias = String(d.alias || '').trim();
     let h = `<div class="chd"><span class="num">${order}</span><span class="pill" style="background:${esc(c)};color:${txtOn(c)}">${esc(tm.name)}</span></div>
         <div class="alias">${alias ? 'ขบวน “' + esc(alias) + '”' : '<span class="miss">ยังไม่ตั้งชื่อขบวน</span>'}</div>`;
     // ผู้ถือป้ายคณะสี
     h += rowHTML(`${person(c, 44)}<span class="bnr">${asset('banner-blue.png', 46, c, .18)}<span>${esc(alias)}</span></span>${person(c, 44)}`,
-        'ผู้ถือป้ายคณะสี', signs.length ? signs.map(esc).join(', ') : nm(''), tInfo());
+        'ผู้ถือป้ายคณะสี', signs.length ? signs.map(esc).join(', ') : nm(''), tInfo(), 'fx');
     // ผู้ถือธงคณะสี
-    h += rowHTML(`${asset('flag-blue.png', 62, c, .35)}${person(c, 46)}`, 'ผู้ถือธงคณะสี', nm(d.flag), tInfo());
+    h += rowHTML(`${asset('flag-blue.png', 62, c, .35)}${person(c, 46)}`, 'ผู้ถือธงคณะสี', nm(d.flag), tInfo(), 'fx');
     // ประธานสี
     h += rowHTML(person(c, 46), 'ประธานสี', nm(d.leader), tInfo());
     // หลีดเดอร์ (ถ้ามี)
@@ -255,14 +266,14 @@ function teamCol(tm, order) {
 
 function schoolCol(withBand, order) {
     const s = mc.shared || {};
-    const sInfo = (t2) => info(t2, `<table class="table table-sm text-start mb-0"><tbody>
-        <tr><th>คฑากรนำขบวน</th><td>${nm(s.mj)}</td></tr><tr><th>ผู้ถือป้ายโรงเรียน</th><td>${nm(s.sign_school)}</td></tr>
-        <tr><th>ผู้ถือธงโรงเรียน</th><td>${nm(s.flag_school)}</td></tr><tr><th>ครูผู้ฝึกซ้อมวงดุริยางค์</th><td>${nm(s.band_teachers)}</td></tr></tbody></table>`);
+    const sInfo = (t2) => info(t2, ib([['คฑากรนำขบวน', nm(s.mj)], ['ผู้ถือป้ายโรงเรียน', nm(s.sign_school)],
+        ['ผู้ถือธงโรงเรียน', nm(s.flag_school)], ['ครูผู้ฝึกซ้อมวงดุริยางค์', nm(s.band_teachers)]]));
+    const fx = withBand ? '' : 'fx';
     let h = `<div class="chd"><span class="num">${order}</span><span class="pill" style="background:#111;color:#fff">ขบวนโรงเรียน</span></div>
         <div class="alias">เดินนำขบวนก่อน</div>`;
-    h += rowHTML(`${asset('staff.png', 70)}${person('#111', 46)}`, 'คฑากรนำขบวน', nm(s.mj), sInfo('คฑากรนำขบวน'));
-    h += rowHTML(`${asset('school-sign.png', 66)}${person('#111', 46)}`, 'ผู้ถือป้ายโรงเรียน', nm(s.sign_school), sInfo('ผู้ถือป้ายโรงเรียน'));
-    h += rowHTML(`${asset('flag-red.png', 56)}${person('#111', 46)}`, 'ผู้ถือธงโรงเรียน', nm(s.flag_school), sInfo('ผู้ถือธงโรงเรียน'));
+    h += rowHTML(`${asset('staff.png', 70)}${person('#111', 46)}`, 'คฑากรนำขบวน', nm(s.mj), sInfo('คฑากรนำขบวน'), withBand ? '' : 'ahead');
+    h += rowHTML(`${asset('school-sign.png', 66)}${person('#111', 46)}`, 'ผู้ถือป้ายโรงเรียน', nm(s.sign_school), sInfo('ผู้ถือป้ายโรงเรียน'), fx);
+    h += rowHTML(`${asset('flag-red.png', 56)}${person('#111', 46)}`, 'ผู้ถือธงโรงเรียน', nm(s.flag_school), sInfo('ผู้ถือธงโรงเรียน'), fx);
     if (withBand) {
         let g = ''; for (let i = 0; i < 9; i++) g += asset('band-drummer.png', 46);
         h += `<div class="rw clickable" ${sInfo('วงดุริยางค์')}><div class="grid" style="grid-template-columns:repeat(3,36px);gap:4px">${g}</div>
@@ -275,7 +286,7 @@ function buildStage(withBand) {
     const teams = teamList();
     const n = teams.length + 1;
     const contentW = n * COLW + (n - 1) * GAP;
-    const W = Math.max(700, PAD * 2 + contentW + LANE), x0 = PAD;
+    const W = Math.max(700, contentW + 2 * (PAD + LANE)), x0 = (W - contentW) / 2;
     const R = W - 40;                                  // เลนขวา (ทางเดินขวาหัน→ซ้ายหัน)
     const sp = withBand ? n - 1 : Math.floor(n / 2);   // ตำแหน่งขบวนโรงเรียน: มีวงฯ = ขวาสุด, ไม่มีวงฯ = กลาง
     const slotX = (k) => x0 + k * (COLW + GAP) + COLW / 2;
@@ -286,9 +297,7 @@ function buildStage(withBand) {
     const cols = [{ html: schoolCol(withBand, 1), xc: slotX(sp), name: 'ขบวนโรงเรียน' }];
     let slot = 0;
     teams.forEach((tm, i) => { if (slot === sp) slot++; cols.push({ html: teamCol(tm, i + 2), xc: slotX(slot), name: 'คณะ' + tm.name }); slot++; });
-    // ศูนย์กลางปะรำ/ลูกศร: ช่องว่างระหว่างคอลัมน์ที่ใกล้กึ่งกลางที่สุด (ไม่ให้ลูกศรทับตัวละคร)
-    const cC = x0 + contentW / 2; let cx = cC;
-    if (n > 1) { cx = null; for (let k = 1; k < n; k++) { const gx = x0 + k * (COLW + GAP) - GAP / 2; if (cx === null || Math.abs(gx - cC) < Math.abs(cx - cC)) cx = gx; } }
+    const cx = W / 2;   // ปะรำอยู่กึ่งกลางหน้ากระดาษพอดี
     stage.innerHTML = `<div class="pav" style="left:${cx - 115}px;top:${PAV_TOP}px"><img src="parade-assets/pavilion.png" alt="ปะรำพิธี" onerror="this.classList.add('imgerr')"><div class="lbl"><b>ปะรำพิธี</b></div></div>` +
         cols.map(c => `<div class="col" style="left:${c.xc - COLW / 2}px;top:${Y_HEAD}px">${c.html}</div>`).join('');
     const o = { cx, R, wrap, stage, W, H: 0, n, teams, cols: [] };
@@ -302,8 +311,11 @@ function overlay(o) {
     let maxH = 0;
     o.cols.forEach(c => {
         const kids = [...c.el.children];
-        c.items = kids.map(k => ({ el: k, dy: k.offsetTop, h: k.offsetHeight }));
+        c.items = kids.map(k => ({ el: k, dy: k.offsetTop, h: k.offsetHeight, ahead: k.classList.contains('ahead') }));
+        c.items.forEach(it => { if (it.ahead) { it.dy = -(it.h + 6); it.el.style.left = '0'; } });
         c.colH = Math.max(...c.items.map(it => it.dy + it.h));
+        c.minDy = Math.min(0, ...c.items.map(it => it.dy));
+        c.len0 = c.colH - c.minDy;
         c.items.forEach(it => { it.el.style.top = it.dy + 'px'; });
         c.el.classList.add('packed'); c.el.style.height = c.colH + 'px';
         maxH = Math.max(maxH, c.colH);
@@ -316,6 +328,7 @@ function overlay(o) {
         c.len1 = c.Ybot - L1Y; c.len2 = R - c.xc; c.len3 = L1Y - L2Y; c.len4 = R + 320;
         c.total = c.len1 + c.len2 + c.len3 + c.len4;
         c.items.forEach(it => { it.cy = Y_HEAD + it.dy + it.h / 2; it.s0 = c.Ybot - it.cy; });
+        c.headS0 = Math.max(...c.items.map(it => it.s0));
         c.badge = document.createElement('div'); c.badge.className = 'salute'; c.badge.textContent = 'ทำความเคารพ · ' + c.name; o.stage.appendChild(c.badge);
     });
     // หน่วงเวลาให้ขบวนถัดไปออกตัวหลังหางขบวนก่อนหน้าพ้นจุดเลี้ยว (ไม่ให้ทับกัน)
@@ -323,7 +336,7 @@ function overlay(o) {
         c.delay = 0;
         for (let j = 0; j < k; j++) {
             const q = o.cols[j];
-            c.delay = Math.max(c.delay, q.delay + (q.colH + c.xc - q.xc + 70) / V);
+            c.delay = Math.max(c.delay, q.delay + (q.len0 + c.xc - q.xc + 70) / V);
         }
         if (k > 0) c.delay = Math.max(c.delay, o.cols[k - 1].delay + 0.8);
     });
@@ -333,16 +346,16 @@ function overlay(o) {
         <text x="${x}" y="${y + 22}" font-size="13" font-weight="700" fill="#b71c1c" text-anchor="middle">${label}</text></g>`;
     const dot = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5d4037" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 11"/>`;
     const minX = Math.min(...o.cols.map(c => c.xc));
-    let path = o.cols.map(c => dot(c.xc, Y_HEAD - 10, c.xc, L1Y)).join('');
+    let path = o.cols.map(c => dot(c.xc, Y_HEAD + c.minDy - 10, c.xc, L1Y)).join('');
     path += dot(minX, L1Y, R, L1Y) + dot(R, L1Y, R, L2Y) + dot(R, L2Y, 12, L2Y);
-    const yA1 = PAV_TOP + 178, yA2 = Y_HEAD - 12;
+    const yA1 = PAV_TOP + 178, yA2 = L2Y - 14;
     const school = o.cols[0];
     const svg = `<svg class="ov" width="${W}" height="${o.H}" viewBox="0 0 ${W} ${o.H}">
         <defs><marker id="ah" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c62828"/></marker></defs>
         <g class="l-path">${path}</g>
-        <g class="l-dist"><line x1="${cx}" y1="${yA1}" x2="${cx}" y2="${yA2}" stroke="#c62828" stroke-width="3" marker-start="url(#ah)" marker-end="url(#ah)"/>
-          <rect x="${cx + 14}" y="${(yA1 + L2Y) / 2 - 14}" width="132" height="26" rx="13" fill="#fff" stroke="#c62828" stroke-width="2"/>
-          <text x="${cx + 80}" y="${(yA1 + L2Y) / 2 + 4}" font-size="14" font-weight="700" fill="#c62828" text-anchor="middle">ระยะ 10–15 เมตร</text></g>
+        <g class="l-dist"><line x1="${cx}" y1="${yA1}" x2="${cx}" y2="${yA2}" stroke="#c62828" stroke-width="2" marker-start="url(#ah)" marker-end="url(#ah)"/>
+          <rect x="${cx + 10}" y="${yA1 + 8}" width="100" height="22" rx="11" fill="#fff" stroke="#c62828" stroke-width="1.5"/>
+          <text x="${cx + 60}" y="${yA1 + 23}" font-size="12" font-weight="700" fill="#c62828" text-anchor="middle">10–15 เมตร</text></g>
         ${cone(school.xc, L1Y - 4, 'ขวาหัน')}${cone(R, L1Y - 4, 'ซ้ายหัน')}${cone(R, L2Y - 4, 'ซ้ายหัน')}
         ${cone(cx + 110, L2Y - 4, 'เคารพประธาน')}${cone(70, L2Y - 4, 'เลี้ยวออกนอกสนาม')}
     </svg>`;
@@ -387,7 +400,7 @@ function applyTime(tt) {
             it.el.style.transform = d === 0 ? '' : `translate(${x - c.xc}px,${y - it.cy}px) scale(${k})`;
         });
         // ป้าย "ทำความเคารพ" เมื่อหัวขบวนผ่านหน้าปะรำ
-        const hs = c.items[0].s0 + d, [hx, hy] = posAt(c, hs);
+        const hs = c.headS0 + d, [hx, hy] = posAt(c, hs);
         const on = d > 0 && hy === L2Y && Math.abs(hx - o.cx) < 170;
         c.badge.classList.toggle('on', on);
         if (on) { c.badge.style.left = hx + 'px'; c.badge.style.top = (L2Y - 62) + 'px'; }
@@ -473,7 +486,7 @@ document.getElementById('btnPrint').onclick = () => window.print();
 document.getElementById('stages').addEventListener('click', e => {
     const el = e.target.closest('[data-info]'); if (!el) return;
     const it = INFO[el.dataset.info]; if (!it) return;
-    Swal.fire({ title: it.title, html: it.html, confirmButtonText: 'ปิด', width: 560 });
+    Swal.fire({ title: it.title, html: it.html, confirmButtonText: 'ปิด', width: 'min(92vw, 440px)' });
 });
 window.addEventListener('resize', fit);
 window.addEventListener('beforeprint', () => { setPlaying(false); t = 0; applyTime(0); fitPrint(); });
