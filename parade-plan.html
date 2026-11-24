@@ -26,13 +26,15 @@
         .chip.warn { background: #fff8e1; border-color: #ffe082; color: #7a5b00; }
 
         /* ===== เวที (stage) ===== */
-        .stage-wrap { position: relative; width: 100%; overflow: hidden; border-radius: 14px; border: 2px solid #c5e1a5; background: #e9f5dc; }
+        .stage-wrap { position: relative; width: 100%; margin: 0 auto; overflow: hidden; border-radius: 14px; border: 2px solid #c5e1a5; background: #e9f5dc; }
         .stage { position: absolute; left: 0; top: 0; transform-origin: top left; background:
             repeating-linear-gradient(0deg, rgba(255,255,255,.35) 0, rgba(255,255,255,.35) 2px, transparent 2px, transparent 60px), #e9f5dc; }
         .stage svg.ov { position: absolute; left: 0; top: 0; pointer-events: none; }
         .pav { position: absolute; text-align: center; }
         .pav img { width: 230px; display: block; }
-        .col { position: absolute; width: 220px; display: flex; flex-direction: column; align-items: center; gap: 8px; will-change: transform, opacity; }
+        .col { position: absolute; width: 220px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .col.packed > * { position: absolute; left: 0; width: 100%; margin: 0; will-change: transform; }
+        .col.packed .chd { justify-content: center; }
         .chd { display: flex; align-items: center; gap: 8px; }
         .num { width: 30px; height: 30px; border-radius: 50%; background: #111; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-family: 'Kanit', sans-serif; }
         .pill { padding: 4px 14px; border-radius: 999px; font-weight: 700; font-family: 'Kanit', sans-serif; font-size: 15px; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
@@ -50,7 +52,7 @@
         .bnr img { display: block; }
         .bnr span { position: absolute; inset: 14% 14% 20% 14%; display: flex; align-items: center; justify-content: center; text-align: center; color: #fff; font-weight: 700; font-size: 11px; line-height: 1.1; text-shadow: 0 1px 2px rgba(0,0,0,.6); overflow: hidden; }
         .grid { display: grid; gap: 3px 2px; justify-content: center; }
-        .salute { position: absolute; top: -34px; left: 50%; transform: translateX(-50%); background: #c62828; color: #fff; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; display: none; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+        .salute { position: absolute; transform: translateX(-50%); z-index: 5; background: #c62828; color: #fff; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; display: none; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
         .salute.on { display: block; }
         .imgerr { min-width: 40px; min-height: 40px; border: 2px dashed #e57373; background: rgba(255,255,255,.6); }
         .hide-path .l-path, .hide-dist .l-dist, .hide-cone .l-cone { display: none; }
@@ -58,27 +60,16 @@
         .ttl { font-family: 'Kanit', sans-serif; font-weight: 600; color: #1a237e; }
         input[type=range] { accent-color: #3949ab; }
 
-        /* ===== พิมพ์รายชื่อนักกีฬา ===== */
-        #rosterPrint { display: none; }
-        body.printing-roster > *:not(#rosterPrint) { display: none !important; }
-        body.printing-roster #rosterPrint { display: block; background: #fff; font-size: 14pt; color: #000; }
-        .rp-page { break-after: page; page-break-after: always; padding: 2mm 0; }
-        .rp-page:last-child { break-after: auto; page-break-after: auto; }
-        .rp-head { text-align: center; margin-bottom: 8px; }
-        .rp-head img { height: 54px; }
-        .rp-head h2 { font-size: 17pt; font-weight: 700; margin: 4px 0 0; }
-        .rp-head div { font-size: 13pt; }
-        .rp-tbl { width: 100%; border-collapse: collapse; font-size: 13pt; }
-        .rp-tbl th, .rp-tbl td { border: 1px solid #333; padding: 2px 8px; vertical-align: top; }
-        .rp-tbl th { background: #eee; text-align: center; }
-        .rp-tbl td.c { text-align: center; width: 48px; }
-        .rp-sub { font-weight: 700; margin: 10px 0 3px; font-size: 13.5pt; break-after: avoid; }
-        .rp-two { column-count: 2; column-gap: 18px; }
-        .rp-two div { break-inside: avoid; border-bottom: 1px dotted #999; padding: 1px 0; }
-        .rp-foot { margin-top: 8px; font-size: 12pt; }
         @page { size: A4 portrait; margin: 8mm; }
+        .print-title { display: none; }
         @media print {
+            html, body { margin: 0; }
             body { background: #fff; }
+            .print-title { display: block; text-align: center; font-family: 'Kanit', sans-serif; font-size: 15pt; font-weight: 600; margin-bottom: 4px; }
+            #stages { margin: 0 !important; display: block; }
+            #stages > div { padding: 0 !important; width: 100% !important; max-width: 100% !important; break-after: page; page-break-after: always; }
+            #stages > div:last-child { break-after: auto; page-break-after: auto; }
+            .stage-wrap { border: none !important; }
             .no-print { display: none !important; }
             .panel { box-shadow: none; padding: 0; }
             .stage-wrap { border: 1px solid #aaa; break-inside: avoid; }
@@ -114,8 +105,10 @@
                 <input type="range" id="speed" min="0.5" max="2" step="0.25" value="1" style="width:110px"><span id="speedTxt">1x</span>
             </label>
             <input type="range" id="scrub" min="0" max="1000" value="0" class="flex-grow-1" style="min-width:140px" title="เลื่อนดูตามเวลา">
-            <button class="btn btn-outline-success btn-sm rounded-pill ms-auto" id="btnRoster"><i class="fas fa-list-ol me-1"></i>พิมพ์รายชื่อนักกีฬา</button>
-            <button class="btn btn-success btn-sm rounded-pill" id="btnPrint"><i class="fas fa-print me-1"></i>พิมพ์ผัง / PDF</button>
+            <label class="small d-flex align-items-center gap-2">ขนาดผัง
+                <input type="range" id="zoom" min="40" max="150" step="5" value="100" style="width:100px"><span id="zoomTxt">100%</span>
+            </label>
+            <button class="btn btn-success btn-sm rounded-pill ms-auto" id="btnPrint"><i class="fas fa-print me-1"></i>พิมพ์ผัง / PDF</button>
         </div>
         <div class="d-flex flex-wrap gap-3 mt-2 small">
             <span class="text-muted">แสดง:</span>
@@ -135,11 +128,12 @@
 
     <!-- แผนผัง -->
     <div class="panel">
+        <div class="print-title" id="printTitle"></div>
         <div id="stages" class="row g-3"></div>
         <div id="errBox" class="alert alert-danger mt-2 d-none"></div>
     </div>
 
-    <div class="panel mt-3">
+    <div class="panel mt-3 no-print">
         <div class="fw-bold mb-1">สัญลักษณ์</div>
         <div id="legend" class="small"></div>
         <div class="small text-muted mt-2">หมายเหตุ: จำนวนนักกีฬาในภาพมาจากช่อง "จำนวนสมาชิก" ที่แต่ละคณะสีกรอก ถ้ายังไม่กรอกจะแสดงตัวอย่าง 24 คน และภาพวงดุริยางค์เป็นภาพจำลอง 9 คน</div>
@@ -147,7 +141,7 @@
 </div>
 
 <script type="module">
-import { TEAM_PARADE_FIELDS, SCHOOL_PARADE_FIELDS, splitNames, esc, normName } from "./reg-utils.js";
+import { TEAM_PARADE_FIELDS, SCHOOL_PARADE_FIELDS, splitNames, esc } from "./reg-utils.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -163,12 +157,12 @@ const Q = new URLSearchParams(location.search);
 const DEMO = Q.get('demo');            // ?demo=2|3|4 ใช้ข้อมูลตัวอย่าง ไม่เชื่อม Firebase
 
 // ---------- ค่าคงที่ของเวที ----------
-const COLW = 220, GAP = 20, PAD = 20, PAV_TOP = 10, Y_HEAD = 340, Y_STOP = 230;
-const ADV = 4, SAL = 2.5, EXT = 2, DIST = Y_HEAD - Y_STOP; // วินาที / ระยะเดินหน้า (px)
+const COLW = 220, GAP = 20, PAD = 20, LANE = 70, PAV_TOP = 10, L2Y = 255, L1Y = 440, Y_HEAD = 510;
+const V = 240;   // ความเร็วเดินขบวน (px/วินาที ที่ 1x)
+let zoom = 1;
 
 let settings = { schoolName: 'โรงเรียนกระดุมทองวิทยา', eventName: 'กระดุมทองเกมส์', academicYear: '', schoolLogo: '', teams: {} };
 let mc = {};
-let matches = [];
 let mode = localStorage.getItem('paradeMode') || '';
 let stages = [];
 let t = 0, playing = false, speed = 1, lastTs = 0, T_TOTAL = 10;
@@ -240,8 +234,7 @@ function teamCol(tm, order) {
         <tr><th>จำนวนสมาชิก</th><td>${cnt ? cnt + ' คน' : '<span class="miss">ยังไม่ได้กรอก (ภาพแสดงตัวอย่าง 24 คน)</span>'}</td></tr>
         <tr><th>คอนเซปต์</th><td>${nm(d.concept)}</td></tr></tbody></table>${extra || ''}`);
     const alias = String(d.alias || '').trim();
-    let h = `<div class="salute">ทำความเคารพ</div>
-        <div class="chd"><span class="num">${order}</span><span class="pill" style="background:${esc(c)};color:${txtOn(c)}">${esc(tm.name)}</span></div>
+    let h = `<div class="chd"><span class="num">${order}</span><span class="pill" style="background:${esc(c)};color:${txtOn(c)}">${esc(tm.name)}</span></div>
         <div class="alias">${alias ? 'ขบวน “' + esc(alias) + '”' : '<span class="miss">ยังไม่ตั้งชื่อขบวน</span>'}</div>`;
     // ผู้ถือป้ายคณะสี
     h += rowHTML(`${person(c, 44)}<span class="bnr">${asset('banner-blue.png', 46, c, .18)}<span>${esc(alias)}</span></span>${person(c, 44)}`,
@@ -265,8 +258,7 @@ function schoolCol(withBand, order) {
     const sInfo = (t2) => info(t2, `<table class="table table-sm text-start mb-0"><tbody>
         <tr><th>คฑากรนำขบวน</th><td>${nm(s.mj)}</td></tr><tr><th>ผู้ถือป้ายโรงเรียน</th><td>${nm(s.sign_school)}</td></tr>
         <tr><th>ผู้ถือธงโรงเรียน</th><td>${nm(s.flag_school)}</td></tr><tr><th>ครูผู้ฝึกซ้อมวงดุริยางค์</th><td>${nm(s.band_teachers)}</td></tr></tbody></table>`);
-    let h = `<div class="salute">ทำความเคารพ</div>
-        <div class="chd"><span class="num">${order}</span><span class="pill" style="background:#111;color:#fff">ขบวนโรงเรียน</span></div>
+    let h = `<div class="chd"><span class="num">${order}</span><span class="pill" style="background:#111;color:#fff">ขบวนโรงเรียน</span></div>
         <div class="alias">เดินนำขบวนก่อน</div>`;
     h += rowHTML(`${asset('staff.png', 70)}${person('#111', 46)}`, 'คฑากรนำขบวน', nm(s.mj), sInfo('คฑากรนำขบวน'));
     h += rowHTML(`${asset('school-sign.png', 66)}${person('#111', 46)}`, 'ผู้ถือป้ายโรงเรียน', nm(s.sign_school), sInfo('ผู้ถือป้ายโรงเรียน'));
@@ -283,69 +275,122 @@ function buildStage(withBand) {
     const teams = teamList();
     const n = teams.length + 1;
     const contentW = n * COLW + (n - 1) * GAP;
-    const W = Math.max(680, contentW + PAD * 2), x0 = (W - contentW) / 2;
+    const W = Math.max(700, PAD * 2 + contentW + LANE), x0 = PAD;
+    const R = W - 40;                                  // เลนขวา (ทางเดินขวาหัน→ซ้ายหัน)
+    const sp = withBand ? n - 1 : Math.floor(n / 2);   // ตำแหน่งขบวนโรงเรียน: มีวงฯ = ขวาสุด, ไม่มีวงฯ = กลาง
+    const slotX = (k) => x0 + k * (COLW + GAP) + COLW / 2;
     const wrap = document.createElement('div'); wrap.className = 'stage-wrap';
     const stage = document.createElement('div'); stage.className = 'stage'; stage.style.width = W + 'px';
     wrap.appendChild(stage);
-    const cols = [];
-    teams.forEach((tm, i) => cols.push({ html: teamCol(tm, i + 2), delay: (i + 1) * 1.2, vis: i }));
-    cols.push({ html: schoolCol(withBand, 1), delay: 0, vis: n - 1 });
-    // ศูนย์กลางปะรำ/ลูกศร: ใช้ช่องว่างระหว่างคอลัมน์ที่ใกล้กึ่งกลางที่สุด (ไม่ให้ลูกศรทับตัวละคร) หรือกึ่งกลางจริงถ้าจำนวนคอลัมน์เป็นเลขคู่
-    let cx = W / 2;
-    if (n > 1) { cx = null; for (let k = 1; k < n; k++) { const gx = x0 + k * (COLW + GAP) - GAP / 2; if (cx === null || Math.abs(gx - W / 2) < Math.abs(cx - W / 2)) cx = gx; } }
+    // ลำดับเดินขบวน: โรงเรียนก่อน แล้วคณะสีตามลำดับ
+    const cols = [{ html: schoolCol(withBand, 1), xc: slotX(sp), name: 'ขบวนโรงเรียน' }];
+    let slot = 0;
+    teams.forEach((tm, i) => { if (slot === sp) slot++; cols.push({ html: teamCol(tm, i + 2), xc: slotX(slot), name: 'คณะ' + tm.name }); slot++; });
+    // ศูนย์กลางปะรำ/ลูกศร: ช่องว่างระหว่างคอลัมน์ที่ใกล้กึ่งกลางที่สุด (ไม่ให้ลูกศรทับตัวละคร)
+    const cC = x0 + contentW / 2; let cx = cC;
+    if (n > 1) { cx = null; for (let k = 1; k < n; k++) { const gx = x0 + k * (COLW + GAP) - GAP / 2; if (cx === null || Math.abs(gx - cC) < Math.abs(cx - cC)) cx = gx; } }
     stage.innerHTML = `<div class="pav" style="left:${cx - 115}px;top:${PAV_TOP}px"><img src="parade-assets/pavilion.png" alt="ปะรำพิธี" onerror="this.classList.add('imgerr')"><div class="lbl"><b>ปะรำพิธี</b></div></div>` +
-        cols.map(c => `<div class="col" style="left:${x0 + c.vis * (COLW + GAP)}px;top:${Y_HEAD}px">${c.html}</div>`).join('');
-    const o = { cx, wrap, stage, W, H: 0, cols: [], n, xs: [], teams };
-    [...stage.querySelectorAll('.col')].forEach((el, i) => { o.cols.push({ el, delay: cols[i].delay, badge: el.querySelector('.salute') }); o.xs.push(x0 + cols[i].vis * (COLW + GAP) + COLW / 2); });
+        cols.map(c => `<div class="col" style="left:${c.xc - COLW / 2}px;top:${Y_HEAD}px">${c.html}</div>`).join('');
+    const o = { cx, R, wrap, stage, W, H: 0, n, teams, cols: [] };
+    [...stage.querySelectorAll('.col')].forEach((el, i) => o.cols.push({ el, xc: cols[i].xc, name: cols[i].name, delay: 0 }));
     return o;
 }
 
-// วาดเส้น/ลูกศร/กรวย (หลังรู้ความสูงจริง)
+// วัดความสูงจริง → แปลงแต่ละแถวเป็นตู้ขบวนที่วิ่งตามเส้นทาง → วาดเส้นทาง/ลูกศร/กรวย
 function overlay(o) {
-    const { W } = o;
-    const maxH = Math.max(...o.cols.map(c => c.el.offsetHeight));
+    const { W, R, cx } = o;
+    let maxH = 0;
+    o.cols.forEach(c => {
+        const kids = [...c.el.children];
+        c.items = kids.map(k => ({ el: k, dy: k.offsetTop, h: k.offsetHeight }));
+        c.colH = Math.max(...c.items.map(it => it.dy + it.h));
+        c.items.forEach(it => { it.el.style.top = it.dy + 'px'; });
+        c.el.classList.add('packed'); c.el.style.height = c.colH + 'px';
+        maxH = Math.max(maxH, c.colH);
+    });
     o.H = Y_HEAD + maxH + 40;
     o.stage.style.height = o.H + 'px';
-    const cx = o.cx, yA1 = PAV_TOP + 176, yA2 = Y_HEAD - 8;
-    const cone = (x, y, label, anchor) => `<g class="l-cone"><polygon points="${x},${y - 26} ${x - 11},${y} ${x + 11},${y}" fill="#ff9800" stroke="#e65100" stroke-width="2"/>
+    // เรขาคณิตเส้นทาง: ขึ้นตรง → ขวาหัน (เดินขวาตามเส้น L1) → ซ้ายหันขึ้น (เลนขวา) → ซ้ายหันเดินผ่านหน้าปะรำ (L2) → ออกซ้าย
+    o.cols.forEach(c => {
+        c.Ybot = Y_HEAD + c.colH + 30;
+        c.len1 = c.Ybot - L1Y; c.len2 = R - c.xc; c.len3 = L1Y - L2Y; c.len4 = R + 320;
+        c.total = c.len1 + c.len2 + c.len3 + c.len4;
+        c.items.forEach(it => { it.cy = Y_HEAD + it.dy + it.h / 2; it.s0 = c.Ybot - it.cy; });
+        c.badge = document.createElement('div'); c.badge.className = 'salute'; c.badge.textContent = 'ทำความเคารพ · ' + c.name; o.stage.appendChild(c.badge);
+    });
+    // หน่วงเวลาให้ขบวนถัดไปออกตัวหลังหางขบวนก่อนหน้าพ้นจุดเลี้ยว (ไม่ให้ทับกัน)
+    o.cols.forEach((c, k) => {
+        c.delay = 0;
+        for (let j = 0; j < k; j++) {
+            const q = o.cols[j];
+            c.delay = Math.max(c.delay, q.delay + (q.colH + c.xc - q.xc + 70) / V);
+        }
+        if (k > 0) c.delay = Math.max(c.delay, o.cols[k - 1].delay + 0.8);
+    });
+    // ===== เส้นทาง SVG =====
+    const cone = (x, y, label) => `<g class="l-cone"><polygon points="${x},${y - 26} ${x - 11},${y} ${x + 11},${y}" fill="#ff9800" stroke="#e65100" stroke-width="2"/>
         <rect x="${x - 14}" y="${y}" width="28" height="5" rx="2" fill="#e65100"/>
-        <text x="${anchor === 'end' ? x + 14 : x - 14}" y="${y - 32}" font-size="13" font-weight="700" fill="#b71c1c" text-anchor="${anchor === 'end' ? 'end' : 'start'}">${label}</text></g>`;
-    let paths = '';
-    o.xs.forEach(x => { if (Math.abs(x - cx) > 12) paths += `<line x1="${x}" y1="${Y_HEAD - 8}" x2="${x}" y2="${Y_STOP + 4}" stroke="#5d4037" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 11"/>`; });
+        <text x="${x}" y="${y + 22}" font-size="13" font-weight="700" fill="#b71c1c" text-anchor="middle">${label}</text></g>`;
+    const dot = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5d4037" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 11"/>`;
+    const minX = Math.min(...o.cols.map(c => c.xc));
+    let path = o.cols.map(c => dot(c.xc, Y_HEAD - 10, c.xc, L1Y)).join('');
+    path += dot(minX, L1Y, R, L1Y) + dot(R, L1Y, R, L2Y) + dot(R, L2Y, 12, L2Y);
+    const yA1 = PAV_TOP + 178, yA2 = Y_HEAD - 12;
+    const school = o.cols[0];
     const svg = `<svg class="ov" width="${W}" height="${o.H}" viewBox="0 0 ${W} ${o.H}">
         <defs><marker id="ah" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c62828"/></marker></defs>
-        <line x1="14" y1="${Y_STOP}" x2="${W - 14}" y2="${Y_STOP}" stroke="#e65100" stroke-width="2" stroke-dasharray="8 6" class="l-cone"/>
-        <g class="l-path">${paths}<line x1="${cx}" y1="${yA2}" x2="${cx}" y2="${Y_STOP + 4}" stroke="#5d4037" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 11"/></g>
+        <g class="l-path">${path}</g>
         <g class="l-dist"><line x1="${cx}" y1="${yA1}" x2="${cx}" y2="${yA2}" stroke="#c62828" stroke-width="3" marker-start="url(#ah)" marker-end="url(#ah)"/>
-          <rect x="${cx + 18}" y="${(yA1 + Y_STOP) / 2 - 15}" width="132" height="26" rx="13" fill="#fff" stroke="#c62828" stroke-width="2"/>
-          <text x="${cx + 84}" y="${(yA1 + Y_STOP) / 2 + 3}" font-size="14" font-weight="700" fill="#c62828" text-anchor="middle">ระยะ 10–15 เมตร</text></g>
-        ${cone(34, Y_STOP - 4, 'เส้นแสดงความเคารพ', 'start')}${cone(W - 34, Y_STOP - 4, 'ขวาหัน / ออกนอกสนาม', 'end')}
+          <rect x="${cx + 14}" y="${(yA1 + L2Y) / 2 - 14}" width="132" height="26" rx="13" fill="#fff" stroke="#c62828" stroke-width="2"/>
+          <text x="${cx + 80}" y="${(yA1 + L2Y) / 2 + 4}" font-size="14" font-weight="700" fill="#c62828" text-anchor="middle">ระยะ 10–15 เมตร</text></g>
+        ${cone(school.xc, L1Y - 4, 'ขวาหัน')}${cone(R, L1Y - 4, 'ซ้ายหัน')}${cone(R, L2Y - 4, 'ซ้ายหัน')}
+        ${cone(cx + 110, L2Y - 4, 'เคารพประธาน')}${cone(70, L2Y - 4, 'เลี้ยวออกนอกสนาม')}
     </svg>`;
     o.stage.insertAdjacentHTML('afterbegin', svg);
-    T_TOTAL = Math.max(T_TOTAL, ...o.cols.map(c => c.delay + ADV + SAL + EXT + .6));
+    o.T = Math.max(...o.cols.map(c => c.delay + c.total / V)) + .5;
+    T_TOTAL = Math.max(T_TOTAL, o.T);
 }
 
 function fit() {
+    const avail = Math.max(360, window.innerHeight - 150);
     stages.forEach(o => {
         const w = o.wrap.parentElement.clientWidth || o.W;
-        const s = w / o.W;
-        o.stage.style.transform = `scale(${s})`;
-        o.wrap.style.height = (o.H * s) + 'px';
+        const sc = Math.min(w / o.W, avail / o.H, 0.85) * zoom;   // พอดีหน้าจอ ไม่ใหญ่เกิน
+        o.stage.style.transform = `scale(${sc})`;
+        o.wrap.style.width = (o.W * sc) + 'px';
+        o.wrap.style.height = (o.H * sc) + 'px';
+    });
+}
+function fitPrint() {   // A4 แนวตั้ง: พื้นที่พิมพ์ประมาณ 194×281 มม. (เผื่อหัวเรื่อง)
+    stages.forEach(o => {
+        const sc = Math.min(730 / o.W, 960 / o.H);
+        o.stage.style.transform = `scale(${sc})`;
+        o.wrap.style.width = (o.W * sc) + 'px';
+        o.wrap.style.height = (o.H * sc) + 'px';
     });
 }
 
 // ---------- แอนิเมชัน ----------
+function posAt(c, s) {
+    if (s < c.len1) return [c.xc, c.Ybot - s];
+    s -= c.len1; if (s < c.len2) return [c.xc + s, L1Y];
+    s -= c.len2; if (s < c.len3) return [c.stageR, L1Y - s];
+    s -= c.len3; return [c.stageR - s, L2Y];
+}
+const scaleAt = (c, s) => s <= c.len1 - 50 ? 1 : s >= c.len1 + 30 ? .45 : 1 - .55 * ((s - (c.len1 - 50)) / 80);
 function applyTime(tt) {
     stages.forEach(o => o.cols.forEach(c => {
-        const l = tt - c.delay; let y = 0, x = 0, op = 1, sal = false;
-        if (l > 0) {
-            if (l < ADV) y = -DIST * ease(l / ADV);
-            else if (l < ADV + SAL) { y = -DIST; sal = true; }
-            else if (l < ADV + SAL + EXT) { const q = (l - ADV - SAL) / EXT; y = -DIST; x = 150 * ease(q); op = 1 - q; }
-            else { y = -DIST; x = 150; op = 0; }
-        }
-        c.el.style.transform = `translate(${x}px,${y}px)`; c.el.style.opacity = op;
-        c.badge.classList.toggle('on', sal);
+        c.stageR = o.R;
+        const d = Math.max(0, V * (tt - c.delay));
+        c.items.forEach(it => {
+            const s = it.s0 + d, [x, y] = posAt(c, s), k = scaleAt(c, s);
+            it.el.style.transform = d === 0 ? '' : `translate(${x - c.xc}px,${y - it.cy}px) scale(${k})`;
+        });
+        // ป้าย "ทำความเคารพ" เมื่อหัวขบวนผ่านหน้าปะรำ
+        const hs = c.items[0].s0 + d, [hx, hy] = posAt(c, hs);
+        const on = d > 0 && hy === L2Y && Math.abs(hx - o.cx) < 170;
+        c.badge.classList.toggle('on', on);
+        if (on) { c.badge.style.left = hx + 'px'; c.badge.style.top = (L2Y - 62) + 'px'; }
     }));
     document.getElementById('scrub').value = Math.round(Math.min(1, tt / T_TOTAL) * 1000);
 }
@@ -383,6 +428,7 @@ function renderStatus() {
 }
 
 function renderAll() {
+    document.getElementById('printTitle').textContent = `แผนผังขบวนพาเหรด · ${settings.eventName || ''} ${settings.academicYear ? 'ปีการศึกษา ' + settings.academicYear : ''} · ${settings.schoolName || ''}`;
     document.getElementById('subTitle').textContent = `${settings.eventName || ''} ${settings.academicYear ? 'ประจำปีการศึกษา ' + settings.academicYear : ''} · ${settings.schoolName || ''}`;
     if (settings.schoolLogo) document.getElementById('logo').src = settings.schoolLogo;
     infoSeq = 0; INFO = {};
@@ -401,7 +447,7 @@ function renderAll() {
         stages.push(o);
     });
     // วัดความสูงจริงตอนยังไม่ย่อ แล้วค่อยวาดเส้น
-    stages.forEach(o => { o.wrap.style.height = '3000px'; o.stage.style.transform = 'none'; overlay(o); applyTints(o.stage); });
+    stages.forEach(o => { o.wrap.style.width = o.W + 'px'; o.wrap.style.height = '3000px'; o.stage.style.transform = 'none'; overlay(o); applyTints(o.stage); });
     fit(); applyTime(t);
     syncLayers();
 }
@@ -411,72 +457,6 @@ function syncLayers() {
 
 let rt = 0;
 const scheduleRender = () => { clearTimeout(rt); rt = setTimeout(renderAll, 120); };
-
-// ---------- พิมพ์รายชื่อนักกีฬา (อ่านจาก matches/{id}/players/{คณะสี}) ----------
-const sportLabel = (m) => `${(settings.sports || {})[m.sport] || m.sport || ''} ${m.category || ''}`.trim();
-const thDate = (d) => { if (!d) return ''; const x = new Date(d); return isNaN(x) ? '' : `${x.getDate()}/${x.getMonth() + 1}/${x.getFullYear() + 543}`; };
-const cmpTh = (a, b) => String(a).localeCompare(String(b), 'th');
-function teamMatches(tk) { return matches.filter(m => (m.teams || []).includes(tk)); }
-function teamRoster(tk) {   // รวมรายชื่อไม่ซ้ำ + รายการที่เข้าร่วม
-    const map = {};
-    teamMatches(tk).forEach(m => ((m.players || {})[tk] || []).forEach(n => {
-        const raw = String(n || '').replace(/\s+/g, ' ').trim(), k = normName(raw); if (!k) return;
-        const r = map[k] || (map[k] = { name: raw, sports: [] });
-        const lb = sportLabel(m); if (!r.sports.includes(lb)) r.sports.push(lb);
-    }));
-    return Object.values(map).sort((a, b) => cmpTh(a.name, b.name));
-}
-function rosterHTML(keys, fmt) {
-    const head = (tm, sub) => `<div class="rp-head">${settings.schoolLogo ? `<img src="${esc(settings.schoolLogo)}" alt="">` : ''}
-        <h2>รายชื่อนักกีฬาคณะ${esc(tm.name)}</h2><div>${esc(settings.eventName || '')} ${settings.academicYear ? 'ประจำปีการศึกษา ' + esc(settings.academicYear) : ''} · ${esc(settings.schoolName || '')}</div>${sub}</div>`;
-    return keys.map(tk => {
-        const tm = teamList().find(x => x.key === tk); if (!tm) return '';
-        if (fmt === 'sport') {
-            const ms = teamMatches(tk).slice().sort((a, b) => cmpTh(sportLabel(a), sportLabel(b)) || String(a.date || '').localeCompare(String(b.date || '')) || String(a.time || '').localeCompare(String(b.time || '')));
-            let h = head(tm, '<div>แยกตามรายการแข่งขัน</div>');
-            let any = false;
-            ms.forEach(m => {
-                const ns = ((m.players || {})[tk] || []).filter(Boolean); if (!ns.length) return; any = true;
-                h += `<div class="rp-sub">${esc(sportLabel(m))} <span style="font-weight:400">· ${esc(thDate(m.date))} ${esc(m.time || '')}${m.time ? ' น.' : ''} · ${ns.length} คน</span></div>
-                    <div class="rp-two">${ns.map((n, i) => `<div>${i + 1}. ${esc(n)}</div>`).join('')}</div>`;
-            });
-            if (!any) h += '<div class="text-center mt-4">ยังไม่มีรายชื่อนักกีฬา</div>';
-            return `<div class="rp-page">${h}</div>`;
-        }
-        const rs = teamRoster(tk);
-        return `<div class="rp-page">${head(tm, `<div>รวมรายชื่อนักกีฬา (ไม่ซ้ำ) ทั้งหมด ${rs.length} คน</div>`)}
-            <table class="rp-tbl"><thead><tr><th>ที่</th><th>ชื่อ - สกุล</th><th>รายการที่เข้าร่วม</th></tr></thead><tbody>
-            ${rs.length ? rs.map((r, i) => `<tr><td class="c">${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.sports.join(', '))}</td></tr>`).join('') : '<tr><td colspan="3" class="text-center">ยังไม่มีรายชื่อนักกีฬา</td></tr>'}
-            </tbody></table></div>`;
-    }).join('');
-}
-function printRoster() {
-    const teams = teamList();
-    if (!teams.length) { Swal.fire('ยังไม่มีคณะสี', '', 'info'); return; }
-    const total = teams.map(tm => `${esc(tm.name)} ${teamRoster(tm.key).length} คน`).join(' · ');
-    Swal.fire({
-        title: 'พิมพ์รายชื่อนักกีฬา',
-        html: `<div class="text-start">
-            <div class="small text-muted mb-2">ข้อมูลจากรายชื่อที่แต่ละคณะสีลงทะเบียนในแต่ละรายการ · ${total}</div>
-            <label class="fw-bold">คณะสี</label>
-            <select id="rpTeam" class="form-select mb-2"><option value="*">ทุกคณะสี (แยกหน้าละคณะ)</option>${teams.map(tm => `<option value="${esc(tm.key)}">คณะ${esc(tm.name)}</option>`).join('')}</select>
-            <label class="fw-bold">รูปแบบ</label>
-            <div class="form-check"><input class="form-check-input" type="radio" name="rpFmt" id="rpF1" value="all" checked><label class="form-check-label" for="rpF1">รวมรายชื่อ (ไม่ซ้ำ) พร้อมรายการที่เข้าร่วม</label></div>
-            <div class="form-check"><input class="form-check-input" type="radio" name="rpFmt" id="rpF2" value="sport"><label class="form-check-label" for="rpF2">แยกตามรายการแข่งขัน</label></div></div>`,
-        showCancelButton: true, confirmButtonText: '<i class="fas fa-print me-1"></i>พิมพ์', cancelButtonText: 'ยกเลิก',
-        preConfirm: () => ({ team: document.getElementById('rpTeam').value, fmt: document.querySelector('input[name=rpFmt]:checked').value })
-    }).then(r => {
-        if (!r.isConfirmed) return;
-        const keys = r.value.team === '*' ? teams.map(x => x.key) : [r.value.team];
-        let box = document.getElementById('rosterPrint');
-        if (!box) { box = document.createElement('div'); box.id = 'rosterPrint'; document.body.appendChild(box); }
-        box.innerHTML = rosterHTML(keys, r.value.fmt);
-        document.body.classList.add('printing-roster');
-        setTimeout(() => window.print(), 150);
-    });
-}
-window.addEventListener('afterprint', () => document.body.classList.remove('printing-roster'));
-document.getElementById('btnRoster').onclick = printRoster;
 
 // ---------- ปุ่ม/อีเวนต์ ----------
 document.getElementById('modeGroup').addEventListener('click', e => {
@@ -488,6 +468,7 @@ document.getElementById('btnReset').onclick = () => { setPlaying(false); t = 0; 
 document.getElementById('speed').oninput = (e) => { speed = parseFloat(e.target.value); document.getElementById('speedTxt').textContent = speed + 'x'; };
 document.getElementById('scrub').oninput = (e) => { setPlaying(false); t = (e.target.value / 1000) * T_TOTAL; applyTime(t); };
 document.querySelectorAll('.lay').forEach(cb => cb.onchange = syncLayers);
+document.getElementById('zoom').oninput = (e) => { zoom = e.target.value / 100; document.getElementById('zoomTxt').textContent = e.target.value + '%'; fit(); };
 document.getElementById('btnPrint').onclick = () => window.print();
 document.getElementById('stages').addEventListener('click', e => {
     const el = e.target.closest('[data-info]'); if (!el) return;
@@ -495,7 +476,7 @@ document.getElementById('stages').addEventListener('click', e => {
     Swal.fire({ title: it.title, html: it.html, confirmButtonText: 'ปิด', width: 560 });
 });
 window.addEventListener('resize', fit);
-window.addEventListener('beforeprint', () => { setPlaying(false); t = 0; applyTime(0); stages.forEach(o => { o.wrap.parentElement.style.width = '100%'; }); fit(); });
+window.addEventListener('beforeprint', () => { setPlaying(false); t = 0; applyTime(0); fitPrint(); });
 window.addEventListener('afterprint', fit);
 
 // ---------- แหล่งข้อมูล ----------
@@ -508,9 +489,7 @@ function demoData() {
         mt['team' + i] = i === 1 ? { alias: 'ราชสีห์ทอง', leader: 'ด.ช.สมชาย ใจดี', level: '5', concept: 'พลังแห่งความสามัคคี', count: '38', sign: 'ด.ญ.มานี, ด.ช.ปิติ', flag: 'ด.ช.ชูใจ' }
             : { alias: 'พยัคฆ์น้ำเงิน', leader: 'ด.ญ.สุดา รักเรียน', level: '4', count: '30', sign: 'ด.ช.เอก', flag: '' };
     }
-    const ms = [{ sport: 'football', category: 'ชาย ม.ต้น', date: '2026-11-26', time: '09:00', teams: ['team0', 'team1'], players: { team0: ['ด.ช.กมล ดี', 'ด.ช.ขวัญ ใจ', 'นายค'], team1: ['ด.ช.ง', 'ด.ช.จ'] } }, { sport: 'volleyball', category: 'หญิง', date: '2026-11-27', time: '10:30', teams: ['team0', 'team1'], players: { team0: ['ด.ช.กมล ดี', 'ด.ญ.ฉวี'], team1: ['ด.ญ.ชม'] } }];
-    matches = ms;
-    return { s: { schoolName: 'โรงเรียนกระดุมทองวิทยา', eventName: 'กระดุมทองเกมส์', academicYear: '2569', teams, sports: { football: 'ฟุตบอล 7 คน', volleyball: 'วอลเลย์บอล' } }, m: { shared: { mj: 'ด.ช.อาทิตย์', sign_school: 'ด.ญ.แก้ว', flag_school: 'ด.ช.ธง', band_teachers: 'ครูก, ครูข' }, teams: mt } };
+    return { s: { schoolName: 'โรงเรียนกระดุมทองวิทยา', eventName: 'กระดุมทองเกมส์', academicYear: '2569', teams }, m: { shared: { mj: 'ด.ช.อาทิตย์', sign_school: 'ด.ญ.แก้ว', flag_school: 'ด.ช.ธง', band_teachers: 'ครูก, ครูข' }, teams: mt } };
 }
 async function init() {
     document.querySelectorAll('#modeGroup button').forEach(b => b.classList.remove('active'));
@@ -525,13 +504,12 @@ async function init() {
         const fail = (e) => { const b = document.getElementById('errBox'); b.classList.remove('d-none'); b.textContent = 'อ่านข้อมูลจากระบบไม่สำเร็จ: ' + (e.code || e.message || e); };
         onValue(ref(db, 'settings'), s => { settings = { ...settings, ...(s.val() || {}) }; scheduleRender(); }, fail);
         onValue(ref(db, 'mcData'), s => { mc = s.val() || {}; scheduleRender(); }, fail);
-        onValue(ref(db, 'matches'), s => { matches = Object.values(s.val() || {}); }, fail);
     } catch (e) {
         const b = document.getElementById('errBox'); b.classList.remove('d-none'); b.textContent = 'เชื่อมต่อ Firebase ไม่ได้: ' + (e.message || e);
     }
 }
 init();
-window.__parade = { renderAll, applyTime, get stages() { return stages; }, get T() { return T_TOTAL; } };
+window.__parade = { renderAll, applyTime, fitPrint, fit, get stages() { return stages; }, get T() { return T_TOTAL; } };
 </script>
 </body>
 </html>

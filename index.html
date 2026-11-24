@@ -333,6 +333,24 @@
             z-index: 1055 !important;
         }
         
+        /* ===== พิมพ์รายชื่อนักกีฬา ===== */
+        #rosterPrint { display: none; }
+        body.printing-roster > *:not(#rosterPrint) { display: none !important; }
+        body.printing-roster #rosterPrint { display: block; background: #fff; font-family: 'Sarabun', sans-serif; font-size: 14pt; color: #000; }
+        .rp-page { break-after: page; page-break-after: always; padding: 2mm 0; }
+        .rp-page:last-child { break-after: auto; page-break-after: auto; }
+        .rp-head { text-align: center; margin-bottom: 8px; }
+        .rp-head img { height: 54px; }
+        .rp-head h2 { font-size: 17pt; font-weight: 700; margin: 4px 0 0; }
+        .rp-head div { font-size: 13pt; }
+        .rp-tbl { width: 100%; border-collapse: collapse; font-size: 13pt; }
+        .rp-tbl th, .rp-tbl td { border: 1px solid #333; padding: 2px 8px; vertical-align: top; }
+        .rp-tbl th { background: #eee; text-align: center; }
+        .rp-tbl td.c { text-align: center; width: 48px; }
+        .rp-sub { font-weight: 700; margin: 10px 0 3px; font-size: 13.5pt; break-after: avoid; }
+        .rp-two { column-count: 2; column-gap: 18px; }
+        .rp-two div { break-inside: avoid; border-bottom: 1px dotted #999; padding: 1px 0; }
+
         @media print {
             body {
                 background: white;
@@ -386,11 +404,7 @@
                             <i class="fas fa-file-invoice me-1"></i> สร้างเอกสารพิธีการ
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a href="parade-plan.html" target="_blank" class="btn btn-sm btn-outline-warning border-0 w-100 text-start text-lg-center">
-                            <i class="fas fa-route me-1"></i> แผนผังขบวน
-                        </a>
-                    </li>
+                    <li class="nav-item"><button class="btn btn-sm btn-outline-success border-0 w-100" onclick="printAthleteRoster()"><i class="fas fa-print me-1"></i> พิมพ์รายชื่อนักกีฬา</button></li>
                     <li class="nav-item"><button class="btn btn-sm btn-outline-light border-0 w-100" onclick="showQRCode()"><i class="fas fa-qrcode me-1"></i> QR ระบบ</button></li>
                     <li class="nav-item"><button class="btn btn-sm btn-outline-info border-0 w-100" onclick="showManual()"><i class="fas fa-book-reader me-1"></i> คู่มือ</button></li>
                     <li class="nav-item"><button class="btn btn-sm btn-outline-success border-0 w-100" onclick="showSettings()"><i class="fas fa-cog me-1"></i> ตั้งค่าระบบ</button></li>
@@ -1068,7 +1082,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
     import { getDatabase, ref, push, onValue, update, remove, set, get, runTransaction } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
-    import { attachSuggest } from "./reg-utils.js";
+    import { attachSuggest, normName } from "./reg-utils.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -1742,6 +1756,71 @@
     };
 
     window.getSportName = (k) => systemSettings.sports[k] || k;
+
+    // ===== พิมพ์รายชื่อนักกีฬา (จาก matches/*/players ของแต่ละคณะสี) =====
+    const rpLabel = (m) => `${getSportName(m.sport) || ''} ${m.category || ''}`.trim();
+    const rpDate = (d) => { if (!d) return ''; const x = new Date(d); return isNaN(x) ? '' : `${x.getDate()}/${x.getMonth() + 1}/${x.getFullYear() + 543}`; };
+    const rpCmp = (a, b) => String(a).localeCompare(String(b), 'th');
+    const rpEsc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const rpMatches = (tk) => allMatchesArray.filter(m => (m.teams || []).includes(tk));
+    function rpRoster(tk) {   // รวมรายชื่อไม่ซ้ำ + รายการที่เข้าร่วม
+        const map = {};
+        rpMatches(tk).forEach(m => ((m.players || {})[tk] || []).forEach(n => {
+            const raw = String(n || '').replace(/\s+/g, ' ').trim(), k = normName(raw); if (!k) return;
+            const r = map[k] || (map[k] = { name: raw, sports: [] });
+            const lb = rpLabel(m); if (!r.sports.includes(lb)) r.sports.push(lb);
+        }));
+        return Object.values(map).sort((a, b) => rpCmp(a.name, b.name));
+    }
+    function rpHTML(keys, fmt) {
+        const head = (tm, sub) => `<div class="rp-head">${systemSettings.schoolLogo ? `<img src="${rpEsc(systemSettings.schoolLogo)}" alt="">` : ''}
+            <h2>รายชื่อนักกีฬาคณะ${rpEsc(tm.name)}</h2><div>${rpEsc(systemSettings.eventName || '')} ${systemSettings.academicYear ? 'ประจำปีการศึกษา ' + rpEsc(systemSettings.academicYear) : ''} · ${rpEsc(systemSettings.schoolName || '')}</div>${sub}</div>`;
+        return keys.map(tk => {
+            const tm = (systemSettings.teams || {})[tk]; if (!tm) return '';
+            if (fmt === 'sport') {
+                const ms = rpMatches(tk).slice().sort((a, b) => rpCmp(rpLabel(a), rpLabel(b)) || String(a.date || '').localeCompare(String(b.date || '')) || String(a.time || '').localeCompare(String(b.time || '')));
+                let h = head(tm, '<div>แยกตามรายการแข่งขัน</div>'), any = false;
+                ms.forEach(m => {
+                    const ns = ((m.players || {})[tk] || []).filter(Boolean); if (!ns.length) return; any = true;
+                    h += `<div class="rp-sub">${rpEsc(rpLabel(m))} <span style="font-weight:400">· ${rpEsc(rpDate(m.date))} ${rpEsc(m.time || '')}${m.time ? ' น.' : ''} · ${ns.length} คน</span></div>
+                        <div class="rp-two">${ns.map((n, i) => `<div>${i + 1}. ${rpEsc(n)}</div>`).join('')}</div>`;
+                });
+                if (!any) h += '<div style="text-align:center;margin-top:24px">ยังไม่มีรายชื่อนักกีฬา</div>';
+                return `<div class="rp-page">${h}</div>`;
+            }
+            const rs = rpRoster(tk);
+            return `<div class="rp-page">${head(tm, `<div>รวมรายชื่อนักกีฬา (ไม่ซ้ำ) ทั้งหมด ${rs.length} คน</div>`)}
+                <table class="rp-tbl"><thead><tr><th>ที่</th><th>ชื่อ - สกุล</th><th>รายการที่เข้าร่วม</th></tr></thead><tbody>
+                ${rs.length ? rs.map((r, i) => `<tr><td class="c">${i + 1}</td><td>${rpEsc(r.name)}</td><td>${rpEsc(r.sports.join(', '))}</td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center">ยังไม่มีรายชื่อนักกีฬา</td></tr>'}
+                </tbody></table></div>`;
+        }).join('');
+    }
+    window.printAthleteRoster = () => {
+        const teams = getActiveTeams();
+        if (!teams.length) { Swal.fire('ยังไม่มีคณะสี', 'เพิ่มคณะสีที่เมนูตั้งค่าระบบก่อน', 'info'); return; }
+        const total = teams.map(tm => `${rpEsc(tm.name)} ${rpRoster(tm.key).length} คน`).join(' · ');
+        Swal.fire({
+            title: 'พิมพ์รายชื่อนักกีฬา',
+            html: `<div class="text-start">
+                <div class="small text-muted mb-2">ข้อมูลจากรายชื่อที่แต่ละคณะสีลงทะเบียนในแต่ละรายการ · ${total}</div>
+                <label class="fw-bold">คณะสี</label>
+                <select id="rpTeam" class="form-select mb-2"><option value="*">ทุกคณะสี (แยกหน้าละคณะ)</option>${teams.map(tm => `<option value="${rpEsc(tm.key)}">คณะ${rpEsc(tm.name)}</option>`).join('')}</select>
+                <label class="fw-bold">รูปแบบ</label>
+                <div class="form-check"><input class="form-check-input" type="radio" name="rpFmt" id="rpF1" value="all" checked><label class="form-check-label" for="rpF1">รวมรายชื่อ (ไม่ซ้ำ) พร้อมรายการที่เข้าร่วม</label></div>
+                <div class="form-check"><input class="form-check-input" type="radio" name="rpFmt" id="rpF2" value="sport"><label class="form-check-label" for="rpF2">แยกตามรายการแข่งขัน</label></div></div>`,
+            showCancelButton: true, confirmButtonText: '<i class="fas fa-print me-1"></i>พิมพ์', cancelButtonText: 'ยกเลิก',
+            preConfirm: () => ({ team: document.getElementById('rpTeam').value, fmt: document.querySelector('input[name=rpFmt]:checked').value })
+        }).then(r => {
+            if (!r.isConfirmed) return;
+            const keys = r.value.team === '*' ? teams.map(x => x.key) : [r.value.team];
+            let box = document.getElementById('rosterPrint');
+            if (!box) { box = document.createElement('div'); box.id = 'rosterPrint'; document.body.appendChild(box); }
+            box.innerHTML = rpHTML(keys, r.value.fmt);
+            document.body.classList.add('printing-roster');
+            setTimeout(() => window.print(), 150);
+        });
+    };
+    window.addEventListener('afterprint', () => document.body.classList.remove('printing-roster'));
 
     window.showManual = () => {
         Swal.fire({
