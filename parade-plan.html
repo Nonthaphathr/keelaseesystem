@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>แผนผังขบวนพาเหรด (แอนิเมชัน) - กระดุมทองเกมส์</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        :root { --primary-gradient: linear-gradient(135deg, #1a237e 0%, #3949ab 50%, #1a237e 100%); }
+        * { -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Sarabun', sans-serif; background: #eef2f7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .hdr { background: var(--primary-gradient); color: #fff; padding: 14px 0; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+        .hdr img { height: 52px; width: 52px; object-fit: contain; background: #fff; border-radius: 50%; padding: 3px; }
+        .hdr h1 { font-family: 'Kanit', sans-serif; font-size: 1.25rem; margin: 0; }
+        .hdr small { opacity: .85; }
+        .panel { background: #fff; border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,.08); padding: 14px 16px; }
+        .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: .82rem; background: #f1f3f6; border: 1px solid #e0e4ea; margin: 2px 4px 2px 0; }
+        .chip .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,.2); }
+        .chip.ok { background: #e8f5e9; border-color: #a5d6a7; color: #1b5e20; }
+        .chip.warn { background: #fff8e1; border-color: #ffe082; color: #7a5b00; }
+
+        /* ===== เวที (stage) ===== */
+        .stage-wrap { position: relative; width: 100%; overflow: hidden; border-radius: 14px; border: 2px solid #c5e1a5; background: #e9f5dc; }
+        .stage { position: absolute; left: 0; top: 0; transform-origin: top left; background:
+            repeating-linear-gradient(0deg, rgba(255,255,255,.35) 0, rgba(255,255,255,.35) 2px, transparent 2px, transparent 60px), #e9f5dc; }
+        .stage svg.ov { position: absolute; left: 0; top: 0; pointer-events: none; }
+        .pav { position: absolute; text-align: center; }
+        .pav img { width: 230px; display: block; }
+        .col { position: absolute; width: 220px; display: flex; flex-direction: column; align-items: center; gap: 8px; will-change: transform, opacity; }
+        .chd { display: flex; align-items: center; gap: 8px; }
+        .num { width: 30px; height: 30px; border-radius: 50%; background: #111; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-family: 'Kanit', sans-serif; }
+        .pill { padding: 4px 14px; border-radius: 999px; font-weight: 700; font-family: 'Kanit', sans-serif; font-size: 15px; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+        .alias { font-size: 12px; color: #37474f; text-align: center; margin-top: -2px; min-height: 16px; }
+        .rw { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 4px 2px; border-radius: 10px; }
+        .clickable { cursor: pointer; transition: background .15s; }
+        .clickable:hover { background: rgba(255,255,255,.65); }
+        .ic { display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
+        .ic img.as { display: block; width: auto; }
+        .ppl { display: inline-block; background: var(--c); -webkit-mask: var(--m) center/contain no-repeat; mask: var(--m) center/contain no-repeat; flex: none; }
+        .lbl { font-size: 12px; line-height: 1.25; text-align: center; color: #1f2933; margin-top: 3px; }
+        .lbl b { display: block; font-weight: 700; }
+        .lbl .miss, .miss { color: #9e9e9e; font-style: italic; }
+        .bnr { position: relative; display: inline-block; }
+        .bnr img { display: block; }
+        .bnr span { position: absolute; inset: 14% 14% 20% 14%; display: flex; align-items: center; justify-content: center; text-align: center; color: #fff; font-weight: 700; font-size: 11px; line-height: 1.1; text-shadow: 0 1px 2px rgba(0,0,0,.6); overflow: hidden; }
+        .grid { display: grid; gap: 3px 2px; justify-content: center; }
+        .salute { position: absolute; top: -34px; left: 50%; transform: translateX(-50%); background: #c62828; color: #fff; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; display: none; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+        .salute.on { display: block; }
+        .imgerr { min-width: 40px; min-height: 40px; border: 2px dashed #e57373; background: rgba(255,255,255,.6); }
+        .hide-path .l-path, .hide-dist .l-dist, .hide-cone .l-cone { display: none; }
+        .hide-labels .lbl, .hide-labels .alias { display: none; }
+        .ttl { font-family: 'Kanit', sans-serif; font-weight: 600; color: #1a237e; }
+        input[type=range] { accent-color: #3949ab; }
+
+        /* ===== พิมพ์รายชื่อนักกีฬา ===== */
+        #rosterPrint { display: none; }
+        body.printing-roster > *:not(#rosterPrint) { display: none !important; }
+        body.printing-roster #rosterPrint { display: block; background: #fff; font-size: 14pt; color: #000; }
+        .rp-page { break-after: page; page-break-after: always; padding: 2mm 0; }
+        .rp-page:last-child { break-after: auto; page-break-after: auto; }
+        .rp-head { text-align: center; margin-bottom: 8px; }
+        .rp-head img { height: 54px; }
+        .rp-head h2 { font-size: 17pt; font-weight: 700; margin: 4px 0 0; }
+        .rp-head div { font-size: 13pt; }
+        .rp-tbl { width: 100%; border-collapse: collapse; font-size: 13pt; }
+        .rp-tbl th, .rp-tbl td { border: 1px solid #333; padding: 2px 8px; vertical-align: top; }
+        .rp-tbl th { background: #eee; text-align: center; }
+        .rp-tbl td.c { text-align: center; width: 48px; }
+        .rp-sub { font-weight: 700; margin: 10px 0 3px; font-size: 13.5pt; break-after: avoid; }
+        .rp-two { column-count: 2; column-gap: 18px; }
+        .rp-two div { break-inside: avoid; border-bottom: 1px dotted #999; padding: 1px 0; }
+        .rp-foot { margin-top: 8px; font-size: 12pt; }
+        @page { size: A4 portrait; margin: 8mm; }
+        @media print {
+            body { background: #fff; }
+            .no-print { display: none !important; }
+            .panel { box-shadow: none; padding: 0; }
+            .stage-wrap { border: 1px solid #aaa; break-inside: avoid; }
+            .container-fluid { padding: 0 !important; }
+        }
+    </style>
+</head>
+<body>
+<div class="hdr no-print">
+    <div class="container-fluid px-3 d-flex align-items-center gap-3">
+        <img id="logo" src="https://nonthaphathr.github.io/uploadimg/logoschool.png" alt="logo">
+        <div class="flex-grow-1">
+            <h1>แผนผังขบวนพาเหรด</h1>
+            <small id="subTitle">กำลังโหลดข้อมูล...</small>
+        </div>
+        <a href="index.html" class="btn btn-sm btn-light rounded-pill"><i class="fas fa-home me-1"></i>หน้าหลัก</a>
+    </div>
+</div>
+
+<div class="container-fluid px-3 py-3">
+    <!-- ตัวควบคุม -->
+    <div class="panel mb-3 no-print">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <div class="btn-group" role="group" id="modeGroup">
+                <button class="btn btn-outline-primary btn-sm" data-mode="plain"><i class="fas fa-users me-1"></i>ไม่มีวงดุริยางค์</button>
+                <button class="btn btn-outline-primary btn-sm" data-mode="band"><i class="fas fa-drum me-1"></i>มีวงดุริยางค์</button>
+                <button class="btn btn-outline-primary btn-sm" data-mode="both"><i class="fas fa-columns me-1"></i>เทียบกัน</button>
+            </div>
+            <div class="vr mx-1"></div>
+            <button class="btn btn-primary btn-sm rounded-pill" id="btnPlay"><i class="fas fa-play me-1"></i>เล่น</button>
+            <button class="btn btn-outline-secondary btn-sm rounded-pill" id="btnReset"><i class="fas fa-rotate-left me-1"></i>เริ่มใหม่</button>
+            <label class="small ms-2 d-flex align-items-center gap-2">ความเร็ว
+                <input type="range" id="speed" min="0.5" max="2" step="0.25" value="1" style="width:110px"><span id="speedTxt">1x</span>
+            </label>
+            <input type="range" id="scrub" min="0" max="1000" value="0" class="flex-grow-1" style="min-width:140px" title="เลื่อนดูตามเวลา">
+            <button class="btn btn-outline-success btn-sm rounded-pill ms-auto" id="btnRoster"><i class="fas fa-list-ol me-1"></i>พิมพ์รายชื่อนักกีฬา</button>
+            <button class="btn btn-success btn-sm rounded-pill" id="btnPrint"><i class="fas fa-print me-1"></i>พิมพ์ผัง / PDF</button>
+        </div>
+        <div class="d-flex flex-wrap gap-3 mt-2 small">
+            <span class="text-muted">แสดง:</span>
+            <label><input type="checkbox" class="lay" data-l="path" checked> เส้นทางรอยเท้า</label>
+            <label><input type="checkbox" class="lay" data-l="dist" checked> ระยะห่าง 10–15 ม.</label>
+            <label><input type="checkbox" class="lay" data-l="labels" checked> ป้ายชื่อ</label>
+            <label><input type="checkbox" class="lay" data-l="cone" checked> กรวย</label>
+            <span class="text-muted ms-auto"><i class="fas fa-hand-pointer me-1"></i>แตะที่ตัวละครเพื่อดูรายละเอียด</span>
+        </div>
+    </div>
+
+    <!-- สถานะข้อมูลขบวน -->
+    <div class="panel mb-3 no-print">
+        <div class="fw-bold mb-1"><i class="fas fa-clipboard-check text-primary me-1"></i>สถานะข้อมูลขบวนพาเหรด (ดึงจากระบบแบบเรียลไทม์)</div>
+        <div id="statusChips" class="small"></div>
+    </div>
+
+    <!-- แผนผัง -->
+    <div class="panel">
+        <div id="stages" class="row g-3"></div>
+        <div id="errBox" class="alert alert-danger mt-2 d-none"></div>
+    </div>
+
+    <div class="panel mt-3">
+        <div class="fw-bold mb-1">สัญลักษณ์</div>
+        <div id="legend" class="small"></div>
+        <div class="small text-muted mt-2">หมายเหตุ: จำนวนนักกีฬาในภาพมาจากช่อง "จำนวนสมาชิก" ที่แต่ละคณะสีกรอก ถ้ายังไม่กรอกจะแสดงตัวอย่าง 24 คน และภาพวงดุริยางค์เป็นภาพจำลอง 9 คน</div>
+    </div>
+</div>
+
+<script type="module">
+import { TEAM_PARADE_FIELDS, SCHOOL_PARADE_FIELDS, splitNames, esc, normName } from "./reg-utils.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
+    authDomain: "keelaseesystem.firebaseapp.com",
+    databaseURL: "https://keelaseesystem-default-rtdb.firebaseio.com",
+    projectId: "keelaseesystem",
+    storageBucket: "keelaseesystem.firebasestorage.app",
+    messagingSenderId: "434885983982",
+    appId: "1:434885983982:web:ffb751f1652abf2308fdff"
+};
+
+const Q = new URLSearchParams(location.search);
+const DEMO = Q.get('demo');            // ?demo=2|3|4 ใช้ข้อมูลตัวอย่าง ไม่เชื่อม Firebase
+
+// ---------- ค่าคงที่ของเวที ----------
+const COLW = 220, GAP = 20, PAD = 20, PAV_TOP = 10, Y_HEAD = 340, Y_STOP = 230;
+const ADV = 4, SAL = 2.5, EXT = 2, DIST = Y_HEAD - Y_STOP; // วินาที / ระยะเดินหน้า (px)
+
+let settings = { schoolName: 'โรงเรียนกระดุมทองวิทยา', eventName: 'กระดุมทองเกมส์', academicYear: '', schoolLogo: '', teams: {} };
+let mc = {};
+let matches = [];
+let mode = localStorage.getItem('paradeMode') || '';
+let stages = [];
+let t = 0, playing = false, speed = 1, lastTs = 0, T_TOTAL = 10;
+
+// ---------- ตัวช่วย ----------
+const ease = (p) => p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+const nm = (v) => String(v ?? '').trim() ? esc(String(v).trim()) : '<span class="miss">ยังไม่ได้กรอก</span>';
+const txtOn = (hex) => {
+    const h = String(hex || '#999').replace('#', '');
+    const f = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+    const r = parseInt(f.slice(0, 2), 16), g = parseInt(f.slice(2, 4), 16), b = parseInt(f.slice(4, 6), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 160 ? '#111' : '#fff';
+};
+let INFO = {}, infoSeq = 0;
+const info = (title, html) => { const id = 'i' + (++infoSeq); INFO[id] = { title, html }; return `data-info="${id}"`; };
+
+const person = (color, h = 46) => `<span class="ppl" style="--c:${esc(color)};--m:url('parade-assets/person-black.png');width:${Math.round(h * 0.76)}px;height:${h}px"></span>`;
+const asset = (file, h, tint, sat) => `<img class="as" src="parade-assets/${file}" style="height:${h}px" alt="" ${tint ? `data-ts="${file}" data-tc="${esc(tint)}" data-tsat="${sat || .35}"` : ''} onerror="this.classList.add('imgerr')">`;
+const rowHTML = (icons, label, name, infoAttr) => `<div class="rw clickable" ${infoAttr}><div class="ic">${icons}</div><div class="lbl"><b>${label}</b><span>${name}</span></div></div>`;
+
+const teamList = () => Object.entries(settings.teams || {})
+    .map(([key, v], i) => ({ key, name: v.name || key, color: v.color || '#999', active: v.active !== false, order: v.order ?? 1e6 + i, d: (mc.teams || {})[key] || {} }))
+    .filter(x => x.active).sort((a, b) => a.order - b.order);
+
+// ---------- ย้อมสีภาพ (ธง / ผ้าป้าย) ----------
+const imgCache = {}, tintCache = {};
+const loadImg = (src) => imgCache[src] || (imgCache[src] = new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }));
+async function tinted(file, hex, satMin) {
+    const key = file + '|' + hex + '|' + satMin;
+    if (tintCache[key]) return tintCache[key];
+    const img = await loadImg('parade-assets/' + file);
+    if (!img) return null;
+    try {
+        const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+        const x = c.getContext('2d'); x.drawImage(img, 0, 0);
+        const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+        const h = hex.replace('#', ''), f = h.length === 3 ? h.split('').map(z => z + z).join('') : h;
+        const R = parseInt(f.slice(0, 2), 16), G = parseInt(f.slice(2, 4), 16), B = parseInt(f.slice(4, 6), 16);
+        const lum = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
+        let sum = 0, cnt = 0;
+        const isCol = (i) => { const mx = Math.max(p[i], p[i + 1], p[i + 2]), mn = Math.min(p[i], p[i + 1], p[i + 2]); return p[i + 3] > 40 && mx > 40 && (mx - mn) / mx > satMin; };
+        for (let i = 0; i < p.length; i += 4) if (isCol(i)) { sum += lum(p[i], p[i + 1], p[i + 2]); cnt++; }
+        const avg = cnt ? sum / cnt : 100;
+        for (let i = 0; i < p.length; i += 4) if (isCol(i)) {
+            const k = Math.max(.55, Math.min(1.35, lum(p[i], p[i + 1], p[i + 2]) / avg));
+            p[i] = Math.min(255, R * k); p[i + 1] = Math.min(255, G * k); p[i + 2] = Math.min(255, B * k);
+        }
+        x.putImageData(d, 0, 0);
+        return (tintCache[key] = c.toDataURL('image/png'));
+    } catch (e) { return null; }   // เช่นเปิดจาก file:// (canvas ถูกจำกัด) → ใช้ภาพเดิม
+}
+async function applyTints(root) {
+    for (const im of root.querySelectorAll('img[data-ts]')) {
+        const u = await tinted(im.dataset.ts, im.dataset.tc, parseFloat(im.dataset.tsat));
+        if (u) im.src = u;
+    }
+}
+
+// ---------- สร้างคอลัมน์ ----------
+function teamCol(tm, order) {
+    const d = tm.d, c = tm.color;
+    const signs = splitNames(d.sign);
+    const cnt = parseInt(String(d.count || '').replace(/\D/g, '')) || 0;
+    const N = cnt || 24, shown = Math.min(N, 120);
+    const tInfo = (extra) => info('คณะ' + tm.name, `<table class="table table-sm text-start mb-0"><tbody>
+        <tr><th>ชื่อขบวน</th><td>${nm(d.alias)}</td></tr><tr><th>ประธานสี</th><td>${nm(d.leader)}${d.level ? ' (ม.' + esc(d.level) + ')' : ''}</td></tr>
+        <tr><th>ผู้ถือป้ายคณะสี</th><td>${nm(d.sign)}</td></tr><tr><th>ผู้ถือธงคณะสี</th><td>${nm(d.flag)}</td></tr>
+        ${String(d.cheer_sign || '').trim() ? `<tr><th>ผู้ถือป้ายหลีดเดอร์</th><td>${nm(d.cheer_sign)}</td></tr>` : ''}
+        <tr><th>จำนวนสมาชิก</th><td>${cnt ? cnt + ' คน' : '<span class="miss">ยังไม่ได้กรอก (ภาพแสดงตัวอย่าง 24 คน)</span>'}</td></tr>
+        <tr><th>คอนเซปต์</th><td>${nm(d.concept)}</td></tr></tbody></table>${extra || ''}`);
+    const alias = String(d.alias || '').trim();
+    let h = `<div class="salute">ทำความเคารพ</div>
+        <div class="chd"><span class="num">${order}</span><span class="pill" style="background:${esc(c)};color:${txtOn(c)}">${esc(tm.name)}</span></div>
+        <div class="alias">${alias ? 'ขบวน “' + esc(alias) + '”' : '<span class="miss">ยังไม่ตั้งชื่อขบวน</span>'}</div>`;
+    // ผู้ถือป้ายคณะสี
+    h += rowHTML(`${person(c, 44)}<span class="bnr">${asset('banner-blue.png', 46, c, .18)}<span>${esc(alias)}</span></span>${person(c, 44)}`,
+        'ผู้ถือป้ายคณะสี', signs.length ? signs.map(esc).join(', ') : nm(''), tInfo());
+    // ผู้ถือธงคณะสี
+    h += rowHTML(`${asset('flag-blue.png', 62, c, .35)}${person(c, 46)}`, 'ผู้ถือธงคณะสี', nm(d.flag), tInfo());
+    // ประธานสี
+    h += rowHTML(person(c, 46), 'ประธานสี', nm(d.leader), tInfo());
+    // หลีดเดอร์ (ถ้ามี)
+    if (String(d.cheer_sign || '').trim())
+        h += rowHTML(person(c, 46), 'ผู้ถือป้ายหลีดเดอร์', nm(d.cheer_sign), tInfo());
+    // นักกีฬา
+    let g = ''; for (let i = 0; i < shown; i++) g += person(c, 28);
+    h += `<div class="rw clickable" ${tInfo()}><div class="grid" style="grid-template-columns:repeat(8,22px)">${g}</div>
+        <div class="lbl"><b>นักกีฬา ${cnt ? cnt + ' คน' : '(ตัวอย่าง 24 คน)'}</b>${N > shown ? '<span>แสดง ' + shown + ' คนแรก</span>' : ''}</div></div>`;
+    return h;
+}
+
+function schoolCol(withBand, order) {
+    const s = mc.shared || {};
+    const sInfo = (t2) => info(t2, `<table class="table table-sm text-start mb-0"><tbody>
+        <tr><th>คฑากรนำขบวน</th><td>${nm(s.mj)}</td></tr><tr><th>ผู้ถือป้ายโรงเรียน</th><td>${nm(s.sign_school)}</td></tr>
+        <tr><th>ผู้ถือธงโรงเรียน</th><td>${nm(s.flag_school)}</td></tr><tr><th>ครูผู้ฝึกซ้อมวงดุริยางค์</th><td>${nm(s.band_teachers)}</td></tr></tbody></table>`);
+    let h = `<div class="salute">ทำความเคารพ</div>
+        <div class="chd"><span class="num">${order}</span><span class="pill" style="background:#111;color:#fff">ขบวนโรงเรียน</span></div>
+        <div class="alias">เดินนำขบวนก่อน</div>`;
+    h += rowHTML(`${asset('staff.png', 70)}${person('#111', 46)}`, 'คฑากรนำขบวน', nm(s.mj), sInfo('คฑากรนำขบวน'));
+    h += rowHTML(`${asset('school-sign.png', 66)}${person('#111', 46)}`, 'ผู้ถือป้ายโรงเรียน', nm(s.sign_school), sInfo('ผู้ถือป้ายโรงเรียน'));
+    h += rowHTML(`${asset('flag-red.png', 56)}${person('#111', 46)}`, 'ผู้ถือธงโรงเรียน', nm(s.flag_school), sInfo('ผู้ถือธงโรงเรียน'));
+    if (withBand) {
+        let g = ''; for (let i = 0; i < 9; i++) g += asset('band-drummer.png', 46);
+        h += `<div class="rw clickable" ${sInfo('วงดุริยางค์')}><div class="grid" style="grid-template-columns:repeat(3,36px);gap:4px">${g}</div>
+            <div class="lbl"><b>วงดุริยางค์</b><span>ครูผู้ฝึกซ้อม: ${nm(s.band_teachers)}</span></div></div>`;
+    }
+    return h;
+}
+
+function buildStage(withBand) {
+    const teams = teamList();
+    const n = teams.length + 1;
+    const contentW = n * COLW + (n - 1) * GAP;
+    const W = Math.max(680, contentW + PAD * 2), x0 = (W - contentW) / 2;
+    const wrap = document.createElement('div'); wrap.className = 'stage-wrap';
+    const stage = document.createElement('div'); stage.className = 'stage'; stage.style.width = W + 'px';
+    wrap.appendChild(stage);
+    const cols = [];
+    teams.forEach((tm, i) => cols.push({ html: teamCol(tm, i + 2), delay: (i + 1) * 1.2, vis: i }));
+    cols.push({ html: schoolCol(withBand, 1), delay: 0, vis: n - 1 });
+    // ศูนย์กลางปะรำ/ลูกศร: ใช้ช่องว่างระหว่างคอลัมน์ที่ใกล้กึ่งกลางที่สุด (ไม่ให้ลูกศรทับตัวละคร) หรือกึ่งกลางจริงถ้าจำนวนคอลัมน์เป็นเลขคู่
+    let cx = W / 2;
+    if (n > 1) { cx = null; for (let k = 1; k < n; k++) { const gx = x0 + k * (COLW + GAP) - GAP / 2; if (cx === null || Math.abs(gx - W / 2) < Math.abs(cx - W / 2)) cx = gx; } }
+    stage.innerHTML = `<div class="pav" style="left:${cx - 115}px;top:${PAV_TOP}px"><img src="parade-assets/pavilion.png" alt="ปะรำพิธี" onerror="this.classList.add('imgerr')"><div class="lbl"><b>ปะรำพิธี</b></div></div>` +
+        cols.map(c => `<div class="col" style="left:${x0 + c.vis * (COLW + GAP)}px;top:${Y_HEAD}px">${c.html}</div>`).join('');
+    const o = { cx, wrap, stage, W, H: 0, cols: [], n, xs: [], teams };
+    [...stage.querySelectorAll('.col')].forEach((el, i) => { o.cols.push({ el, delay: cols[i].delay, badge: el.querySelector('.salute') }); o.xs.push(x0 + cols[i].vis * (COLW + GAP) + COLW / 2); });
+    return o;
+}
+
+// วาดเส้น/ลูกศร/กรวย (หลังรู้ความสูงจริง)
+function overlay(o) {
+    const { W } = o;
+    const maxH = Math.max(...o.cols.map(c => c.el.offsetHeight));
+    o.H = Y_HEAD + maxH + 40;
+    o.stage.style.height = o.H + 'px';
+    const cx = o.cx, yA1 = PAV_TOP + 176, yA2 = Y_HEAD - 8;
+    const cone = (x, y, label, anchor) => `<g class="l-cone"><polygon points="${x},${y - 26} ${x - 11},${y} ${x + 11},${y}" fill="#ff9800" stroke="#e65100" stroke-width="2"/>
+        <rect x="${x - 14}" y="${y}" width="28" height="5" rx="2" fill="#e65100"/>
+        <text x="${anchor === 'end' ? x + 14 : x - 14}" y="${y - 32}" font-size="13" font-weight="700" fill="#b71c1c" text-anchor="${anchor === 'end' ? 'end' : 'start'}">${label}</text></g>`;
+    let paths = '';
+    o.xs.forEach(x => { if (Math.abs(x - cx) > 12) paths += `<line x1="${x}" y1="${Y_HEAD - 8}" x2="${x}" y2="${Y_STOP + 4}" stroke="#5d4037" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 11"/>`; });
+    const svg = `<svg class="ov" width="${W}" height="${o.H}" viewBox="0 0 ${W} ${o.H}">
+        <defs><marker id="ah" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c62828"/></marker></defs>
+        <line x1="14" y1="${Y_STOP}" x2="${W - 14}" y2="${Y_STOP}" stroke="#e65100" stroke-width="2" stroke-dasharray="8 6" class="l-cone"/>
+        <g class="l-path">${paths}<line x1="${cx}" y1="${yA2}" x2="${cx}" y2="${Y_STOP + 4}" stroke="#5d4037" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 11"/></g>
+        <g class="l-dist"><line x1="${cx}" y1="${yA1}" x2="${cx}" y2="${yA2}" stroke="#c62828" stroke-width="3" marker-start="url(#ah)" marker-end="url(#ah)"/>
+          <rect x="${cx + 18}" y="${(yA1 + Y_STOP) / 2 - 15}" width="132" height="26" rx="13" fill="#fff" stroke="#c62828" stroke-width="2"/>
+          <text x="${cx + 84}" y="${(yA1 + Y_STOP) / 2 + 3}" font-size="14" font-weight="700" fill="#c62828" text-anchor="middle">ระยะ 10–15 เมตร</text></g>
+        ${cone(34, Y_STOP - 4, 'เส้นแสดงความเคารพ', 'start')}${cone(W - 34, Y_STOP - 4, 'ขวาหัน / ออกนอกสนาม', 'end')}
+    </svg>`;
+    o.stage.insertAdjacentHTML('afterbegin', svg);
+    T_TOTAL = Math.max(T_TOTAL, ...o.cols.map(c => c.delay + ADV + SAL + EXT + .6));
+}
+
+function fit() {
+    stages.forEach(o => {
+        const w = o.wrap.parentElement.clientWidth || o.W;
+        const s = w / o.W;
+        o.stage.style.transform = `scale(${s})`;
+        o.wrap.style.height = (o.H * s) + 'px';
+    });
+}
+
+// ---------- แอนิเมชัน ----------
+function applyTime(tt) {
+    stages.forEach(o => o.cols.forEach(c => {
+        const l = tt - c.delay; let y = 0, x = 0, op = 1, sal = false;
+        if (l > 0) {
+            if (l < ADV) y = -DIST * ease(l / ADV);
+            else if (l < ADV + SAL) { y = -DIST; sal = true; }
+            else if (l < ADV + SAL + EXT) { const q = (l - ADV - SAL) / EXT; y = -DIST; x = 150 * ease(q); op = 1 - q; }
+            else { y = -DIST; x = 150; op = 0; }
+        }
+        c.el.style.transform = `translate(${x}px,${y}px)`; c.el.style.opacity = op;
+        c.badge.classList.toggle('on', sal);
+    }));
+    document.getElementById('scrub').value = Math.round(Math.min(1, tt / T_TOTAL) * 1000);
+}
+function tick(ts) {
+    if (!playing) return;
+    if (!lastTs) lastTs = ts;
+    t += (ts - lastTs) / 1000 * speed; lastTs = ts;
+    if (t >= T_TOTAL) { t = T_TOTAL; setPlaying(false); }
+    applyTime(t);
+    if (playing) requestAnimationFrame(tick);
+}
+function setPlaying(p) {
+    playing = p; lastTs = 0;
+    document.getElementById('btnPlay').innerHTML = p ? '<i class="fas fa-pause me-1"></i>หยุด' : '<i class="fas fa-play me-1"></i>เล่น';
+    if (p) { if (t >= T_TOTAL) t = 0; requestAnimationFrame(tick); }
+}
+
+// ---------- เรนเดอร์ทั้งหน้า ----------
+function renderStatus() {
+    const teams = teamList(), s = mc.shared || {};
+    let h = '';
+    const miss = (data, fields) => fields.filter(f => !f.optional && !String(data[f.k] ?? '').trim()).map(f => f.l.replace(/\s*\(.*\)/, ''));
+    const sm = miss(s, SCHOOL_PARADE_FIELDS);
+    h += `<span class="chip ${sm.length ? 'warn' : 'ok'}"><span class="dot" style="background:#111"></span>ขบวนโรงเรียน: ${sm.length ? 'ขาด ' + sm.join(', ') : 'ครบ ✅'}</span>`;
+    teams.forEach(tm => {
+        const m = miss(tm.d, TEAM_PARADE_FIELDS);
+        h += `<span class="chip ${m.length ? 'warn' : 'ok'}"><span class="dot" style="background:${esc(tm.color)}"></span>${esc(tm.name)}: ${m.length ? 'ขาด ' + m.join(', ') : 'ครบ ✅'}</span>`;
+    });
+    document.getElementById('statusChips').innerHTML = h;
+    document.getElementById('legend').innerHTML =
+        `<span class="chip"><span class="num" style="width:20px;height:20px;font-size:12px">1</span>ลำดับการเดินขบวน (โรงเรียนเดินก่อน)</span>` +
+        `<span class="chip"><span class="dot" style="background:#111"></span>ขบวนโรงเรียน</span>` +
+        teams.map(tm => `<span class="chip"><span class="dot" style="background:${esc(tm.color)}"></span>คณะ${esc(tm.name)}</span>`).join('') +
+        `<span class="chip"><span class="dot" style="background:#ff9800"></span>กรวยจุดเลี้ยว/เส้นแสดงความเคารพ</span>`;
+}
+
+function renderAll() {
+    document.getElementById('subTitle').textContent = `${settings.eventName || ''} ${settings.academicYear ? 'ประจำปีการศึกษา ' + settings.academicYear : ''} · ${settings.schoolName || ''}`;
+    if (settings.schoolLogo) document.getElementById('logo').src = settings.schoolLogo;
+    infoSeq = 0; INFO = {};
+    const hasBand = !!String((mc.shared || {}).band_teachers || '').trim();
+    if (!mode) mode = hasBand ? 'band' : 'plain';
+    document.querySelectorAll('#modeGroup button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    renderStatus();
+    const box = document.getElementById('stages'); box.innerHTML = '';
+    stages = []; T_TOTAL = 10;
+    if (!teamList().length) { box.innerHTML = '<div class="col-12 text-center text-muted py-5">ยังไม่มีคณะสีในระบบ (ตั้งค่าที่เมนู "ตั้งค่าระบบ" ในหน้าหลัก)</div>'; return; }
+    const variants = mode === 'both' ? [false, true] : [mode === 'band'];
+    variants.forEach(wb => {
+        const cell = document.createElement('div'); cell.className = variants.length > 1 ? 'col-12 col-xl-6' : 'col-12';
+        if (variants.length > 1) cell.insertAdjacentHTML('beforeend', `<div class="ttl mb-1">${wb ? 'ขบวนมีวงดุริยางค์' : 'ขบวนไม่มีวงดุริยางค์'}</div>`);
+        const o = buildStage(wb); cell.appendChild(o.wrap); box.appendChild(cell);
+        stages.push(o);
+    });
+    // วัดความสูงจริงตอนยังไม่ย่อ แล้วค่อยวาดเส้น
+    stages.forEach(o => { o.wrap.style.height = '3000px'; o.stage.style.transform = 'none'; overlay(o); applyTints(o.stage); });
+    fit(); applyTime(t);
+    syncLayers();
+}
+function syncLayers() {
+    document.querySelectorAll('.lay').forEach(cb => stages.forEach(o => o.stage.classList.toggle('hide-' + cb.dataset.l, !cb.checked)));
+}
+
+let rt = 0;
+const scheduleRender = () => { clearTimeout(rt); rt = setTimeout(renderAll, 120); };
+
+// ---------- พิมพ์รายชื่อนักกีฬา (อ่านจาก matches/{id}/players/{คณะสี}) ----------
+const sportLabel = (m) => `${(settings.sports || {})[m.sport] || m.sport || ''} ${m.category || ''}`.trim();
+const thDate = (d) => { if (!d) return ''; const x = new Date(d); return isNaN(x) ? '' : `${x.getDate()}/${x.getMonth() + 1}/${x.getFullYear() + 543}`; };
+const cmpTh = (a, b) => String(a).localeCompare(String(b), 'th');
+function teamMatches(tk) { return matches.filter(m => (m.teams || []).includes(tk)); }
+function teamRoster(tk) {   // รวมรายชื่อไม่ซ้ำ + รายการที่เข้าร่วม
+    const map = {};
+    teamMatches(tk).forEach(m => ((m.players || {})[tk] || []).forEach(n => {
+        const raw = String(n || '').replace(/\s+/g, ' ').trim(), k = normName(raw); if (!k) return;
+        const r = map[k] || (map[k] = { name: raw, sports: [] });
+        const lb = sportLabel(m); if (!r.sports.includes(lb)) r.sports.push(lb);
+    }));
+    return Object.values(map).sort((a, b) => cmpTh(a.name, b.name));
+}
+function rosterHTML(keys, fmt) {
+    const head = (tm, sub) => `<div class="rp-head">${settings.schoolLogo ? `<img src="${esc(settings.schoolLogo)}" alt="">` : ''}
+        <h2>รายชื่อนักกีฬาคณะ${esc(tm.name)}</h2><div>${esc(settings.eventName || '')} ${settings.academicYear ? 'ประจำปีการศึกษา ' + esc(settings.academicYear) : ''} · ${esc(settings.schoolName || '')}</div>${sub}</div>`;
+    return keys.map(tk => {
+        const tm = teamList().find(x => x.key === tk); if (!tm) return '';
+        if (fmt === 'sport') {
+            const ms = teamMatches(tk).slice().sort((a, b) => cmpTh(sportLabel(a), sportLabel(b)) || String(a.date || '').localeCompare(String(b.date || '')) || String(a.time || '').localeCompare(String(b.time || '')));
+            let h = head(tm, '<div>แยกตามรายการแข่งขัน</div>');
+            let any = false;
+            ms.forEach(m => {
+                const ns = ((m.players || {})[tk] || []).filter(Boolean); if (!ns.length) return; any = true;
+                h += `<div class="rp-sub">${esc(sportLabel(m))} <span style="font-weight:400">· ${esc(thDate(m.date))} ${esc(m.time || '')}${m.time ? ' น.' : ''} · ${ns.length} คน</span></div>
+                    <div class="rp-two">${ns.map((n, i) => `<div>${i + 1}. ${esc(n)}</div>`).join('')}</div>`;
+            });
+            if (!any) h += '<div class="text-center mt-4">ยังไม่มีรายชื่อนักกีฬา</div>';
+            return `<div class="rp-page">${h}</div>`;
+        }
+        const rs = teamRoster(tk);
+        return `<div class="rp-page">${head(tm, `<div>รวมรายชื่อนักกีฬา (ไม่ซ้ำ) ทั้งหมด ${rs.length} คน</div>`)}
+            <table class="rp-tbl"><thead><tr><th>ที่</th><th>ชื่อ - สกุล</th><th>รายการที่เข้าร่วม</th></tr></thead><tbody>
+            ${rs.length ? rs.map((r, i) => `<tr><td class="c">${i + 1}</td><td>${esc(r.name)}</td><td>${esc(r.sports.join(', '))}</td></tr>`).join('') : '<tr><td colspan="3" class="text-center">ยังไม่มีรายชื่อนักกีฬา</td></tr>'}
+            </tbody></table></div>`;
+    }).join('');
+}
+function printRoster() {
+    const teams = teamList();
+    if (!teams.length) { Swal.fire('ยังไม่มีคณะสี', '', 'info'); return; }
+    const total = teams.map(tm => `${esc(tm.name)} ${teamRoster(tm.key).length} คน`).join(' · ');
+    Swal.fire({
+        title: 'พิมพ์รายชื่อนักกีฬา',
+        html: `<div class="text-start">
+            <div class="small text-muted mb-2">ข้อมูลจากรายชื่อที่แต่ละคณะสีลงทะเบียนในแต่ละรายการ · ${total}</div>
+            <label class="fw-bold">คณะสี</label>
+            <select id="rpTeam" class="form-select mb-2"><option value="*">ทุกคณะสี (แยกหน้าละคณะ)</option>${teams.map(tm => `<option value="${esc(tm.key)}">คณะ${esc(tm.name)}</option>`).join('')}</select>
+            <label class="fw-bold">รูปแบบ</label>
+            <div class="form-check"><input class="form-check-input" type="radio" name="rpFmt" id="rpF1" value="all" checked><label class="form-check-label" for="rpF1">รวมรายชื่อ (ไม่ซ้ำ) พร้อมรายการที่เข้าร่วม</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="rpFmt" id="rpF2" value="sport"><label class="form-check-label" for="rpF2">แยกตามรายการแข่งขัน</label></div></div>`,
+        showCancelButton: true, confirmButtonText: '<i class="fas fa-print me-1"></i>พิมพ์', cancelButtonText: 'ยกเลิก',
+        preConfirm: () => ({ team: document.getElementById('rpTeam').value, fmt: document.querySelector('input[name=rpFmt]:checked').value })
+    }).then(r => {
+        if (!r.isConfirmed) return;
+        const keys = r.value.team === '*' ? teams.map(x => x.key) : [r.value.team];
+        let box = document.getElementById('rosterPrint');
+        if (!box) { box = document.createElement('div'); box.id = 'rosterPrint'; document.body.appendChild(box); }
+        box.innerHTML = rosterHTML(keys, r.value.fmt);
+        document.body.classList.add('printing-roster');
+        setTimeout(() => window.print(), 150);
+    });
+}
+window.addEventListener('afterprint', () => document.body.classList.remove('printing-roster'));
+document.getElementById('btnRoster').onclick = printRoster;
+
+// ---------- ปุ่ม/อีเวนต์ ----------
+document.getElementById('modeGroup').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    mode = b.dataset.mode; localStorage.setItem('paradeMode', mode); renderAll();
+});
+document.getElementById('btnPlay').onclick = () => setPlaying(!playing);
+document.getElementById('btnReset').onclick = () => { setPlaying(false); t = 0; applyTime(0); };
+document.getElementById('speed').oninput = (e) => { speed = parseFloat(e.target.value); document.getElementById('speedTxt').textContent = speed + 'x'; };
+document.getElementById('scrub').oninput = (e) => { setPlaying(false); t = (e.target.value / 1000) * T_TOTAL; applyTime(t); };
+document.querySelectorAll('.lay').forEach(cb => cb.onchange = syncLayers);
+document.getElementById('btnPrint').onclick = () => window.print();
+document.getElementById('stages').addEventListener('click', e => {
+    const el = e.target.closest('[data-info]'); if (!el) return;
+    const it = INFO[el.dataset.info]; if (!it) return;
+    Swal.fire({ title: it.title, html: it.html, confirmButtonText: 'ปิด', width: 560 });
+});
+window.addEventListener('resize', fit);
+window.addEventListener('beforeprint', () => { setPlaying(false); t = 0; applyTime(0); stages.forEach(o => { o.wrap.parentElement.style.width = '100%'; }); fit(); });
+window.addEventListener('afterprint', fit);
+
+// ---------- แหล่งข้อมูล ----------
+function demoData() {
+    const n = parseInt(DEMO) || 2;
+    const pal = [['สีฟ้า', '#0A3AA0'], ['สีเหลือง', '#D4A017'], ['สีแดง', '#C62828'], ['สีเขียว', '#2E7D32']];
+    const teams = {}, mt = {};
+    for (let i = 0; i < n; i++) {
+        teams['team' + i] = { name: pal[i][0], color: pal[i][1], active: true, order: i };
+        mt['team' + i] = i === 1 ? { alias: 'ราชสีห์ทอง', leader: 'ด.ช.สมชาย ใจดี', level: '5', concept: 'พลังแห่งความสามัคคี', count: '38', sign: 'ด.ญ.มานี, ด.ช.ปิติ', flag: 'ด.ช.ชูใจ' }
+            : { alias: 'พยัคฆ์น้ำเงิน', leader: 'ด.ญ.สุดา รักเรียน', level: '4', count: '30', sign: 'ด.ช.เอก', flag: '' };
+    }
+    const ms = [{ sport: 'football', category: 'ชาย ม.ต้น', date: '2026-11-26', time: '09:00', teams: ['team0', 'team1'], players: { team0: ['ด.ช.กมล ดี', 'ด.ช.ขวัญ ใจ', 'นายค'], team1: ['ด.ช.ง', 'ด.ช.จ'] } }, { sport: 'volleyball', category: 'หญิง', date: '2026-11-27', time: '10:30', teams: ['team0', 'team1'], players: { team0: ['ด.ช.กมล ดี', 'ด.ญ.ฉวี'], team1: ['ด.ญ.ชม'] } }];
+    matches = ms;
+    return { s: { schoolName: 'โรงเรียนกระดุมทองวิทยา', eventName: 'กระดุมทองเกมส์', academicYear: '2569', teams, sports: { football: 'ฟุตบอล 7 คน', volleyball: 'วอลเลย์บอล' } }, m: { shared: { mj: 'ด.ช.อาทิตย์', sign_school: 'ด.ญ.แก้ว', flag_school: 'ด.ช.ธง', band_teachers: 'ครูก, ครูข' }, teams: mt } };
+}
+async function init() {
+    document.querySelectorAll('#modeGroup button').forEach(b => b.classList.remove('active'));
+    if (DEMO) { const d = demoData(); settings = { ...settings, ...d.s }; mc = d.m; renderAll(); return; }
+    try {
+        const [{ initializeApp }, { getDatabase, ref, onValue }, { getAuth, signInAnonymously }] = await Promise.all([
+            import('https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js'),
+            import('https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js'),
+            import('https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js')]);
+        const app = initializeApp(firebaseConfig), db = getDatabase(app);
+        await signInAnonymously(getAuth(app)).catch(e => console.warn('anonymous sign-in failed', e));
+        const fail = (e) => { const b = document.getElementById('errBox'); b.classList.remove('d-none'); b.textContent = 'อ่านข้อมูลจากระบบไม่สำเร็จ: ' + (e.code || e.message || e); };
+        onValue(ref(db, 'settings'), s => { settings = { ...settings, ...(s.val() || {}) }; scheduleRender(); }, fail);
+        onValue(ref(db, 'mcData'), s => { mc = s.val() || {}; scheduleRender(); }, fail);
+        onValue(ref(db, 'matches'), s => { matches = Object.values(s.val() || {}); }, fail);
+    } catch (e) {
+        const b = document.getElementById('errBox'); b.classList.remove('d-none'); b.textContent = 'เชื่อมต่อ Firebase ไม่ได้: ' + (e.message || e);
+    }
+}
+init();
+window.__parade = { renderAll, applyTime, get stages() { return stages; }, get T() { return T_TOTAL; } };
+</script>
+</body>
+</html>
