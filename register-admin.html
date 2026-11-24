@@ -146,7 +146,11 @@
                         <div class="col-md-4"><label class="form-label small fw-bold mb-1">กำหนดส่ง</label><input id="tplDeadline" class="form-control form-control-sm" placeholder="เช่น วันที่ 25 พ.ย. 2569" oninput="genTpl()"></div>
                         <div class="col-md-4"><label class="form-label small fw-bold mb-1">ผู้ประสานงาน/เบอร์ติดต่อ</label><input id="tplContact" class="form-control form-control-sm" placeholder="เช่น ครูนนท์ 08x-xxx-xxxx" oninput="genTpl()"></div>
                     </div>
-                    <div class="mb-3" id="tplMeetRow" style="display:none"><label class="form-label small fw-bold mb-1">วัน เวลา สถานที่นัดพบ (ใช้กับข้อความนัดพบผู้ส่งคะแนนฯ)</label><input id="tplMeetTxt" class="form-control form-control-sm" placeholder="เช่น วันที่ 25 พ.ย. 2569 เวลา 15.30 น. ห้องประชุม..." oninput="genTpl()"></div>
+                    <div class="mb-3" id="tplMeetRow" style="display:none"><label class="form-label small fw-bold mb-1">วัน เวลา สถานที่นัดพบ (ใช้กับข้อความนัดพบผู้ส่งคะแนนฯ)</label><input id="tplMeetTxt" class="form-control form-control-sm" placeholder="เช่น วันที่ 25 พ.ย. 2569 เวลา 15.30 น. ห้องประชุม..." oninput="genTpl()">
+                        <div class="d-flex flex-wrap gap-3 mt-2 small">
+                            <div class="form-check"><input class="form-check-input" type="checkbox" id="tplMeetSteps" checked onchange="genTpl()"><label class="form-check-label" for="tplMeetSteps">แสดงขั้นตอนการทำงาน</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" id="tplMeetItems" checked onchange="genTpl()"><label class="form-check-label" for="tplMeetItems">แสดงรายการที่รับผิดชอบ</label></div>
+                        </div></div>
                     <textarea id="tplText" class="form-control tpl" rows="16"></textarea>
                     <small class="text-muted">แก้ไขข้อความในกล่องได้ก่อนคัดลอก (เปลี่ยนตัวเลือกด้านบนจะสร้างข้อความใหม่)</small>
                 </div>
@@ -473,17 +477,19 @@
             const ev = `${settings.eventName} ประจำปีการศึกษา ${settings.academicYear}`;
             const ct = contact ? `📞 สอบถาม: ${contact}\n` : '';
             const people = scCards().filter(c => c.team === tk);
-            const who = people.length ? people.map(c => `   • ${c.name} (${c.ms.length} รายการ)\n` + c.ms.map(m => `      - ${mLabel(m)} (${thaiDate(m.date)} ${m.time || ''} น.)`).join('\n')).join('\n') : '   (ยังไม่มีรายชื่อผู้ส่งคะแนน)';
-            return `📣 นัดพบผู้ส่งคะแนนประจำสนาม\n${ev}\nคณะ${teamName(tk)}\n\n` +
-                `${meet ? '🗓 นัดพบ: ' + meet + '\n\n' : ''}` +
-                `เรียน นักเรียนผู้ส่งคะแนนประจำสนาม คณะ${teamName(tk)}\nขอชี้แจงขั้นตอนการทำงานในวันแข่งขัน ดังนี้\n\n` +
+            const showSteps = document.getElementById('tplMeetSteps').checked, showItems = document.getElementById('tplMeetItems').checked;
+            const who = people.length ? people.map(c => `   • ${c.name} (${c.ms.length} รายการ)` + (showItems ? '\n' + c.ms.map(m => `      - ${mLabel(m)} (${thaiDate(m.date)} ${m.time || ''} น.)`).join('\n') : '')).join('\n') : '   (ยังไม่มีรายชื่อผู้ส่งคะแนน)';
+            const steps = `ขอชี้แจงขั้นตอนการทำงานในวันแข่งขัน ดังนี้\n\n` +
                 `1️⃣ ตรวจสอบรายชื่อและรายการที่ตนรับผิดชอบ (ตามรายชื่อด้านล่าง)\n` +
                 `2️⃣ รับการ์ด QR — แต่ละคนมีการ์ด QR ของตนเอง (ครูผู้ประสานงานแจกให้)\n` +
                 `3️⃣ วันแข่ง — ไปที่สนามก่อนเวลาแข่ง 15 นาที แจ้งตัวกับครู/กรรมการประจำสนาม\n` +
                 `4️⃣ สแกน QR → จะเห็นเฉพาะรายการที่ตนรับผิดชอบ → แตะรายการเพื่อเข้าหน้าลงคะแนน (ไม่ต้องใช้รหัสผ่าน)\n` +
                 `5️⃣ ลงคะแนน — กดบันทึกคะแนนทุกครั้งที่มีการเปลี่ยนแปลง ตรวจสอบผลกับกรรมการให้ถูกต้อง\n` +
-                `6️⃣ เมื่อจบรายการ — กด "จบการแข่งขัน" และยืนยัน หากต้องแก้ไขหลังจากนั้นให้แจ้งครูผู้ดูแลระบบ\n\n` +
-                `👤 รายชื่อผู้ส่งคะแนนและรายการที่รับผิดชอบ:\n${who}\n\n` +
+                `6️⃣ เมื่อจบรายการ — กด "จบการแข่งขัน" และยืนยัน หากต้องแก้ไขหลังจากนั้นให้แจ้งครูผู้ดูแลระบบ\n\n`;
+            return `📣 นัดพบผู้ส่งคะแนนประจำสนาม\n${ev}\nคณะ${teamName(tk)}\n\n` +
+                `${meet ? '🗓 นัดพบ: ' + meet + '\n\n' : ''}` +
+                `เรียน นักเรียนผู้ส่งคะแนนประจำสนาม คณะ${teamName(tk)}\n` + (showSteps ? steps : '\n') +
+                `👤 รายชื่อผู้ส่งคะแนน${showItems ? 'และรายการที่รับผิดชอบ' : ''}:\n${who}\n\n` +
                 `⚠️ อย่าส่งต่อ QR ให้ผู้อื่น และลงคะแนนเฉพาะรายการที่ได้รับมอบหมาย\n${ct}ขอบคุณครับ/ค่ะ 🙏`;
         }
         function buildTpl(type, tk, deadline, contact, meet) {
