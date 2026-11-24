@@ -33,7 +33,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
-import { similarName } from "./reg-utils.js";
+import { similarName, scorerCards } from "./reg-utils.js";
 
 const app = initializeApp({
     apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -71,9 +71,16 @@ if (!who) {
 }
 
 function draw() {
-    const mine = Object.entries(matches).map(([id, m]) => ({ ...m, id }))
+    const arr = Object.entries(matches).map(([id, m]) => ({ ...m, id }));
+    let mine;
+    if (settings.scorerOnePerMatch) {   // โหมดรายการละ 1 คน (แบ่งสีละครึ่ง) — ใช้ตัวคำนวณเดียวกับหน้าการ์ด QR
+        const ids = new Set();
+        scorerCards(arr, { one: true }).filter(c => (!tkey || c.team === tkey) && [c.name, ...c.variants].some(v => similarName(v, who))).forEach(c => c.ms.forEach(x => ids.add(x.id)));
+        mine = arr.filter(m => ids.has(m.id)).map(m => ({ m, idx: 0 }));
+    } else mine = arr
         .map(m => ({ m, idx: Object.keys(m.scorers || {}).some(tk => (!tkey || tk === tkey) && (m.scorers[tk] || []).some(n => similarName(n, who))) ? 0 : -1 }))
-        .filter(x => x.idx >= 0)
+        .filter(x => x.idx >= 0);
+    mine = mine
         .sort((a, b) => ((a.m.date || '') + (a.m.time || '')).localeCompare((b.m.date || '') + (b.m.time || '')));
     if (!mine.length) { $('list').innerHTML = '<div class="alert alert-warning text-center">ยังไม่พบรายการที่ท่านรับผิดชอบ<br><small>โปรดแจ้งผู้ดูแลระบบ</small></div>'; return; }
     const byDay = {};

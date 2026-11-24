@@ -724,6 +724,7 @@
                     <div class="row g-2 mb-3">
                         <div class="col-md-4"><input id="scSearch" class="form-control form-control-sm" placeholder="ค้นหาชื่อ..." oninput="scRender()"></div>
                         <div class="col-md-3"><div class="form-check small mt-1"><input class="form-check-input" type="checkbox" id="scHideDone" checked onchange="scRender()"><label class="form-check-label" for="scHideDone">ไม่นับรายการที่จบแล้ว</label></div></div>
+                        <div class="col-md-5"><div class="form-check form-switch small mt-1"><input class="form-check-input" type="checkbox" id="scOne" onchange="scToggleOne(this.checked)"><label class="form-check-label" for="scOne">กำหนดรายการละ 1 คน (แบ่งสีละครึ่ง กันส่งคะแนนซ้ำ)</label></div></div>
                     </div>
                     <div id="scGrid" class="row g-3"></div>
                 </div>
@@ -3748,8 +3749,11 @@
     const scStaff = () => {
         const hide = document.getElementById('scHideDone').checked;
         const q = String(document.getElementById('scSearch').value || '').replace(/\s+/g, '').toLowerCase();
-        const src = allMatchesArray.map(m => hide && m.status === 'done' ? { ...m, scorers: {} } : m);
-        return scMod.scorerCards(src).filter(c => !q || c.variants.some(v => v.replace(/\s+/g, '').toLowerCase().includes(q)));
+        const one = !!systemSettings.scorerOnePerMatch;   // โหมด 1 คน/รายการ: คำนวณจากทุกรายการก่อน (ให้ตรงกับหน้า staff) แล้วค่อยตัดรายการที่จบแล้ว
+        const src = one ? allMatchesArray : allMatchesArray.map(m => hide && m.status === 'done' ? { ...m, scorers: {} } : m);
+        let cards = scMod.scorerCards(src, { one });
+        if (one && hide) cards = cards.map(c => ({ ...c, ms: c.ms.filter(m => m.status !== 'done') })).filter(c => c.ms.length);
+        return cards.filter(c => !q || c.variants.some(v => v.replace(/\s+/g, '').toLowerCase().includes(q)));
     };
     const scUrl = (c) => location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '') + 'staff.html?t=' + encodeURIComponent(c.team) + '&n=' + encodeURIComponent(c.name);
     const scQr = (c, size) => `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=4&data=${encodeURIComponent(scUrl(c))}`;
@@ -3765,8 +3769,14 @@
         scRender();
         new bootstrap.Modal(document.getElementById('staffCardModal')).show();
     };
+    window.scToggleOne = async (on) => {
+        systemSettings.scorerOnePerMatch = !!on;
+        try { await set(ref(db, 'settings/scorerOnePerMatch'), !!on); } catch (e) { Swal.fire({ icon: 'error', title: 'บันทึกตัวเลือกไม่สำเร็จ', text: String(e.message || e) }); }
+        scRender();
+    };
     window.scRender = () => {
         if (!scMod) return;
+        document.getElementById('scOne').checked = !!systemSettings.scorerOnePerMatch;
         const list = scStaff();
         document.getElementById('scCount').innerText = `${list.length} คน`;
         document.getElementById('scGrid').innerHTML = list.length ? list.map(c => `

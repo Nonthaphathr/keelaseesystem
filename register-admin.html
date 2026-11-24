@@ -92,6 +92,8 @@
                     </div>
                 </div>
                 <p class="small text-muted mb-2">รายชื่อนักเรียนผู้ส่งคะแนนที่แต่ละคณะสีกรอกตอนลงทะเบียน (ตรวจชื่อพิมพ์คล้ายกันและรวมให้เป็นคนเดียว) สแกน QR แล้วเข้าหน้ารายการที่รับผิดชอบ แตะเข้าลงคะแนนได้ทันทีโดยไม่ต้องใช้รหัสผ่าน</p>
+                <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="scOne" onchange="toggleScOne(this.checked)">
+                    <label class="form-check-label small" for="scOne"><b>กำหนดรายการละ 1 คน</b> (ข้อมูลที่ส่งมาทุกสีจะมี 2 คนต่อรายการ ระบบจะแบ่งให้ผู้รับผิดชอบสีละครึ่ง เพื่อไม่ให้ส่งคะแนนซ้ำซ้อน — มีผลกับการ์ด QR และหน้ารายการของผู้ส่งคะแนน)</label></div>
                 <div id="scWarn" class="mb-2"></div>
                 <div class="row g-2" id="scGrid"></div>
             </div>
@@ -445,7 +447,7 @@
             const ev = `${settings.eventName} ประจำปีการศึกษา ${settings.academicYear}`;
             const ct = contact ? `📞 สอบถาม: ${contact}\n` : '';
             const base = new URL('staff.html', location.href);
-            const people = scorerCards(matches).filter(c => c.team === tk);
+            const people = scCards().filter(c => c.team === tk);
             const link = teamTokens[tk] ? regUrl(teamTokens[tk]) : '(ยังไม่ได้ออกลิงก์)';
             const who = people.length ? people.map(c => { const u = new URL(base); u.searchParams.set('t', c.team); u.searchParams.set('n', c.name); return `   • ${c.name} (${c.ms.length} รายการ)\n     ${u.href}`; }).join('\n') : '   (ยังไม่มีรายชื่อผู้ส่งคะแนน — กรอกในลิงก์ลงทะเบียนของคณะสี)';
             return `📣 นัดพบผู้ส่งคะแนนประจำสนาม\n${ev}\nคณะ${teamName(tk)}\n\n` +
@@ -581,13 +583,21 @@
         }
 
         // ===== การ์ด QR ผู้ส่งคะแนนประจำสนาม =====
+        const scCards = () => scorerCards(matches, { one: !!settings.scorerOnePerMatch });
+        window.toggleScOne = async (on) => {
+            settings.scorerOnePerMatch = !!on;
+            try { await authReady; await set(ref(db, 'settings/scorerOnePerMatch'), !!on); } catch (e) { Swal.fire({ icon: 'error', title: 'บันทึกตัวเลือกไม่สำเร็จ', text: String(e.message || e) }); }
+            renderScorers();
+            if (document.getElementById('mcPickModal').classList.contains('show')) mpRender();
+        };
         const staffUrl = (c) => { const u = new URL('staff.html', location.href); u.searchParams.set('t', c.team); u.searchParams.set('n', c.name); return u.href; };
         const staffQr = (c, n) => `https://api.qrserver.com/v1/create-qr-code/?size=${n}x${n}&margin=4&data=${encodeURIComponent(staffUrl(c))}`;
-        const scList = () => { const f = (document.getElementById('scTeam') || {}).value || 'all'; return scorerCards(matches).filter(c => f === 'all' || c.team === f); };
+        const scList = () => { const f = (document.getElementById('scTeam') || {}).value || 'all'; return scCards().filter(c => f === 'all' || c.team === f); };
         window.renderScorers = () => {
             const sel = document.getElementById('scTeam'), v = sel.value;
             sel.innerHTML = '<option value="all">ทุกคณะสี</option>' + activeTeams().map(t => `<option value="${t.key}">${esc(t.name)}</option>`).join('');
             sel.value = [...sel.options].some(o => o.value === v) ? v : 'all';
+            document.getElementById('scOne').checked = !!settings.scorerOnePerMatch;
             const list = scList();
             document.getElementById('scTotal').textContent = list.length + ' คน';
             const fz = list.filter(c => c.variants.length > 1);
@@ -644,7 +654,7 @@
             return matches.filter(m => (sv === 'all' || m.sport === sv) && (dv === 'all' || m.date === dv));
         };
         window.mpRender = () => {
-            const list = mpShown(), cards = scorerCards(matches);
+            const list = mpShown(), cards = scCards();
             let lastD = null, h = '';
             list.forEach(m => {
                 if (m.date !== lastD) { lastD = m.date; h += `<div class="fw-bold text-primary mt-2 mb-1 border-bottom">${esc(thaiDate(m.date))}</div>`; }
@@ -662,7 +672,7 @@
         window.printMatchCards = () => {
             const chosen = matches.filter(m => mpSel.has(m.id));
             if (!chosen.length) return Swal.fire({ icon: 'info', title: 'ยังไม่ได้เลือกรายการ' });
-            const cards = scorerCards(matches), teams = activeTeams();
+            const cards = scCards(), teams = activeTeams();
             const ev = esc(`${settings.eventName || ''} ${settings.academicYear || ''}`.trim());
             const html = chosen.map(m => {
                 const cols = teams.map(t => {

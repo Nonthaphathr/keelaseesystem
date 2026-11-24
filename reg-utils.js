@@ -86,7 +86,7 @@ export function clusterKeys(keys) {
 
 // ---------- ผู้ส่งคะแนนประจำสนาม (ที่แต่ละคณะสีกรอกตอนลงทะเบียน) ----------
 // คืน [{ team, name, variants:[ชื่อที่พิมพ์ต่างกัน], ms:[match], fuzzy:boolean }] จัดกลุ่มตามคณะสี + ชื่อที่คล้ายกัน
-export function scorerCards(matches) {
+export function scorerCards(matches, opts = {}) {
     const rows = [];
     (matches || []).forEach(m => Object.keys(m.scorers || {}).forEach(tk => ((m.scorers || {})[tk] || []).forEach(n => {
         const raw = String(n || '').replace(/\s+/g, ' ').trim(), k = normName(raw);
@@ -104,7 +104,29 @@ export function scorerCards(matches) {
             out.push({ team: tk, name: variants[0], variants, ms, fuzzy: new Set(a.map(r => r.k)).size > 1 });
         });
     });
-    return out.sort((a, b) => a.team.localeCompare(b.team) || a.name.localeCompare(b.name, 'th'));
+    const sorted = out.sort((a, b) => a.team.localeCompare(b.team) || a.name.localeCompare(b.name, 'th'));
+    return opts.one ? assignOneScorer(sorted) : sorted;
+}
+
+// โหมด "รายการละ 1 คน": จากการ์ดของทุกคณะสี เลือกผู้ส่งคะแนน 1 คนต่อ 1 รายการ
+// แบ่งสีละครึ่ง (เลือกสีที่ได้รับมอบหมายน้อยกว่าก่อน) แล้วกระจายระหว่างคนในสีเดียวกัน และเลี่ยงเวลาแข่งซ้อนกัน — คำนวณแบบกำหนดได้แน่นอน ทุกหน้าได้ผลตรงกัน
+export function assignOneScorer(cards) {
+    const key = (m) => ((m.date || '') + '|' + (m.time || '') + '|' + (m.id || ''));
+    const all = new Map(); cards.forEach(c => c.ms.forEach(m => all.set(m.id ?? key(m), m)));
+    const ms = [...all.values()].sort((a, b) => key(a).localeCompare(key(b)));
+    const got = cards.map(() => []), perTeam = {};
+    const clash = (i, m) => { const iv = matchInterval(m); if (!iv) return false;
+        return got[i].some(x => { const j = matchInterval(x); return j && iv.s < j.e && j.s < iv.e; }); };
+    ms.forEach(m => {
+        const cand = cards.map((c, i) => ({ c, i })).filter(x => x.c.ms.some(y => (y.id ?? key(y)) === (m.id ?? key(m))));
+        if (!cand.length) return;
+        const pick = cand.slice().sort((a, b) =>
+            (perTeam[a.c.team] || 0) - (perTeam[b.c.team] || 0) ||
+            (clash(a.i, m) ? 1 : 0) - (clash(b.i, m) ? 1 : 0) ||
+            got[a.i].length - got[b.i].length || a.i - b.i)[0];
+        got[pick.i].push(m); perTeam[pick.c.team] = (perTeam[pick.c.team] || 0) + 1;
+    });
+    return cards.map((c, i) => ({ ...c, allCount: c.ms.length, ms: got[i] })).filter(c => c.ms.length);
 }
 
 // ---------- ตรวจชื่อชนกันตามเวลาแข่งขัน ----------
