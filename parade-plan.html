@@ -155,7 +155,7 @@
     <div class="panel mt-3 no-print">
         <div class="fw-bold mb-1">สัญลักษณ์</div>
         <div id="legend" class="small"></div>
-        <div class="small text-muted mt-2">หมายเหตุ: จำนวนนักกีฬาในภาพมาจากช่อง "จำนวนสมาชิก" ที่แต่ละคณะสีกรอก ถ้ายังไม่กรอกจะแสดงตัวอย่าง 24 คน และภาพวงดุริยางค์เป็นภาพจำลอง 9 คน</div>
+        <div class="small text-muted mt-2">หมายเหตุ: ภาพนักกีฬาเป็นภาพจำลอง 5 แถวตอนลึก แถวละ 8 คน (ตัวเลขจริงมาจากช่อง "จำนวนสมาชิก" ที่แต่ละคณะสีกรอก) คณะหลีดเดอร์จำลอง 9 คน และวงดุริยางค์จำลอง 9 คน</div>
     </div>
 </div>
 
@@ -247,12 +247,12 @@ function teamCol(tm, order) {
     const d = tm.d, c = tm.color;
     const signs = splitNames(d.sign);
     const cnt = parseInt(String(d.count || '').replace(/\D/g, '')) || 0;
-    const N = cnt || 24, shown = Math.min(N, 120);
+    const shown = 40;   // ภาพจำลองนักกีฬา 5 แถวตอนลึก แถวละ 8 คน
     const tInfo = (extra) => info('คณะ' + tm.name, ib([
         ['ชื่อขบวน', nm(d.alias)], ['ประธานสี', nm(d.leader) + (d.level ? ' (ม.' + esc(d.level) + ')' : '')],
         ['ผู้ถือป้ายคณะสี', nm(d.sign)], ['ผู้ถือธงคณะสี', nm(d.flag)],
         String(d.cheer_sign || '').trim() ? ['ผู้ถือป้ายหลีดเดอร์', nm(d.cheer_sign)] : null,
-        ['จำนวนสมาชิก', cnt ? cnt + ' คน' : '<span class="miss">ยังไม่ได้กรอก (ภาพแสดงตัวอย่าง 24 คน)</span>'],
+        ['จำนวนสมาชิก', cnt ? cnt + ' คน' : '<span class="miss">ยังไม่ได้กรอก</span>'],
         ['คอนเซปต์', nm(d.concept)]]) + (extra || ''));
     const alias = String(d.alias || '').trim();
     let h = `<div class="chd"><span class="num">${order}</span><span class="pill" style="background:${esc(c)};color:${txtOn(c)}">${esc(tm.name)}</span></div>
@@ -274,7 +274,7 @@ function teamCol(tm, order) {
     // นักกีฬา
     let g = ''; for (let i = 0; i < shown; i++) g += person(c, 28);
     h += `<div class="rw clickable" ${tInfo()}><div class="grid" style="grid-template-columns:repeat(8,22px)">${g}</div>
-        <div class="lbl"><b>นักกีฬา ${cnt ? cnt + ' คน' : '(ตัวอย่าง 24 คน)'}</b>${N > shown ? '<span>แสดง ' + shown + ' คนแรก</span>' : ''}</div></div>`;
+        <div class="lbl"><b>นักกีฬา ${cnt ? cnt + ' คน' : '(ยังไม่ได้กรอกจำนวน)'}</b><span>ภาพจำลอง 5 แถว × 8 คน</span></div></div>`;
     return h;
 }
 
@@ -301,8 +301,9 @@ function buildStage(withBand) {
     const teams = teamList();
     const n = teams.length + 1;
     const contentW = n * COLW + (n - 1) * GAP;
-    const W = Math.max(700, contentW + 2 * (PAD + LANE)), x0 = (W - contentW) / 2;
-    const R = W - 40;                                  // เลนขวา (ทางเดินขวาหัน→ซ้ายหัน)
+    const LX = walk === '2' ? LANE + 90 : LANE;        // แบบ 2: ขยายขอบซ้าย-ขวา ให้ขบวนสีที่เลื่อนไปชิดกรวยขวาสุดไม่ตกเฟรม
+    const W = Math.max(700, contentW + 2 * (PAD + LX)), x0 = (W - contentW) / 2;
+    const R = walk === '2' ? x0 + contentW + 50 : W - 40;                                  // เลนขวา (ทางเดินขวาหัน→ซ้ายหัน)
     // ผังช่องเดิน ซ้าย→ขวา ('S' = ขบวนโรงเรียน): มีวงฯ = โรงเรียนขวาสุด, ไม่มีวงฯ = กลาง (เลือกคณะซ้าย/ขวาของ รร. ได้)
     let slots;
     if (withBand) slots = [...teams, 'S'];
@@ -322,21 +323,16 @@ function buildStage(withBand) {
     const stage = document.createElement('div'); stage.className = 'stage'; stage.style.width = W + 'px';
     wrap.appendChild(stage);
     // ลำดับเดินขบวน: โรงเรียนก่อน — แบบ 1 คณะสีตามลำดับ / แบบ 2 คณะฝั่งขวาก่อน แล้วฝั่งซ้ายขวาหันเลื่อนมาแทนที่
-    let route;
-    if (walk === '2') {
-        const rs = [], ls = [];
-        for (let i = sp + 1; i < slots.length; i++) rs.push(i);
-        for (let i = sp - 1; i >= 0; i--) ls.push(i);
-        route = (rs.length ? [...rs, ...ls] : ls).map(i => ({ tm: slots[i], slot: i }));
-    } else route = teams.map(tm => ({ tm, slot: slots.indexOf(tm) }));
+    let route = teams.map(tm => ({ tm, slot: slots.indexOf(tm) }));
+    if (walk === '2') route.sort((a, b) => b.slot - a.slot);   // แบบ 2: คณะขวาสุดออกก่อน แล้วไล่ไปทางซ้าย
     const cols = [{ html: schoolCol(withBand, 1), xc: slotX(sp), name: 'ขบวนโรงเรียน' }];
     route.forEach((r, i) => cols.push({ html: teamCol(r.tm, i + 2), xc: slotX(r.slot), name: 'คณะ' + r.tm.name }));
-    if (walk === '2' && cols.length > 2) { const lx = cols[1].xc; cols.forEach((c, k) => { c.slide = k >= 2 ? lx - c.xc : 0; }); }
+    if (walk === '2') cols.forEach((c, k) => { c.direct = k >= 1; c.slide = k >= 1 ? R - c.xc : 0; });   // คณะสีขวาหันในที่เดิม เลื่อนไปชิดเลนขวา (กรวยขวาสุด) แล้วเดินตรงขึ้นเลี้ยวซ้ายครั้งเดียว
     const cx = W / 2;   // ปะรำอยู่กึ่งกลางหน้ากระดาษพอดี
     stage.innerHTML = `<div class="pav" style="left:${cx - 115}px;top:${PAV_TOP}px"><img src="parade-assets/pavilion.png" alt="ปะรำพิธี" onerror="this.classList.add('imgerr')"><div class="lbl"><b>ปะรำพิธี</b></div></div>` +
         cols.map(c => `<div class="col" style="left:${c.xc - COLW / 2}px;top:${Y_HEAD}px">${c.html}</div>`).join('');
     const o = { cx, R, wrap, stage, W, H: 0, n, teams, cols: [] };
-    [...stage.querySelectorAll('.col')].forEach((el, i) => o.cols.push({ el, xe: cols[i].xc, xc: cols[i].xc + (cols[i].slide || 0), slide: cols[i].slide || 0, name: cols[i].name, delay: 0 }));
+    [...stage.querySelectorAll('.col')].forEach((el, i) => o.cols.push({ el, xe: cols[i].xc, xc: cols[i].direct ? R : cols[i].xc, slide: cols[i].slide || 0, direct: !!cols[i].direct, name: cols[i].name, delay: 0 }));
     return o;
 }
 
@@ -362,9 +358,11 @@ function overlay(o) {
     o.cols.forEach(c => {
         c.Ybot = Y_HEAD + c.colH + 30; c.stageR = R;
         c.len1 = c.Ybot - L1Y; c.len2 = R - c.xc; c.len3 = L1Y - L2Y; c.len4 = R + 320;
+        c.sh = c.len1;   // จุดเริ่มย่อขนาด
+        if (c.direct) { c.len1 = c.Ybot - L2Y; c.len2 = 0; c.len3 = 0; c.sh = c.Ybot - L1Y; }   // แบบ 2: ตรงขึ้นเลนขวาแล้วเลี้ยวซ้ายครั้งเดียว
         c.total = c.len1 + c.len2 + c.len3 + c.len4;
         c.items.forEach(it => { it.cy = Y_HEAD + it.dy + it.h / 2; it.s0 = c.Ybot - it.cy; });
-        c.headS0 = Math.max(...c.items.map(it => it.s0));
+        c.headS0 = Math.max(...c.items.map(it => it.s0)); c.s0min = Math.min(...c.items.map(it => it.s0));
         c.badge = document.createElement('div'); c.badge.className = 'salute'; c.badge.textContent = 'ทำความเคารพ · ' + c.name; o.stage.appendChild(c.badge);
     });
     // หน่วงเวลาให้ขบวนถัดไปออกตัวหลังหางขบวนก่อนหน้าพ้นจุดเลี้ยว (ไม่ให้ทับกัน)
@@ -375,24 +373,30 @@ function overlay(o) {
             c.delay = Math.max(c.delay, q.delay + (q.len0 + c.xc - q.xc + 70) / V);
         }
         if (k > 0) c.delay = Math.max(c.delay, o.cols[k - 1].delay + 0.8);
-        // แบบ 2: คณะที่เลื่อน (ขวาหัน/ซ้ายหัน) รอขบวนก่อนหน้าพ้นช่องก่อน แล้วเลื่อนไปแทนที่ แล้วค่อยเดินตามไลน์
-        if (c.slide) { const q = o.cols[k - 1]; c.slideStart = q.delay + (q.len0 + 70) / V; c.delay = Math.max(c.delay, c.slideStart + Math.abs(c.slide) / V + 0.3); }
+        // แบบ 2: คณะสีขวาหันแล้วเลื่อนไปชิดเลนขวา รอช่องว่างก่อน แล้วค่อยเดินตรงขึ้นเลนขวา
+        if (c.direct) {
+            const sch = o.cols[0], prev = o.cols[k - 1], dur = Math.abs(c.slide) / V;
+            let ss = 0;
+            if (k === 1) ss = sch.delay + (sch.len0 + 40) / V;                                   // โรงเรียนเดินออกก่อน แล้วคณะแรกค่อยขวาหัน
+            else ss = prev.delay + (prev.len0 + 30) / V - Math.max(0, c.slide - 230) / V;        // คณะก่อนหน้าที่ชิดเลนขวาออกไปแล้วค่อยเลื่อนเข้าไปแทน
+            if (c.xe < sch.xe) ss = Math.max(ss, sch.delay + (sch.len0 + 40) / V - Math.max(0, sch.xe - 230 - c.xe) / V);   // ต้องเลื่อนผ่านช่องของโรงเรียน
+            c.slideStart = ss;
+            let dl = ss + dur + 0.3;
+            const tS = sch.delay + (sch.len1 + sch.len2 - sch.s0min) / V;                       // หางขบวนโรงเรียนพ้นมุมเลนขวา
+            dl = Math.max(dl, tS + (L1Y - (Y_HEAD + c.minDy) + 70) / V);
+            for (let j = 1; j < k; j++) { const q = o.cols[j]; dl = Math.max(dl, q.delay + (q.colH - c.minDy + 70) / V); }
+            c.delay = dl;
+        }
     });
     // ===== เส้นทาง SVG =====
     const cone = (x, y, label) => `<g class="l-cone"><polygon points="${x},${y - 26} ${x - 11},${y} ${x + 11},${y}" fill="#ff9800" stroke="#e65100" stroke-width="2"/>
         <rect x="${x - 14}" y="${y}" width="28" height="5" rx="2" fill="#e65100"/>
         <text x="${x}" y="${y + 22}" font-size="13" font-weight="700" fill="#b71c1c" text-anchor="middle">${label}</text></g>`;
     const dot = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5d4037" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 11"/>`;
-    const fixed = o.cols.filter(c => !c.slide), sliders = o.cols.filter(c => c.slide);
+    const fixed = o.cols.filter(c => !c.direct);
     const minX = Math.min(...fixed.map(c => c.xc));
     let path = fixed.map(c => dot(c.xc, Y_HEAD + c.minDy - 10, c.xc, L1Y)).join('');
-    if (sliders.length) {
-        const ly = Y_HEAD + Math.min(...o.cols.map(c => c.minDy)) - 16;
-        sliders.forEach(c => {
-            path += dot(c.xe, Y_HEAD + c.minDy - 10, c.xe, ly) + dot(c.xe, ly, c.xc, ly) +
-                `<text x="${c.xe + Math.sign(c.slide) * 14}" y="${ly - 8}" font-size="12" font-weight="700" fill="#b71c1c" text-anchor="${c.slide > 0 ? 'start' : 'end'}">${c.slide > 0 ? 'ขวาหัน ▶' : '◀ ซ้ายหัน'}</text>`;
-        });
-    }
+    if (o.cols.some(c => c.direct)) path += dot(R, L1Y, R, Y_HEAD + Math.max(...o.cols.filter(c => c.direct).map(c => c.colH)) - 20);   // เลนขวาที่คณะสีเดินขึ้น
     path += dot(minX, L1Y, R, L1Y) + dot(R, L1Y, R, L2Y) + dot(R, L2Y, 12, L2Y);
     const school = o.cols[0];
     const yA1 = L2Y + 14, yA2 = L1Y - 38, ym = (L2Y + L1Y) / 2;
@@ -437,7 +441,7 @@ function posAt(c, s) {
     s -= c.len2; if (s < c.len3) return [c.stageR, L1Y - s];
     s -= c.len3; return [c.stageR - s, L2Y];
 }
-const scaleAt = (c, s) => s <= c.len1 - 50 ? 1 : s >= c.len1 + 30 ? .45 : 1 - .55 * ((s - (c.len1 - 50)) / 80);
+const scaleAt = (c, s) => s <= c.sh - 50 ? 1 : s >= c.sh + 30 ? .45 : 1 - .55 * ((s - (c.sh - 50)) / 80);
 function itemPose(c, it, tt) {   // [เลื่อนแกน x, เลื่อนแกน y, สเกล] ของแต่ละแถว ณ เวลา tt
     const d = Math.max(0, V * (tt - c.delay));
     if (d === 0) { const sd = c.slide ? Math.sign(c.slide) * Math.min(Math.abs(c.slide), Math.max(0, V * (tt - c.slideStart))) : 0; return [sd, 0, 1]; }
