@@ -2045,7 +2045,7 @@
             if (apx.length) {
                 const list = apx.map(a => `<div style="text-align:center; font-size:18pt; margin-top:6px;">${cxEsc(a[0])}</div>`).join('');
                 add(`<div style="text-align:center; font-size:40pt; font-weight:bold; margin-top:150px; margin-bottom:30px;">ภาคผนวก</div>${list}`, 'ภาคผนวก');
-                apx.forEach(a => add(a[1](), a[0], { tocLevel: 1 }));
+                apx.forEach(a => add(a[1](), a[0], { tocLevel: 1, fit1: !/ประวัตินักกีฬา/.test(a[0]) }));   // คำกล่าว/คำปฏิญาณ ต้องไม่เกิน 1 หน้า
             }
             if (!secs.length && !bkOpts.cover) { Swal.fire({ icon: 'warning', title: 'ยังไม่ได้เลือกส่วนประกอบ' }); return; }
             if (bkOpts.sports && !files.length) { await Swal.fire({ icon: 'info', title: 'ไม่มีบทบรรยายกีฬา', text: 'ยังไม่ได้เลือกกีฬา หรือยังไม่มีรายการแข่งขัน จะส่งออกเฉพาะส่วนอื่น', timer: 2500, showConfirmButton: false }); }

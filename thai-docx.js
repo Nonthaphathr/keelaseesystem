@@ -23,14 +23,35 @@
     const tint = (hex, k) => { const h = String(hex || '').replace('#', ''); if (!/^[0-9a-f]{6}$/i.test(h)) return 'F3F3F3'; return [0, 2, 4].map(i => Math.round(255 - (255 - parseInt(h.substr(i, 2), 16)) * k).toString(16).padStart(2, '0')).join('').toUpperCase(); };
 
     // ประมาณจำนวนหน้าของแต่ละส่วน เพื่อใส่เลขหน้าเริ่มต้นในสารบัญ (Word จะอัปเดตเป็นค่าจริงเมื่อเปิดไฟล์/กด F9)
-    function estPages(html, line) {
+    const PAGE_PX = 971 * 0.95;   // ความสูงเนื้อหา A4 (25.7 ซม.) เผื่อความคลาดเคลื่อน
+    function measure(html, line) {
         const d = document.createElement('div');
         d.style.cssText = `position:absolute;left:-9999px;top:0;visibility:hidden;width:${Math.round(CONTENT_W / 15)}px;font-family:'TH SarabunPSK','Sarabun',sans-serif;font-size:${BASE_PT}pt;line-height:${((line || 276) / 240 * 1.15).toFixed(2)};`;
         d.innerHTML = html;
         d.querySelectorAll('[style]').forEach(e => { e.style.lineHeight = ''; });
         document.body.appendChild(d);
         const h = d.offsetHeight; document.body.removeChild(d);
-        return Math.max(1, Math.ceil(h / (971 * 0.96)));
+        return h;
+    }
+    const estPages = (html, line) => Math.max(1, Math.ceil(measure(html, line) / PAGE_PX));
+    const scaleHtml = (html, s) => html.replace(/font-size:\s*([\d.]+)pt/g, (m, n) => `font-size:${(n * s).toFixed(1)}pt`);
+    // เอกสารที่ต้องอยู่ใน 1 หน้า: หาสเกลตัวอักษร (ไม่ต่ำกว่า 0.8) ที่ทำให้พอดีหน้าเดียว
+    function fitScale(html, line) {
+        for (const s of [1, 0.96, 0.92, 0.88, 0.84, 0.8]) {
+            if (measure(scaleHtml(html, s), (line || 276) * (s < 0.9 ? 0.92 : 1)) <= PAGE_PX) return s;
+        }
+        return 0.8;
+    }
+    function scaleSpecs(specs, s) {
+        const f = (sp) => {
+            if (sp.k === 't') { sp.rows.forEach(r => r.forEach(c => c.content.forEach(f))); return; }
+            if (sp.size) sp.size *= s;
+            (sp.runs || []).forEach(r => { if (r.size) r.size *= s; if (r.img) { r.w = Math.round(r.w * s); r.h = Math.round(r.h * s); } });
+            if (sp.before) sp.before = Math.round(sp.before * s);
+            if (sp.after) sp.after = Math.round(sp.after * s);
+            if (sp.firstLine) sp.firstLine = Math.round(sp.firstLine * s);
+        };
+        specs.forEach(f);
     }
 
     // ---------- รูปภาพ ----------
@@ -354,7 +375,12 @@
             const part = convertChildren(d.body, { size: BASE_PT }, imgs, []);
             if (part.length && sec.newPage && specs.length) part[0].pageBreak = true;
             if (sec.line) part.forEach(sp => { sp.line = sec.line; });
-            const np = estPages(sections[idx].html, sec.line);
+            let np;
+            if (sec.fit1) {
+                const sc = fitScale(sec.html, sec.line);
+                if (sc < 1) { scaleSpecs(part, sc); if (!sec.line) part.forEach(sp => { sp.line = 254; }); }
+                np = 1;
+            } else np = estPages(sections[idx].html, sec.line);
             if (sec.tocTitle && part.length) { const bm = 'sec' + idx; part[0].bm = bm; marks.push({ title: sec.tocTitle, bm, level: sec.tocLevel || 0, page: nextPage }); }
             nextPage += np;
             specs.push(...part);
