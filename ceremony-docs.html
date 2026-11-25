@@ -1875,13 +1875,15 @@
         function msBodyHtml(kit, matches, opts) {
             // opts.byDay: แบ่งหัวข้อตามวัน; ตรวจการเปลี่ยนชนิดกีฬา แล้วขึ้นหัวข้อ/เกริ่นกีฬาใหม่
             let h = '', prevDate = null, prevSport = null, idx = 0, noteShown = false, newDay = false;
+            const faint = '<div style="margin:10px 0 0; text-align:center; color:#999999; font-style:italic; font-size:14pt;">(พิธีกรสังเกตและบรรยายไปตามสถานการณ์จริง)</div>';
             const counts = {};
             matches.forEach(m => { counts[m.sport] = (counts[m.sport] || 0) + 1; });
             matches.forEach(m => {
                 // ขึ้นหน้าใหม่ (Ctrl+Enter ใน Word) เมื่อขึ้นวันใหม่/เปลี่ยนชนิดกีฬา ยกเว้นรายการแรกของไฟล์
                 const brk = (html) => (h ? html.replace('style="', 'style="page-break-before:always; ') : html);
-                if (m.date !== prevDate) { h += brk(cxH(`วันที่ ${msThaiDate(m.date)}`)); prevDate = m.date; prevSport = null; newDay = true; }
+                if (m.date !== prevDate) { if (prevSport !== null) h += faint; h += brk(cxH(`วันที่ ${msThaiDate(m.date)}`)); prevDate = m.date; prevSport = null; newDay = true; }
                 if (m.sport !== prevSport) {
+                    if (prevSport !== null) h += faint;
                     const s = kit.next(), sp = cxEsc(getSportName(m.sport));
                     h += newDay ? kit.DIV(`${sp}`) : brk(kit.DIV(`${sp}`));
                     newDay = false;
@@ -1891,6 +1893,7 @@
                 }
                 h += msMatchBlock(kit, m, idx++, opts.withSport);
             });
+            if (prevSport !== null) h += faint;
             return h;
         }
 
