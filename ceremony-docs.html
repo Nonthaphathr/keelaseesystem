@@ -1196,12 +1196,17 @@
             if (type === 'mc_sport' || type === 'mc_book') msRenderPicker();
         }
 
-        window.generateExtraDocument = () => {
-            if (selectedDocType === 'mc_sport') { msGenerate(); return; }
-            if (selectedDocType === 'mc_book') { msBookExport(); return; }
-            const docs = { opening_schedule: cxDocSchedule, opening_mc: cxDocMc, oath: cxDocOath, athlete_bio: cxDocBio };
-            document.getElementById('documentContent').innerHTML = docs[selectedDocType]();
-            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        window.generateExtraDocument = async () => {
+            try {
+                if (selectedDocType === 'mc_sport') { msGenerate(); return; }
+                if (selectedDocType === 'mc_book') { await msBookExport(); return; }
+                const docs = { opening_schedule: cxDocSchedule, opening_mc: cxDocMc, oath: cxDocOath, athlete_bio: cxDocBio };
+                document.getElementById('documentContent').innerHTML = docs[selectedDocType]();
+                new bootstrap.Modal(document.getElementById('previewModal')).show();
+            } catch (err) {
+                console.error(err);
+                Swal.fire({ icon: 'error', title: 'สร้างเอกสารไม่สำเร็จ', text: String(err && err.message || err) });
+            }
         };
 
         // ----- รายชื่อครูผู้มอบรางวัล (ใช้ในคำกล่าวปิด) -----
@@ -1265,20 +1270,34 @@
             try { d = (await get(ref(db, 'mcData'))).val(); }
             catch (e) { Swal.fire({ icon: 'error', title: 'ดึงข้อมูลไม่สำเร็จ' }); return; }
             if (!d || (!d.shared && !d.teams)) { Swal.fire({ icon: 'info', title: 'ยังไม่มีข้อมูลที่กรอกผ่านลิงก์' }); return; }
+            const ask = await Swal.fire({
+                icon: 'question', title: 'ดึงข้อมูลที่กรอกผ่านลิงก์',
+                html: 'จะให้ทำอย่างไรกับข้อมูลที่มีอยู่ในระบบตอนนี้?',
+                showDenyButton: true, showCancelButton: true,
+                confirmButtonText: 'เติมเฉพาะช่องว่าง', denyButtonText: 'ทับข้อมูลปัจจุบัน', cancelButtonText: 'ยกเลิก',
+                confirmButtonColor: '#0d6efd', denyButtonColor: '#dc3545'
+            });
+            if (ask.isDismissed) return;
+            const fillOnly = ask.isConfirmed;   // true = เติมเฉพาะช่องว่าง, false = ทับ
+            const isEmpty = (x) => Array.isArray(x) ? !x.filter(Boolean).length : !String(x ?? '').trim();
             const toArr = (v) => (v && typeof v === 'object') ? Object.values(v) : v;
             let n = 0;
             Object.entries(d.shared || {}).forEach(([k, v]) => {
                 v = toArr(v);
                 if (Array.isArray(v)) { v = v.filter(Boolean); if (!v.length) return; }
                 else if (!String(v ?? '').trim()) return;
+                if (fillOnly && !isEmpty(cd[k])) return;
                 cd[k] = v; n++;
             });
             Object.entries(d.teams || {}).forEach(([tk, o]) => Object.entries(o || {}).forEach(([f, v]) => {
-                if (String(v ?? '').trim()) { cd[`pt_${tk}_${f}`] = v; n++; }
+                if (String(v ?? '').trim()) {
+                    if (fillOnly && !isEmpty(cd[`pt_${tk}_${f}`])) return;
+                    cd[`pt_${tk}_${f}`] = v; n++;
+                }
             }));
             saveCd();
             if (EXTRA_TYPES.includes(selectedDocType)) openExtra(selectedDocType);
-            Swal.fire({ icon: 'success', title: `ดึงข้อมูลแล้ว ${n} รายการ`, text: 'ข้อมูลที่กรอกผ่านลิงก์จะแทนที่ค่าเดิมในช่องที่ตรงกัน', timer: 2200, showConfirmButton: false });
+            Swal.fire({ icon: 'success', title: `ดึงข้อมูลแล้ว ${n} รายการ`, text: fillOnly ? 'เติมเฉพาะช่องที่ยังว่าง ข้อมูลเดิมไม่ถูกแก้ไข' : 'ทับข้อมูลเดิมในช่องที่ตรงกันแล้ว', timer: 2200, showConfirmButton: false });
         };
 
         function cxFooter() {
@@ -2064,28 +2083,39 @@
             const box = document.getElementById('mcFiles');
             box.innerHTML = `<div class="p-3 rounded-4 border bg-white mt-2"><div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
                 <h6 class="fw-bold mb-0"><i class="fas fa-folder-open text-primary me-2"></i>ไฟล์ที่สร้างแล้ว (${files.length} ไฟล์)</h6>
-                <button type="button" class="btn btn-sm btn-primary rounded-pill" onclick="msDownloadAll()"><i class="fas fa-download me-1"></i>ดาวน์โหลดทั้งหมด (.doc)</button></div>
+                <button type="button" class="btn btn-sm btn-primary rounded-pill" onclick="msDownloadAll()"><i class="fas fa-download me-1"></i>ดาวน์โหลดทั้งหมด (.docx)</button></div>
                 ${files.map((f, i) => `<div class="d-flex flex-wrap align-items-center gap-2 py-2 border-top">
                     <div class="flex-grow-1"><b>${cxEsc(f.title)}</b><br><small class="text-muted">${cxEsc(f.note)}</small></div>
                     <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" onclick="msPreview(${i})"><i class="fas fa-eye me-1"></i>ดู/พิมพ์</button>
-                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="msDownload(${i})"><i class="fas fa-file-word me-1"></i>.doc</button></div>`).join('')}
-                <small class="text-muted d-block mt-2">ไฟล์ .doc เปิดด้วย Word ได้ทันที หรือกด “ดู/พิมพ์” แล้วเลือกบันทึกเป็น PDF</small></div>`;
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="msDownload(${i})"><i class="fas fa-file-word me-1"></i>.docx</button></div>`).join('')}
+                <small class="text-muted d-block mt-2">ไฟล์ .docx เปิดด้วย Word ได้ทันที หรือกด “ดู/พิมพ์” แล้วเลือกบันทึกเป็น PDF</small></div>`;
             box.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
         window.msPreview = (i) => {
             document.getElementById('documentContent').innerHTML = msFiles[i].html;
             new bootstrap.Modal(document.getElementById('previewModal')).show();
         };
-        window.msDownload = (i) => {
+        window.msDownload = async (i) => {
             const f = msFiles[i];
+            if (typeof docx !== 'undefined' && window.ThaiDocx) {
+                try {
+                    const blob = await ThaiDocx.build([{ html: bkStyleHtml(f.html), newPage: false, line: 312 }], { title: f.title, footerText: 'เอกสารนี้พิมพ์จากระบบจัดการกีฬาภายใน พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `${f.name}_${msFileName(systemSettings.eventName)}.docx`;
+                    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+                    return;
+                } catch (err) { console.error(err); }
+            }
+            // สำรอง: .doc (HTML) กรณีตัวสร้าง .docx ใช้ไม่ได้
             const doc = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${cxEsc(f.title)}</title>
                 <style>@page{size:A4;margin:2cm 2.5cm} body{font-family:'Sarabun',sans-serif;font-size:16pt;line-height:1.5}</style></head><body>${f.html}</body></html>`;
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob(['﻿', doc], { type: 'application/msword' }));
+            a.href = URL.createObjectURL(new Blob(['\ufeff', doc], { type: 'application/msword' }));
             a.download = `${f.name}_${systemSettings.eventName}.doc`;
             document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
         };
-        window.msDownloadAll = () => { msFiles.forEach((_, i) => setTimeout(() => msDownload(i), i * 600)); };
+        window.msDownloadAll = async () => { for (let i = 0; i < msFiles.length; i++) { await msDownload(i); await new Promise(r => setTimeout(r, 500)); } };
 
         // ===== คำกล่าวพิธีการ: จัดให้พอดี 1 หน้า A4 =====
         // ลดขนาดตัวอักษร/ขอบกระดาษทีละขั้นจนพอดี 1 หน้า แต่ไม่ต่ำกว่า ~12.8pt (สเกล 0.80 ของ 16pt)
