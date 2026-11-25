@@ -1001,9 +1001,6 @@
                     <div class="speech-line speech-indent">
                         ขอขอบคุณคณะกรรมการจัดการแข่งขัน คณะครูผู้ควบคุมนักกีฬา ครูผู้ฝึกสอน กรรมการตัดสิน เจ้าหน้าที่ทุกฝ่าย ผู้ปกครอง และศิษย์เก่าที่ได้สละเวลาและแรงกายแรงใจมาร่วมจัดงานในครั้งนี้ให้ประสบความสำเร็จอย่างงดงาม
                     </div>
-                    ${cxAwardTeachers().length ? `<div class="speech-line speech-indent">
-                        ขอขอบคุณคณะครูผู้มอบรางวัล ได้แก่ ${cxJoinThai(cxAwardTeachers())} ที่ได้สละเวลามาร่วมมอบรางวัลแก่นักกีฬาผู้ชนะการแข่งขันในครั้งนี้
-                    </div>` : ''}
                     
                     <div class="speech-line speech-indent">
                         หวังเป็นอย่างยิ่งว่านักเรียนทุกคนจะนำประสบการณ์และบทเรียนจากการแข่งขันครั้งนี้ไปใช้ในชีวิตประจำวัน จงรักษาความสามัคคี น้ำใจนักกีฬา และจิตวิญญาณของการเป็นนักกีฬาที่ดีไว้เสมอ คุณสมบัติเหล่านี้จะเป็นรากฐานสำคัญที่จะนำไปสู่ความสำเร็จในทุกด้านของชีวิต
@@ -1870,14 +1867,17 @@
 
         function msBodyHtml(kit, matches, opts) {
             // opts.byDay: แบ่งหัวข้อตามวัน; ตรวจการเปลี่ยนชนิดกีฬา แล้วขึ้นหัวข้อ/เกริ่นกีฬาใหม่
-            let h = '', prevDate = null, prevSport = null, idx = 0, noteShown = false;
+            let h = '', prevDate = null, prevSport = null, idx = 0, noteShown = false, newDay = false;
             const counts = {};
             matches.forEach(m => { counts[m.sport] = (counts[m.sport] || 0) + 1; });
             matches.forEach(m => {
-                if (m.date !== prevDate) { h += cxH(`วันที่ ${msThaiDate(m.date)}`); prevDate = m.date; prevSport = null; }
+                // ขึ้นหน้าใหม่ (Ctrl+Enter ใน Word) เมื่อขึ้นวันใหม่/เปลี่ยนชนิดกีฬา ยกเว้นรายการแรกของไฟล์
+                const brk = (html) => (h ? html.replace('style="', 'style="page-break-before:always; ') : html);
+                if (m.date !== prevDate) { h += brk(cxH(`วันที่ ${msThaiDate(m.date)}`)); prevDate = m.date; prevSport = null; newDay = true; }
                 if (m.sport !== prevSport) {
                     const s = kit.next(), sp = cxEsc(getSportName(m.sport));
-                    h += kit.DIV(`${sp}`);
+                    h += newDay ? kit.DIV(`${sp}`) : brk(kit.DIV(`${sp}`));
+                    newDay = false;
                     h += kit.L(s.n, `ต่อไปจะเป็นช่วงการแข่งขัน${sp} ${counts[m.sport] > 1 ? `มีการแข่งขันทั้งหมด ${counts[m.sport]} รายการ` : ''} ขอให้ทุกคณะสีตรวจสอบความพร้อมของนักกีฬา เมื่อเรียบร้อยแล้วเชิญนักกีฬาเข้าประจำจุด เพื่อฟังท่านกรรมการผู้ตัดสินชี้แจงกติกา ก่อนดำเนินการแข่งขัน${s.e}`);
                     if (!noteShown) { noteShown = true; h += kit.D('เมื่อการแข่งขันเริ่มขึ้น ให้บรรยายไปตามสภาพจริง โดยสังเกตดูสถานการณ์ แทรกอารมณ์ขันได้ตามสมควร แต่ระมัดระวังอย่าให้หยาบคายหรือสร้างความไม่พอใจให้แก่ผู้ฟัง'); }
                     prevSport = m.sport; idx = 0;
@@ -1965,15 +1965,17 @@
             const hasEv = (systemSettings.eventLogo || '').trim() !== '';
             const logos = `<div style="display:flex; justify-content:center; align-items:center; gap:30px; margin-bottom:10px;"><img src="${systemSettings.schoolLogo}" style="height:4cm;">${hasEv ? `<img src="${systemSettings.eventLogo}" style="height:4cm;">` : ''}</div>`;
             const mc = (n, full, cls) => (full || n) ? `<div style="text-align:center; font-size:18pt; margin-top:6px;">${cxEsc(full || n)}${(cls || '').trim() ? ' ชั้นมัธยมศึกษาปีที่ ' + cxEsc(cls) : ''}</div>` : '';
-            return `<div style="text-align:center; margin-top:40px;">${logos}</div>
-                <div style="text-align:center; font-size:44pt; font-weight:bold; margin-top:50px;">บทพิธีกร</div>
+            const C = bkColors();
+            const mcc = (n, full, cls, col) => (full || n) ? `<div style="text-align:center; font-size:20pt; font-weight:bold; margin-top:8px; color:${col};">${cxEsc(full || n)}${(cls || '').trim() ? ' ชั้นมัธยมศึกษาปีที่ ' + cxEsc(cls) : ''}</div>` : '';
+            return `<div data-band="1"><div style="text-align:center; margin-top:20px;">${logos}</div>
+                <div style="text-align:center; font-size:44pt; font-weight:bold; margin-top:40px;">บทพิธีกร</div>
                 <div style="text-align:center; font-size:26pt; font-weight:bold; margin-top:12px;">"${ev}"</div>
                 <div style="text-align:center; font-size:22pt; margin-top:8px;">ประจำปีการศึกษา ${yr}</div>
                 <div style="text-align:center; font-size:20pt; margin-top:36px;">${S}</div>
                 <div style="text-align:center; font-size:18pt; margin-top:10px; font-weight:bold;">${cxDateLine()}</div>
-                <div style="text-align:center; font-size:18pt;">ณ ${cxDots(cd.x_venue, 25)}</div>
-                <div style="text-align:center; font-size:18pt; font-weight:bold; margin-top:50px;">พิธีกร</div>
-                ${mc(cd.mc1, cd.mc1_full, cd.mc1_cls)}${mc(cd.mc2, cd.mc2_full, cd.mc2_cls)}
+                <div style="text-align:center; font-size:18pt;">ณ ${cxDots(cd.x_venue, 25)}</div></div>
+                <div data-band="2"><div style="text-align:center; font-size:18pt; font-weight:bold;">พิธีกร</div>
+                ${mcc(cd.mc1, cd.mc1_full, cd.mc1_cls, C.mc1)}${mcc(cd.mc2, cd.mc2_full, cd.mc2_cls, C.mc2)}</div>
                 `;
         }
         // ปรับหน้าตาบทพิธีกรสำหรับไฟล์ .docx: พิธีกร 1 = น้ำเงินเข้ม, พิธีกร 2 = น้ำตาลเข้ม, ข้อความในวงเล็บ/คำบรรยายเป็นสีดำ, เพิ่มช่องไฟระหว่างย่อหน้า
@@ -2035,7 +2037,7 @@
             }
             if (!secs.length && !bkOpts.cover) { Swal.fire({ icon: 'warning', title: 'ยังไม่ได้เลือกส่วนประกอบ' }); return; }
             if (bkOpts.sports && !files.length) { await Swal.fire({ icon: 'info', title: 'ไม่มีบทบรรยายกีฬา', text: 'ยังไม่ได้เลือกกีฬา หรือยังไม่มีรายการแข่งขัน จะส่งออกเฉพาะส่วนอื่น', timer: 2500, showConfirmButton: false }); }
-            if (bkOpts.cover) secs.unshift({ html: bkCoverHtml(), newPage: false, tocAfter: true });
+            if (bkOpts.cover) { const C = bkColors(); secs.unshift({ html: bkCoverHtml(), newPage: false, tocAfter: true, cover: true, bandColors: [C.mc1, C.mc2] }); }
             Swal.fire({ title: 'กำลังสร้างไฟล์ .docx', text: 'รอสักครู่...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             try {
                 const blob = await ThaiDocx.build(secs.map(x => ({ ...x, html: bkStyleHtml(x.html) })), { title: `บทพิธีกร ${systemSettings.eventName} ${systemSettings.academicYear}`, footerText: 'เอกสารนี้พิมพ์จากระบบจัดการกีฬาภายใน พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง', toc: !!bkOpts.toc });

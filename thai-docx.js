@@ -3,7 +3,7 @@
  * ใช้: const blob = await ThaiDocx.build([{ html, newPage: true }, ...], { footerText }); */
 (function () {
     'use strict';
-    const FONT = 'Sarabun', BASE_PT = 16;
+    const FONT = 'TH SarabunPSK', BASE_PT = 16;
     const PAGE = { top: 1134, bottom: 1134, left: 1417, right: 1417 };     // A4: บน/ล่าง 2 ซม. ซ้าย/ขวา 2.5 ซม.
     const CONTENT_W = 11906 - PAGE.left - PAGE.right;                      // DXA
     const BLOCK = new Set(['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TABLE', 'UL', 'OL']);
@@ -19,6 +19,19 @@
     }
     const toPx = (v, def) => { const t = toTwip(v); return t ? t / 15 : def; };
     const toPt = (v, def) => { const m = String(v || '').match(/^([\d.]+)pt$/); return m ? parseFloat(m[1]) : def; };
+
+    const tint = (hex, k) => { const h = String(hex || '').replace('#', ''); if (!/^[0-9a-f]{6}$/i.test(h)) return 'F3F3F3'; return [0, 2, 4].map(i => Math.round(255 - (255 - parseInt(h.substr(i, 2), 16)) * k).toString(16).padStart(2, '0')).join('').toUpperCase(); };
+
+    // ประมาณจำนวนหน้าของแต่ละส่วน เพื่อใส่เลขหน้าเริ่มต้นในสารบัญ (Word จะอัปเดตเป็นค่าจริงเมื่อเปิดไฟล์/กด F9)
+    function estPages(html, line) {
+        const d = document.createElement('div');
+        d.style.cssText = `position:absolute;left:-9999px;top:0;visibility:hidden;width:${Math.round(CONTENT_W / 15)}px;font-family:'TH SarabunPSK','Sarabun',sans-serif;font-size:${BASE_PT}pt;line-height:${((line || 276) / 240 * 1.15).toFixed(2)};`;
+        d.innerHTML = html;
+        d.querySelectorAll('[style]').forEach(e => { e.style.lineHeight = ''; });
+        document.body.appendChild(d);
+        const h = d.offsetHeight; document.body.removeChild(d);
+        return Math.max(1, Math.ceil(h / (971 * 0.96)));
+    }
 
     // ---------- รูปภาพ ----------
     async function loadImage(src) {
@@ -185,7 +198,7 @@
     }
 
     // ---------- specs -> docx ----------
-    function buildDocx(specs, opts) {
+    function buildDocx(specs, opts, cover) {
         const D = docx;
         const border = (b) => b ? { style: b.s === 'double' ? D.BorderStyle.DOUBLE : b.s === 'dashed' ? D.BorderStyle.DASHED : b.s === 'dotted' ? D.BorderStyle.DOTTED : D.BorderStyle.SINGLE, size: b.sz, color: b.color, space: 4 } : undefined;
         const ALIGN = { center: D.AlignmentType.CENTER, right: D.AlignmentType.RIGHT, left: D.AlignmentType.LEFT, dist: D.AlignmentType.THAI_DISTRIBUTE };
@@ -237,6 +250,25 @@
                 }))
             });
         };
+        // ปกเต็มหน้า: ตารางแถบสีอ่อน 2 แถบ (ตามสีพิธีกร 1 และ 2) ในส่วน (section) ที่ไม่มีขอบกระดาษ
+        const coverSection = () => {
+            const rowsH = [11400, 5000];
+            const rows = cover.bands.map((band, i) => new D.TableRow({
+                cantSplit: true, height: { value: rowsH[i] || 3000, rule: D.HeightRule.EXACT },
+                children: [new D.TableCell({
+                    width: { size: 11906, type: D.WidthType.DXA }, borders: noBorders,
+                    shading: { type: D.ShadingType.CLEAR, fill: cover.colors[i] || 'FFFFFF', color: 'auto' },
+                    verticalAlign: i === 0 ? D.VerticalAlign.TOP : D.VerticalAlign.CENTER,
+                    margins: { top: i === 0 ? 700 : 0, bottom: 0, left: 1417, right: 1417 },
+                    children: band.length ? band.map(x => x.k === 't' ? table(x) : para(x)) : [new D.Paragraph({ children: [] })]
+                })]
+            }));
+            return {
+                properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 0, bottom: 0, left: 0, right: 0, header: 0, footer: 0 } } },
+                children: [new D.Table({ width: { size: 11906, type: D.WidthType.DXA }, columnWidths: [11906], borders: noBorders, rows }),
+                    new D.Paragraph({ spacing: { before: 0, after: 0, line: 20, lineRule: D.LineRuleType.EXACT }, children: [new D.TextRun({ text: '', size: 2 })] })]
+            };
+        };
         const children = specs.map(sp => sp.k === 't' ? table(sp) : para(sp));
         if (!children.length) children.push(new D.Paragraph({ children: [] }));
         const T = (text, size, extra = {}) => new D.TextRun({ text, size: size * 2, sizeComplexScript: size * 2, color: '666666', ...extra });
@@ -257,8 +289,23 @@
                     }
                 }
             },
-            sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { ...PAGE, footer: 567 } } }, footers: { default: footer }, children }]
+            sections: [...(cover ? [coverSection()] : []), { properties: { page: { size: { width: 11906, height: 16838 }, margin: { ...PAGE, footer: 567 } } }, footers: { default: footer }, children }]
         });
+    }
+
+    // ใส่เลขหน้าที่ประมาณไว้เป็นค่าเริ่มต้นของฟิลด์ PAGEREF (ไม่เช่นนั้นจะขึ้นเป็น 1 ทั้งหมดจนกว่าจะอัปเดตฟิลด์)
+    async function fillPageRefs(blob, marks) {
+        if (!marks.length) return blob;
+        const pg = {}; marks.forEach(m => { pg[m.bm] = m.page; });
+        const zip = await JSZip.loadAsync(blob);
+        let xml = await zip.file('word/document.xml').async('string');
+        xml = xml.replace(/<w:r>(<w:rPr>(?:(?!<\/w:rPr>)[\s\S])*<\/w:rPr>)?<w:fldChar w:fldCharType="begin"([^>]*)\/><w:instrText([^>]*)>PAGEREF (\w+) \\h<\/w:instrText><w:fldChar w:fldCharType="separate"\/><w:fldChar w:fldCharType="end"\/><\/w:r>/g,
+            (m, rpr, a1, a2, bm) => {
+                const rp = rpr || '';
+                return `<w:r>${rp}<w:fldChar w:fldCharType="begin"${a1}/><w:instrText${a2}>PAGEREF ${bm} \\h</w:instrText><w:fldChar w:fldCharType="separate"/></w:r><w:r>${rp}<w:t>${pg[bm] || 1}</w:t></w:r><w:r>${rp}<w:fldChar w:fldCharType="end"/></w:r>`;
+            });
+        zip.file('word/document.xml', xml);
+        return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
     }
 
     // ใส่ <w:cs/> ให้ทุก run ที่มีอักษรไทย (Word จึงตัดคำไทยถูกและไม่ขีดเส้นแดง)
@@ -292,25 +339,35 @@
         const imgs = {};
         await Promise.all([...srcs].map(async s => { imgs[s] = await loadImage(s); }));
         const specs = [], marks = [];
-        let tocAt = 0;
+        let tocAt = 0, cover = null, nextPage = 1;
         docs.forEach((d, idx) => {
-            const part = convertChildren(d.body, { size: BASE_PT }, imgs, []);
             const sec = sections[idx];
+            if (sec.cover) {
+                const bands = [...d.body.querySelectorAll('[data-band]')].map(b => convertChildren(b, { size: BASE_PT }, imgs, []));
+                cover = { bands, colors: (sec.bandColors || []).map(c => tint(c, 0.16)) };
+                nextPage = 2;
+                return;
+            }
+            const part = convertChildren(d.body, { size: BASE_PT }, imgs, []);
             if (part.length && sec.newPage && specs.length) part[0].pageBreak = true;
             if (sec.line) part.forEach(sp => { sp.line = sec.line; });
-            if (sec.tocTitle && part.length) { const bm = 'sec' + idx; part[0].bm = bm; marks.push({ title: sec.tocTitle, bm, level: sec.tocLevel || 0 }); }
+            const np = estPages(sections[idx].html, sec.line);
+            if (sec.tocTitle && part.length) { const bm = 'sec' + idx; part[0].bm = bm; marks.push({ title: sec.tocTitle, bm, level: sec.tocLevel || 0, page: nextPage }); }
+            nextPage += np;
             specs.push(...part);
             if (sec.tocAfter) tocAt = specs.length;
         });
         if (opts.toc && marks.length) {
+            const tocPages = Math.max(1, Math.ceil((marks.length + 2) / 28));
+            marks.forEach(m => { m.page += tocPages; });
             // สารบัญ: ชื่อส่วน ....... เลขหน้า (เลขหน้าเป็นฟิลด์ PAGEREF ให้ Word อัปเดตตอนเปิดไฟล์)
             const toc = [{ k: 'p', runs: [{ t: 'สารบัญ', b: true, size: 24 }], size: 24, align: 'center', before: 0, after: 360, left: 0, hanging: 0, pageBreak: tocAt > 0, keepNext: true }];
             marks.forEach(m => toc.push({ k: 'p', runs: [{ t: m.title, b: m.level === 0 && !!m.bold }, { tab: true }, { pageref: m.bm }], size: 16, align: 'left', before: 0, after: 100, left: m.level ? 567 : 0, hanging: 0, tabRight: CONTENT_W - (m.level ? 567 : 0) }));
             if (specs[tocAt]) specs[tocAt].pageBreak = true;
             specs.splice(tocAt, 0, ...toc);
         }
-        const blob = await docx.Packer.toBlob(buildDocx(specs, opts));
-        return addThaiCs(blob);
+        const blob = await docx.Packer.toBlob(buildDocx(specs, opts, cover));
+        return addThaiCs(await fillPageRefs(blob, marks));
     }
 
     window.ThaiDocx = { build, _convert: (html, imgs = {}) => convertChildren(new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html').body, { size: BASE_PT }, imgs, []) };
