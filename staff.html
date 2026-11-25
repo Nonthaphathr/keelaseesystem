@@ -50,7 +50,8 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 const $ = (x) => document.getElementById(x);
 const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 const qs = new URLSearchParams(location.search);
-const who = norm(qs.get('n')), tkey = qs.get('t') || '';
+const ALL = qs.get('all') === '1';   // การ์ดฉุกเฉิน: เห็นและลงคะแนนได้ทุกรายการ
+const who = ALL ? (norm(qs.get('n')) || 'การ์ดฉุกเฉิน') : norm(qs.get('n')), tkey = qs.get('t') || '';
 
 let settings = {}, matches = {};
 const sportName = (k) => (settings.sports || {})[k] || k;
@@ -73,7 +74,8 @@ if (!who) {
 function draw() {
     const arr = Object.entries(matches).map(([id, m]) => ({ ...m, id }));
     let mine;
-    if (settings.scorerOnePerMatch) {   // โหมดรายการละ 1 คน (แบ่งสีละครึ่ง) — ใช้ตัวคำนวณเดียวกับหน้าการ์ด QR
+    if (ALL) mine = arr.map(m => ({ m, idx: 0 }));
+    else if (settings.scorerOnePerMatch) {   // โหมดรายการละ 1 คน (แบ่งสีละครึ่ง) — ใช้ตัวคำนวณเดียวกับหน้าการ์ด QR
         const ids = new Set();
         scorerCards(arr, { one: true }).filter(c => (!tkey || c.team === tkey) && [c.name, ...c.variants].some(v => similarName(v, who))).forEach(c => c.ms.forEach(x => ids.add(x.id)));
         mine = arr.filter(m => ids.has(m.id)).map(m => ({ m, idx: 0 }));
@@ -87,7 +89,7 @@ function draw() {
     mine.forEach(x => (byDay[x.m.date || ''] = byDay[x.m.date || ''] || []).push(x));
     $('list').innerHTML = Object.keys(byDay).sort().map(d => `<div class="day"><i class="fas fa-calendar-day me-1"></i>${fmtDate(d)}</div>` +
         byDay[d].map(({ m, idx }) => {
-            const href = `judge.html?m=${encodeURIComponent(m.id)}`;
+            const href = `judge.html?m=${encodeURIComponent(m.id)}&via=${ALL ? 'emergency' : 'staff'}&by=${encodeURIComponent(ALL ? '' : who)}&t=${encodeURIComponent(tkey)}`;
             const done = m.status === 'done';
             return `<a class="item ${done ? 'done' : ''}" href="${href}">
                 <div class="t">${esc(sportName(m.sport))} <small class="text-muted">(${esc(m.category || '')})</small> ${done ? '<span class="badge bg-success">จบแล้ว</span>' : ''}</div>

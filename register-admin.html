@@ -89,6 +89,8 @@
                         <select id="scTeam" class="form-select form-select-sm" style="width:auto" onchange="renderScorers()"></select>
                         <button class="btn btn-sm btn-primary rounded-pill" onclick="printScorerCards()"><i class="fas fa-print me-1"></i>พิมพ์การ์ด (รายบุคคล)</button>
                         <button class="btn btn-sm btn-success rounded-pill" onclick="openMatchCardPicker()"><i class="fas fa-list-check me-1"></i>พิมพ์ตามรายการแข่งขัน</button>
+                        <button class="btn btn-sm btn-danger rounded-pill" onclick="printEmergencyCards()"><i class="fas fa-triangle-exclamation me-1"></i>การ์ดฉุกเฉิน (ลงได้ทุกรายการ)</button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="openScoreLog()"><i class="fas fa-clock-rotate-left me-1"></i>ดู log การส่งคะแนน</button>
                         <button class="btn btn-sm btn-warning rounded-pill" onclick="openNoScorer()"><i class="fas fa-user-pen me-1"></i>รายการที่ยังไม่มีผู้ส่งคะแนน <span class="badge bg-danger" id="noScBadge"></span></button>
                     </div>
                 </div>
@@ -243,7 +245,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
         import { getDatabase, ref, onValue, get, set, update } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
-        import { TEAM_PARADE_FIELDS, SCHOOL_PARADE_FIELDS, paradeConflicts, athleteConflicts, scorerCards, attachSuggest, fmtTime } from "./reg-utils.js";
+        import { TEAM_PARADE_FIELDS, SCHOOL_PARADE_FIELDS, paradeConflicts, athleteConflicts, scorerCards, attachSuggest, fmtTime, emergencyCardsPage, scoreLogRows, scoreLogHtml } from "./reg-utils.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -730,6 +732,25 @@
                 .no{font-size:11pt;color:#b71c1c;padding:10mm 0}.ft{text-align:center;font-size:9pt;color:#555;margin-top:2mm}</style></head><body>${html}
                 <script>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))<\/script></body></html>`);
             w.document.close();
+        };
+
+        // ===== การ์ดฉุกเฉิน + log การส่งคะแนน =====
+        window.printEmergencyCards = async () => {
+            const r = await Swal.fire({ title: 'การ์ดฉุกเฉิน', html: 'การ์ด QR ใบนี้เปิดดูและลงคะแนนได้ <b>ทุกรายการ</b> ใช้เมื่อผู้ส่งคะแนนไม่อยู่/ขัดข้อง<br>ต้องการพิมพ์กี่ใบ?', input: 'number', inputValue: 2, inputAttributes: { min: 1, max: 20 }, showCancelButton: true, confirmButtonText: 'พิมพ์', cancelButtonText: 'ยกเลิก' });
+            if (!r.isConfirmed) return;
+            const n = Math.max(1, Math.min(20, parseInt(r.value) || 1));
+            const u = new URL('staff.html', location.href); u.searchParams.set('all', '1');
+            const w = window.open('', '_blank');
+            if (!w) return Swal.fire({ icon: 'warning', title: 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์', text: 'กรุณาอนุญาต pop-up แล้วลองใหม่' });
+            w.document.write(emergencyCardsPage(esc(`${settings.eventName || ''} ${settings.academicYear || ''}`.trim()), u.href, n)); w.document.close();
+        };
+        window.openScoreLog = async () => {
+            try {
+                await authReady;
+                const logs = (await get(ref(db, 'scoreLog'))).val() || {};
+                const label = (mid) => { const m = matches.find(x => x.id === mid); return m ? `${mLabel(m)} ${m.time || ''}` : mid; };
+                Swal.fire({ title: 'ประวัติการส่งคะแนน', html: scoreLogHtml(scoreLogRows(logs), label, esc), width: '95%', confirmButtonText: 'ปิด' });
+            } catch (e) { Swal.fire({ icon: 'error', title: 'โหลด log ไม่สำเร็จ', text: String(e.message || e) + ' — ถ้าขึ้น PERMISSION_DENIED ต้องเปิด Firebase Rules ให้อ่าน/เขียน scoreLog' }); }
         };
 
         // ===== รายการที่ยังไม่มีผู้ส่งคะแนน (ครูกรอกเพิ่มได้) =====

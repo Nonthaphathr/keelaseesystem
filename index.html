@@ -730,6 +730,8 @@
                 </div>
                 <div class="modal-footer">
                     <span class="me-auto small text-muted" id="scCount"></span>
+                    <button type="button" class="btn btn-outline-secondary" onclick="openScoreLog()"><i class="fas fa-clock-rotate-left me-1"></i> ดู log การส่งคะแนน</button>
+                    <button type="button" class="btn btn-danger" onclick="printEmergencyCards()"><i class="fas fa-triangle-exclamation me-1"></i> การ์ดฉุกเฉิน (ลงได้ทุกรายการ)</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
                     <button type="button" class="btn btn-primary" onclick="scPrint()"><i class="fas fa-print me-1"></i> พิมพ์การ์ด</button>
                 </div>
@@ -3794,6 +3796,24 @@
                 <div class="small" style="color:${scTeamColor(c.team)}">${esc2(scTeamName(c.team))}</div>
                 <div class="small text-muted">รับผิดชอบ ${c.ms.length} รายการ${c.variants.length > 1 ? '<br><span class="text-info">ชื่อพิมพ์ไม่ตรงกัน: ' + c.variants.map(esc2).join(' / ') + '</span>' : ''}</div>
             </div></div>`).join('') : '<div class="text-center text-muted p-4">ยังไม่มีคณะสีใดกรอกผู้ส่งคะแนนในหน้าลงทะเบียน</div>';
+    };
+    window.printEmergencyCards = async () => {
+        scMod = scMod || await import('./reg-utils.js');
+        const r = await Swal.fire({ title: 'การ์ดฉุกเฉิน', html: 'การ์ด QR ใบนี้เปิดดูและลงคะแนนได้ <b>ทุกรายการ</b> ใช้เมื่อผู้ส่งคะแนนไม่อยู่/ขัดข้อง<br>ต้องการพิมพ์กี่ใบ?', input: 'number', inputValue: 2, inputAttributes: { min: 1, max: 20 }, showCancelButton: true, confirmButtonText: 'พิมพ์', cancelButtonText: 'ยกเลิก' });
+        if (!r.isConfirmed) return;
+        const n = Math.max(1, Math.min(20, parseInt(r.value) || 1));
+        const href = location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '') + 'staff.html?all=1';
+        const w = window.open('', '_blank');
+        if (!w) { Swal.fire({ icon: 'warning', title: 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์', text: 'กรุณาอนุญาต pop-up แล้วลองใหม่' }); return; }
+        w.document.write(scMod.emergencyCardsPage(esc2(`${systemSettings.eventName || ''} ${systemSettings.academicYear || ''}`.trim()), href, n)); w.document.close();
+    };
+    window.openScoreLog = async () => {
+        scMod = scMod || await import('./reg-utils.js');
+        try {
+            const logs = (await get(ref(db, 'scoreLog'))).val() || {};
+            const label = (mid) => { const m = allMatchesArray.find(x => x.id === mid); return m ? `${getSportName(m.sport)} ${m.category || ''} ${m.time || ''}` : mid; };
+            Swal.fire({ title: 'ประวัติการส่งคะแนน', html: scMod.scoreLogHtml(scMod.scoreLogRows(logs), label, esc2), width: '95%', confirmButtonText: 'ปิด' });
+        } catch (e) { Swal.fire({ icon: 'error', title: 'โหลด log ไม่สำเร็จ', text: String(e.message || e) + ' — ถ้าขึ้น PERMISSION_DENIED ต้องเปิด Firebase Rules ให้อ่าน/เขียน scoreLog' }); }
     };
     window.scPrint = () => {
         if (!scMod) return;

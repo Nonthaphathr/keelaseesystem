@@ -36,7 +36,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
-import { getDatabase, ref, onValue, update, runTransaction } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+import { getDatabase, ref, onValue, update, runTransaction, push } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
 
 const app = initializeApp({
     apiKey: "AIzaSyBc8zSVlgKarSt42YGFgSxHmqG7Max-3U0",
@@ -52,6 +52,9 @@ const authReady = signInAnonymously(getAuth(app)).catch(e => console.warn('anony
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const qs = new URLSearchParams(location.search);
 const id = qs.get('m');
+const VIA = qs.get('via') || 'link';          // staff = การ์ดประจำสนาม, emergency = การ์ดฉุกเฉิน, link = ลิงก์กรรมการ
+const TKEY = qs.get('t') || '';
+let BY = (qs.get('by') || '').trim();
 const JN = parseInt(qs.get('j')) || 0;   // ลิงก์ส่วนตัวของกรรมการท่านที่ N (เฉพาะรายการประกวด)
 const isPanel = () => m && (m.sport === 'cheer' || m.sport === 'parade' || /ขบวน|พาเหรด|เชียร์/.test((settings.sports || {})[m.sport] || ''));
 const $ = (x) => document.getElementById(x);
@@ -144,10 +147,31 @@ function controls(method, teams) {
     return h;
 }
 
-const save = (u) => update(mref(), u).catch(e => Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' }));
+// ---- log การส่งคะแนน: เวลา / ช่องทาง / ผู้ส่ง / อุปกรณ์ / IP (ดึงได้เท่าที่เบราว์เซอร์อนุญาต) ----
+const devInfo = () => { const u = navigator.userAgent; const os = /Android/.test(u) ? 'Android' : /iPhone|iPad/.test(u) ? 'iOS' : /Windows/.test(u) ? 'Windows' : /Mac/.test(u) ? 'macOS' : /Linux/.test(u) ? 'Linux' : 'อื่น ๆ';
+    const br = /Edg\//.test(u) ? 'Edge' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : /Firefox\//.test(u) ? 'Firefox' : ''; return `${os}${br ? ' / ' + br : ''}`; };
+let ipP = null;
+const getIp = () => ipP || (ipP = Promise.race([fetch('https://api.ipify.org?format=json').then(r => r.json()).then(j => j.ip || ''), new Promise(r => setTimeout(() => r(''), 2500))]).catch(() => ''));
+getIp();
+async function ensureBy() {
+    if (BY) return;
+    try { BY = localStorage.getItem('ksJudgeName') || ''; } catch (e) {}
+    if (BY) return;
+    const r = await Swal.fire({ title: 'ใครเป็นผู้ส่งคะแนน?', input: 'text', inputPlaceholder: 'พิมพ์ชื่อของท่าน (ใช้บันทึกประวัติการส่งคะแนน)', confirmButtonText: 'ตกลง', showCancelButton: true, cancelButtonText: 'ข้าม', allowOutsideClick: false });
+    BY = (r.isConfirmed && r.value ? String(r.value).trim() : '') || 'ไม่ระบุ';
+    try { if (BY !== 'ไม่ระบุ') localStorage.setItem('ksJudgeName', BY); } catch (e) {}
+}
+async function logEv(action, detail) {
+    try {
+        await ensureBy();
+        const ip = await getIp();
+        await push(ref(db, 'scoreLog/' + id), { t: Date.now(), by: BY, via: VIA, team: TKEY, jn: JN || null, action, detail: detail || '', dev: devInfo(), ip: ip || '' });
+    } catch (e) { console.warn('log failed', e); }
+}
+const save = (u) => update(mref(), u).then(() => logEv('แก้ผล', Object.keys(u).join(', '))).catch(e => Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' }));
 const dets = () => ({ ...(m.details || {}) });
 
-window.pt = (tk, delta) => runTransaction(ref(db, `matches/${id}/scores/${tk}`), c => Math.max(0, (c || 0) + delta)).catch(() => Swal.fire({ icon: 'error', title: 'บันทึกคะแนนไม่สำเร็จ' }));
+window.pt = (tk, delta) => runTransaction(ref(db, `matches/${id}/scores/${tk}`), c => Math.max(0, (c || 0) + delta)).then(() => logEv(delta > 0 ? 'เพิ่มคะแนน' : 'ลดคะแนน', `${team(tk).name} ${delta > 0 ? '+' : ''}${delta}`)).catch(() => Swal.fire({ icon: 'error', title: 'บันทึกคะแนนไม่สำเร็จ' }));
 window.simpleWin = (tk) => { const s = {}; (m.teams || []).forEach(k => s[k] = k === tk ? 1 : 0); save({ scores: s }); };
 window.cheer = (jn, tk, v) => {
     // ใช้ transaction เพื่อให้กรรมการหลายคนบันทึกพร้อมกันได้โดยคะแนนไม่ทับกัน
@@ -158,7 +182,7 @@ window.cheer = (jn, tk, v) => {
         cur.scores = cur.scores || {};
         (cur.teams || []).forEach(k => { let sum = 0; for (let i = 1; i <= 5; i++) sum += cur.details[`j${i}_${k}`] || 0; cur.scores[k] = sum; });
         return cur;
-    }).catch(() => Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' }));
+    }).then(() => logEv('ให้คะแนนกรรมการ', `ท่านที่ ${jn} ${team(tk).name} = ${parseInt(v) || 0}`)).catch(() => Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่' }));
 };
 window.setPoint = (n, tk, v) => {
     const d = dets(); d[`s${n}_${tk}`] = parseInt(v) || 0;
