@@ -3613,9 +3613,17 @@
         if (type === 'schedule') {
             document.getElementById('previewTitle').innerHTML = '<i class="far fa-calendar-alt me-2"></i> ตัวอย่างกำหนดการ';
             text = `📅 กำหนดการแข่งขันกีฬาภายใน\n📍 ประจำ${dateLabel}\n----------------------------\n`;
-            targetMatches.forEach(m => {
-                let statusIcon = m.status === 'done' ? '✅' : '⏰';
-                text += `${statusIcon} ${m.time} น. : ${getSportName(m.sport)}\n   👉 ${m.category} (สนาม: ${m.location||'-'})\n   🎽 ${getMatchTeamsText(m)}\n\n`;
+            // คัดลอกทั้งหมด (ไม่ได้เลือกวัน) → แบ่งเป็นส่วนตามวันที่ ให้เห็นชัดว่าแต่ละวันเริ่ม/จบตรงไหน
+            const byDay = {};
+            targetMatches.slice().sort((a, b) => ((a.date || '') + (a.time || '')).localeCompare((b.date || '') + (b.time || '')))
+                .forEach(m => (byDay[m.date || ''] = byDay[m.date || ''] || []).push(m));
+            const dayKeys = Object.keys(byDay).sort();
+            dayKeys.forEach((d, di) => {
+                if (filterD === 'all') text += `${di ? '\n' : ''}━━━━━━━━━━━━━━\n📆 ${d ? 'วันที่ ' + formatDateThaiLong(d) : 'ไม่ระบุวัน'} (${byDay[d].length} รายการ)\n━━━━━━━━━━━━━━\n\n`;
+                byDay[d].forEach(m => {
+                    let statusIcon = m.status === 'done' ? '✅' : '⏰';
+                    text += `${statusIcon} ${m.time} น. : ${getSportName(m.sport)}\n   👉 ${m.category} (สนาม: ${m.location||'-'})\n   🎽 ${getMatchTeamsText(m)}\n\n`;
+                });
             });
         } else if (type === 'result') {
             document.getElementById('previewTitle').innerHTML = '<i class="fas fa-trophy me-2"></i> ตัวอย่างผลการแข่งขัน';

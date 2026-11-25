@@ -283,24 +283,10 @@
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="doc-type-card" onclick="selectDocType('opening_mc')">
-                            <i class="fas fa-microphone text-success"></i>
-                            <h6 class="fw-bold mb-1">บทพิธีกร</h6>
-                            <small class="text-muted">บทพูดพิธีกร ขบวน พิธีการ และบรรยายกีฬา</small>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="doc-type-card" onclick="selectDocType('mc_sport')">
-                            <i class="fas fa-bullhorn text-primary"></i>
-                            <h6 class="fw-bold mb-1">บทพิธีกรบรรยายกีฬา</h6>
-                            <small class="text-muted">ดึงทุกกีฬาจากตารางแข่งขัน เรียงตามเวลา แยกไฟล์ตามกีฬา / เกริ่นนำ / กล่าวปิด</small>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
                         <div class="doc-type-card" onclick="selectDocType('mc_book')">
                             <i class="fas fa-book text-danger"></i>
                             <h6 class="fw-bold mb-1">ส่งออกบทพิธีกรทั้งหมด (.docx)</h6>
-                            <small class="text-muted">ปกหน้า + กำหนดการ + บทพิธีกรทุกส่วน รวมเป็นไฟล์เดียว พิมพ์ครั้งเดียว</small>
+                            <small class="text-muted">ปก + สารบัญ + กำหนดการ + บทพิธีกรทุกส่วน + ภาคผนวก (ปฏิญาณ/ประวัตินักกีฬา/คำกล่าวรายงาน) รวมเป็นไฟล์เดียว</small>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -388,16 +374,6 @@
                                 </ul>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <div id="awardTeacherSection" class="d-none mt-4">
-                    <div class="card border-0 bg-light">
-                        <div class="card-header bg-white border-0 py-3">
-                            <h6 class="fw-bold text-primary mb-0"><i class="fas fa-user-graduate me-2"></i>ครูผู้มอบรางวัล</h6>
-                            <small class="text-muted">ใส่ชื่อพร้อมคำนำหน้า (เช่น ครูสมชาย ใจดี) และตำแหน่งถ้ามี — ระบบจะใส่ในคำกล่าวให้อัตโนมัติ และจำรายชื่อไว้ใช้ครั้งต่อไป</small>
-                        </div>
-                        <div class="card-body p-3"><div id="awardTeacherList"></div></div>
                     </div>
                 </div>
 
@@ -625,16 +601,6 @@
                     renderAwardTypes();
                 }
 
-                const atSec = document.getElementById('awardTeacherSection');
-                const showAT = (type === 'closing_chairman');   // บทประกาศผลรางวัลใช้ช่องผู้มอบรายรายการแทน
-                atSec.classList.toggle('d-none', !showAT);
-                if (showAT) {
-                    document.getElementById('awardTeacherList').innerHTML = cxList('award_teachers',
-                        [{ k: 'name', w: 3, ph: 'ชื่อ-สกุล (พร้อมคำนำหน้า)' }, { k: 'role', w: 2, ph: 'ตำแหน่ง (ถ้ามี)' }],
-                        [{}, {}, {}], 'เพิ่มครูผู้มอบรางวัล');
-                    cxRenderList('award_teachers');
-                    saveCd();
-                }
             }, 300);
         };
 
@@ -766,7 +732,7 @@
             const aw = cxComputeAwards(sports);
             cd.award_pres = cd.award_pres || {};
             const row = (key, label) => `<div class="d-flex gap-2 align-items-center mb-1"><div class="small" style="flex:3"><i class="fas fa-trophy text-warning me-1"></i>${cxEsc(label)}</div>
-                <input type="text" autocomplete="off" class="form-control form-control-sm" style="flex:2" data-key="${cxEsc(key)}" value="${cxEsc(cd.award_pres[key] || '')}" placeholder="ผู้มอบ (ว่าง = ประธาน)" oninput="cxSetPres(this)"></div>`;
+                <input type="text" autocomplete="off" class="form-control form-control-sm" style="flex:2" data-key="${cxEsc(key)}" value="${cxEsc(cd.award_pres[key] || '')}" placeholder="ผู้มอบ (ว่าง = เว้นให้เขียนเติม)" oninput="cxSetPres(this)"></div>`;
             // ผู้มอบอยู่ในแถวของแต่ละกีฬา เทียบกับรายการรางวัลโดยตรง (กรอกได้ก่อนกดสร้างบท)
             sports.forEach(sk => {
                 const el = document.getElementById('awp_' + sk);
@@ -775,7 +741,7 @@
             const box = document.getElementById('awardPresenters');
             if (box) box.innerHTML = `<div class="award-type-item"><h6 class="fw-bold text-dark mb-2"><i class="fas fa-medal text-warning me-2"></i>รางวัลรวมทุกกีฬา</h6>
                 ${row('__runnerup', 'ถ้วยรองชนะเลิศอันดับ 1')}${row('__overall', 'ถ้วยชนะเลิศ คะแนนรวมทุกกีฬา')}
-                <small class="text-muted d-block mt-2">พิมพ์ชื่อผู้มอบได้อิสระ บทจะเชิญผู้มอบขึ้นเวทีทีละท่านทีละรายการ (คนเดียวกันมอบติดกันจะเชิญครั้งเดียว) เว้นว่าง = ประธานในพิธีเป็นผู้มอบ</small></div>`;
+                <small class="text-muted d-block mt-2">พิมพ์ชื่อผู้มอบได้อิสระ บทจะเชิญผู้มอบขึ้นเวทีทีละท่านทีละรายการ (คนเดียวกันมอบติดกันจะเชิญครั้งเดียว) เว้นว่าง = พิมพ์เป็นจุด ..................... ให้เขียนชื่อผู้มอบเติมเอง</small></div>`;
             document.querySelectorAll('#awardTypeContainer input[data-key]').forEach(el => cxSug.bind(el));
         };
         // (ผูก suggest กับทุกช่องผู้มอบ ทำท้ายฟังก์ชัน renderAwardPresenters ผ่าน cxBindPres)
@@ -1096,11 +1062,11 @@
             const team = (w) => (!w || /^\.+$/.test(w)) ? '.'.repeat(20) : (w === '-' ? '-' : 'คณะ' + cxEsc(w));
             const say = (fn) => { const s = kit.next(); return fn(s); };
             const pres = (key) => ((cd.award_pres || {})[key] || '').trim();
-            const presTxt = (key) => pres(key) ? cxEsc(pres(key)) : 'ท่านประธาน';
-            const presInv = (key) => pres(key) ? cxEsc(pres(key)) : chairTxt;   // ชื่อสำหรับเชิญขึ้นเวที (ว่าง = ประธาน)
+            const presTxt = (key) => pres(key) ? cxEsc(pres(key)) : '.'.repeat(20) + ' ';   // ว่าง = จุดไข่ปลาให้เขียนเติม
+            const presInv = (key) => pres(key) ? cxEsc(pres(key)) : '.'.repeat(20);   // ว่าง = จุดไข่ปลาให้เขียนเติม
             // ลำดับการมอบทั้งหมด: ผู้มอบคนเดียวกันมอบรายการติดกัน = เชิญขึ้นเวทีครั้งเดียว ไม่ต้องเชิญซ้ำ
             const seq = awardList.map(a => a.title).concat(['__runnerup', '__overall']);
-            const pid = (k) => pres(k) || '__chair';
+            const pid = (k) => pres(k) || ('__blank_' + k);   // ช่องว่างแต่ละรายการถือเป็นผู้มอบคนละคน (เชิญขึ้นเวทีทุกรายการ)
             let seqIdx = 0;
             const turn = () => { const i = seqIdx++; return { first: i === 0 || pid(seq[i]) !== pid(seq[i - 1]), last: i === seq.length - 1 || pid(seq[i]) !== pid(seq[i + 1]) }; };
             let h = cxHead('บทพิธีกร ประกาศผลรางวัลและมอบรางวัล') + cxTitleBlock();
@@ -1148,7 +1114,7 @@
             opening_schedule: 'กำหนดการพิธีเปิด',
             opening_mc: 'บทพิธีกร พิธีเปิด',
             mc_sport: 'บทพิธีกรบรรยายกีฬา (ทุกชนิดกีฬา)',
-            mc_book: 'ส่งออกบทพิธีกรทั้งหมด (ปก + กำหนดการ + บทพิธีกร)',
+            mc_book: 'ส่งออกบทพิธีกรทั้งหมด (ปก + สารบัญ + กำหนดการ + บทพิธีกร + ภาคผนวก)',
             oath: 'คำกล่าวปฏิญาณตนของนักกีฬาอาวุโส',
             athlete_bio: 'ประวัตินักกีฬาอาวุโสและนักกีฬาวิ่งคบเพลิง'
         };
@@ -1240,8 +1206,10 @@
 
         // ----- รายชื่อครูผู้มอบรางวัล (ใช้ในคำกล่าวปิด) -----
         function cxAwardTeachers() {
-            return (cd.award_teachers || []).filter(t => (t.name || '').trim())
-                .map(t => cxEsc(t.name.trim()) + ((t.role || '').trim() ? ` (${cxEsc(t.role.trim())})` : ''));
+            // ผู้มอบรางวัลที่ระบุในแต่ละรายการ (ไม่ซ้ำ) ใช้ขอบคุณในคำกล่าวปิด
+            const seen = new Set(), out = [];
+            Object.values(cd.award_pres || {}).forEach(v => { const t = String(v || '').trim(); if (t && !seen.has(t)) { seen.add(t); out.push(cxEsc(t)); } });
+            return out;
         }
         function cxJoinThai(arr) {
             if (arr.length <= 1) return arr.join('');
@@ -1451,9 +1419,22 @@
         // =========================================================
         // 3) บทพิธีกร พิธีเปิด
         // =========================================================
-        function cxFormMc() {
+        const CX_STEPS = [['chair', 'เชิญประธานประจำแท่น'], ['attn', 'สั่ง “ทั้งหมดตรง”'], ['flagin', 'เชิญธงชาติ/ธงโรงเรียน/ธงคณะสี'], ['anthem', 'เคารพธงชาติ'],
+            ['right', 'สั่ง “ขวาหัน”'], ['report', 'เชิญผู้กล่าวรายงาน'], ['oath', 'เชิญผู้ถือธง/นำกล่าวปฏิญาณ'], ['sr', 'ประวัตินักกีฬาอาวุโส'], ['torch', 'ประวัตินักกีฬาวิ่งคบเพลิง']];
+        function cxMcStyleForm() {
+            if (cd.mc1_color === undefined) cd.mc1_color = '#0b2a6f';
+            if (cd.mc2_color === undefined) cd.mc2_color = '#5c3317';
+            if (cd.step_mode === undefined) cd.step_mode = 'auto';
+            const sel = (id, opts, cur) => `<select class="form-select form-select-sm" data-cd="${id}">${opts.map(([v, l]) => `<option value="${v}" ${String(cur ?? '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+            const col = (id, label) => `<div class="col-md-3 col-6"><label class="form-label fw-bold small">${label}</label><input type="color" class="form-control form-control-color w-100" data-cd="${id}" value="${cxEsc(cd[id])}"></div>`;
+            return cxSec('สีฟอนต์และผู้พูดในขั้นตอนพิธีเปิด', 'fa-palette', 'คำพูดของพิธีกรในขั้นตอนพิธีเปิดจะเป็นตัวหนาและใช้สีตามพิธีกร — เลือกสีได้ และกำหนดได้ว่าพิธีกรคนไหนพูดช่วงไหน')
+                + col('mc1_color', 'สีฟอนต์ พิธีกร 1') + col('mc2_color', 'สีฟอนต์ พิธีกร 2')
+                + `<div class="col-md-6"><label class="form-label fw-bold small">รูปแบบการพูดโดยรวม</label>${sel('step_mode', [['auto', 'สลับกัน 2 คน (อัตโนมัติ)'], ['1', 'พิธีกร 1 พูดทั้งหมด'], ['2', 'พิธีกร 2 พูดทั้งหมด']], cd.step_mode)}</div>`
+                + `<div class="col-12"><div class="small text-muted mb-1">เลือกเจาะจงรายขั้นตอน (ถ้าเลือกจะใช้แทนรูปแบบโดยรวม)</div><div class="row g-2">${CX_STEPS.map(([id, l]) => `<div class="col-md-6"><div class="d-flex gap-2 align-items-center"><span class="small" style="flex:3">${l}</span><div style="flex:2">${sel('stepwho_' + id, [['', 'ตามรูปแบบโดยรวม'], ['1', 'พิธีกร 1'], ['2', 'พิธีกร 2']], cd['stepwho_' + id])}</div></div></div>`).join('')}</div></div>`;
+        }
+        function cxFormMc(noAlert = false) {
             const school = systemSettings.schoolName;
-            let f = `<div class="col-12"><div class="alert alert-primary border-0 py-2 mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2"><small><i class="fas fa-bullhorn me-1"></i>ต้องการบทบรรยาย <b>ทุกกีฬาตามตารางแข่งขัน</b> เรียงตามเวลา / แยกไฟล์ตามกีฬา / เกริ่นนำ-กล่าวปิดแยกกัน</small><button type="button" class="btn btn-sm btn-primary rounded-pill" onclick="goBack(); setTimeout(() => document.querySelector('[onclick*=mc_sport]').click(), 50)">ไปที่ บทพิธีกรบรรยายกีฬา</button></div></div>`
+            let f = (noAlert ? '' : `<div class="col-12"><div class="alert alert-primary border-0 py-2 mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2"><small><i class="fas fa-bullhorn me-1"></i>ต้องการบทบรรยาย <b>ทุกกีฬาตามตารางแข่งขัน</b> เรียงตามเวลา / แยกไฟล์ตามกีฬา / เกริ่นนำ-กล่าวปิดแยกกัน</small><button type="button" class="btn btn-sm btn-primary rounded-pill" onclick="goBack(); setTimeout(() => document.querySelector('[onclick*=mc_sport]').click(), 50)">ไปที่ บทพิธีกรบรรยายกีฬา</button></div></div>`)
                 + cxSec('ข้อมูลงาน', 'fa-calendar-day')
                 + cxFld('x_date', 'วันที่จัดงาน', '', 'เช่น 2-3 ธันวาคม 2568')
                 + cxFld('x_venue', 'สถานที่', 'สนามกีฬา' + school)
@@ -1464,6 +1445,7 @@
                 + cxFld('mc2', 'พิธีกร 2 — ชื่อเล่น/ชื่อที่ใช้ในบท', 'ฐาปนีย์', '', 'col-md-4')
                 + cxFld('mc2_full', 'ชื่อ-สกุล (พร้อมคำนำหน้า)', '', '', 'col-md-5')
                 + cxFld('mc2_cls', 'ม.', '', 'เช่น 5', 'col-md-3')
+                + cxMcStyleForm()
                 + cxSec('ผู้ร่วมพิธี', 'fa-user-tie', 'ข้อมูลชุดเดียวกับเอกสารกำหนดการ/คำปฏิญาณ กรอกที่ไหนก็ใช้ร่วมกัน')
                 + cxFld('chairman', 'ชื่อประธานในพิธี', '', 'ระบุชื่อประธาน')
                 + cxFld('chairman_pos', 'ตำแหน่งประธานในพิธี', 'ประธานคณะกรรมการสถานศึกษาขั้นพื้นฐาน' + school)
@@ -1506,7 +1488,7 @@
             return f;
         }
 
-        function cxDocMc() {
+        function cxDocMc(opt = {}) {
             const school = systemSettings.schoolName, year = systemSettings.academicYear, ev = systemSettings.eventName;
             const S = cxEsc(school);
             const teams = getActiveTeams();
@@ -1569,20 +1551,71 @@
             h += L(m1, 'แต่ก่อนจะไปถึงส่วนของกิจกรรมต่าง ๆ ผมขออนุญาตนำสู่พิธีการครับ');
             h += D(`${cxEsc(m1)} รับหน้าที่พิธีกรพิธีการ`);
 
-            // ----- ขั้นตอนพิธีการ -----
+            // ----- ขั้นตอนพิธีการ (พิธีกร 2 คนสลับกันพูด: คำพูดเป็นตัวหนา สีตามพิธีกร) -----
+            const c1 = cd.mc1_color || '#0B2A6F', c2 = cd.mc2_color || '#5C3317';
+            const MCI = { 1: { n: m1, e: 'ครับ', c: c1 }, 2: { n: m2, e: 'ค่ะ', c: c2 } };
+            let autoTurn = 0;
+            const whoSays = (id) => {
+                const mode = (cd.step_mode === '1' || cd.step_mode === '2') ? +cd.step_mode : 0;
+                const one = String(cd['stepwho_' + id] || '');
+                const auto = (autoTurn++ % 2) + 1;                      // นับทุกขั้นตอนที่มีคำพูด เพื่อให้การสลับคงที่
+                return (one === '1' || one === '2') ? +one : (mode || auto);
+            };
+            const SAY = (k, fn) => { const m = MCI[k]; return `<div style="margin:0 0 12px 1.2cm; text-align:justify; color:${m.c}; page-break-inside:avoid;"><strong>(${cxEsc(m.n)})</strong> <strong>${fn(m)}</strong></div>`; };
+            const STEP = (id, fn) => SAY(whoSays(id), fn);
+            const NOTE = (t) => `<em style="color:#555;">${t}</em>`;
+            const SEE = '<span style="font-size:14pt;">* ดูใบประวัติ</span>';
             h += cxH(`ขั้นตอนพิธีเปิดการแข่งขันกีฬาภายในประจำปีการศึกษา ${year} ( ${cxEsc(ev)} )`);
+            h += D('<strong>คำพูดของพิธีกรเป็นตัวหนาและใช้สีตามพิธีกร</strong> — พิธีกร 2 คนสลับกันพูด');
             h += SP('ประธานเดินทางมาถึงบริเวณพิธี ประธานจัดการแข่งขันนำคณะกรรมการจัดการแข่งขันเข้าแถว');
-            h += SP(`พิธีกรเชิญประธาน “เรียนเชิญท่านประธานในพิธี ${chair} ${chairPos} ประธานในพิธี ประจำ ณ แท่นยืนด้านหน้าเรียนเชิญครับ และขอเรียนเชิญคณะกรรมการจัดการแข่งขันยืนเรียงแถวเบื้องหลังท่านประธานครับ” ประธานขึ้นแท่นกล่าวเปิด`);
-            h += SP('เมื่อประธานยืนเรียบร้อยแล้ว พิธีกรสั่ง “ทั้งหมดตรง” บรรเลงเพลงมหาฤกษ์ 1 จบ');
-            h += SP('พิธีกรสั่ง “เชิญตัวแทนเชิญธงชาติ ธงโรงเรียน ธงคณะสี ประจำที่เสาธง เชิญครับ!”');
-            h += SP('พิธีกรสั่ง “นักกีฬาทั้งหมดซ้ายหัน เคารพธงชาติ ทั้งหมดตรง” บรรเลงเพลงชาติ 1 จบ<br><em style="color:#555;">( ธงชาติก่อน ตามด้วยธงโรงเรียน และธงประจำคณะสีตามลำดับ )</em>');
-            h += SP('เพลงจบพิธีกรสั่ง “ขวาหัน”');
-            h += SP(`“ลำดับต่อไปขอเรียนเชิญ ${reporter} ${reporterPos}กล่าวรายงานต่อประธานในพิธี ขอเรียนเชิญครับ”`);
+            h += STEP('chair', m => `“เรียนเชิญท่านประธานในพิธี ${chair} ${chairPos} ประธานในพิธี ประจำ ณ แท่นยืนด้านหน้า เรียนเชิญ${m.e} และขอเรียนเชิญคณะกรรมการจัดการแข่งขันยืนเรียงแถวเบื้องหลังท่านประธาน${m.e}”`);
+            h += SP('ประธานขึ้นแท่นกล่าวเปิด เมื่อประธานยืนเรียบร้อยแล้ว');
+            h += STEP('attn', m => '“ทั้งหมดตรง”');
+            h += SP('บรรเลงเพลงมหาฤกษ์ 1 จบ');
+            h += STEP('flagin', m => `“เชิญตัวแทนเชิญธงชาติ ธงโรงเรียน ธงคณะสี ประจำที่เสาธง เชิญ${m.e}!”`);
+            h += STEP('anthem', m => '“นักกีฬาทั้งหมดซ้ายหัน เคารพธงชาติ ทั้งหมดตรง”');
+            h += SP('บรรเลงเพลงชาติ 1 จบ ' + NOTE('( ธงชาติก่อน ตามด้วยธงโรงเรียน และธงประจำคณะสีตามลำดับ )'));
+            h += SP('เพลงจบ');
+            h += STEP('right', m => '“ขวาหัน”');
+            h += STEP('report', m => `“ลำดับต่อไปขอเรียนเชิญ ${reporter} ${reporterPos} กล่าวรายงานต่อประธานในพิธี ขอเรียนเชิญ${m.e}”`);
             h += SP(`ประธานในพิธีกล่าวให้โอวาทและกล่าวเปิดการแข่งขันกีฬาภายในประจำปีการศึกษา ${year} ( ${cxEsc(ev)} ) ( กล่าวจบบรรเลงเพลงมหาฤกษ์ 1 จบ ) ประธานและคณะกรรมการจัดการแข่งขันเดินออกจากสนาม`);
-            h += SP(`“ลำดับต่อไปจะเป็นพิธีนำกล่าวคำปฏิญาณโดยนักกีฬาอาวุโส เชิญตัวแทนผู้ถือธงประจำหน้าแท่นยืนด้านหน้าครับ” <em style="color:#555;">(แถวเป็นรูปครึ่งวงกลมต่อหน้านักกีฬาอาวุโส เพื่อให้นักกีฬาอาวุโสจับชายธง เมื่อผู้ถือธงประจำจุดแล้วกล่าวต่อ)</em> “ประวัตินักกีฬาอาวุโส ${cxDots(cd.sr_name, 30)}” <strong>* ดูใบประวัติ</strong>`);
-            h += SP(`นักกีฬาอาวุโสกล่าวคำปฏิญาณตน <em style="color:#555;">(เสร็จแล้วนักกีฬาอาวุโสเดินออก ผู้ถือธงย้อนไปประจำจุด จากนั้นเริ่มอ่านประวัตินักกีฬาวิ่งคบเพลิงทันที)</em> นักกีฬาวิ่งคบเพลิง ${torchTxt} <strong>* ดูใบประวัติ</strong>`);
+            h += STEP('oath', m => `“ลำดับต่อไปจะเป็นพิธีนำกล่าวคำปฏิญาณโดยนักกีฬาอาวุโส เชิญตัวแทนผู้ถือธงประจำหน้าแท่นยืนด้านหน้า${m.e}”`);
+            h += SP(NOTE('(แถวเป็นรูปครึ่งวงกลมต่อหน้านักกีฬาอาวุโส เพื่อให้นักกีฬาอาวุโสจับชายธง เมื่อผู้ถือธงประจำจุดแล้วกล่าวต่อ)'));
+            h += STEP('sr', m => `“ประวัตินักกีฬาอาวุโส ${cxDots(cd.sr_name, 30)}” ${SEE}`);
+            h += SP('นักกีฬาอาวุโสกล่าวคำปฏิญาณตน ' + NOTE('(เสร็จแล้วนักกีฬาอาวุโสเดินออก ผู้ถือธงย้อนไปประจำจุด จากนั้นเริ่มอ่านประวัตินักกีฬาวิ่งคบเพลิงทันที)'));
+            h += STEP('torch', m => `“นักกีฬาวิ่งคบเพลิง ${torchTxt}” ${SEE}`);
             h += SP('นักกีฬาวิ่งคบเพลิงวิ่งเข้าสนามทางทิศเหนือ ผ่านกองอำนวยการ (หยุดเคารพประธาน) และวิ่งตรงไปยังกระถางคบเพลิง แล้วเชิญคบเพลิงสู่กระถางคบเพลิง <strong>(** นัดหมายกับดุริยางค์ไว้ล่วงหน้าว่าคบเพลิงติดแล้วตีกลองขึ้นเพลงแล้วเดินออกจากสนามตามที่ซ้อม **)</strong>');
             h += SP('ดุริยางค์บรรเลงเพลงนำขบวนนักกีฬาเคารพประธานและออกจากสนาม');
+
+            // ----- บรรยายขบวนรอบที่ 2: แนะนำเฉพาะชื่อและบุคคล + คำชมกว้าง ๆ สั้น ๆ (ไม่พูดคอนเซปต์/จำนวนสมาชิก) -----
+            h += DIV('บรรยายขบวนนักกีฬา (รอบที่ 2 ขณะขบวนเคารพประธานและเดินออกจากสนาม)');
+            h += D('แนะนำเฉพาะชื่อขบวนและผู้นำขบวน ไม่ต้องพูดคอนเซปต์ ใช้คำชมกว้าง ๆ สั้น ๆ');
+            const has2 = (x) => x && String(x).trim(), v2 = (x) => cxEsc(String(x).trim());
+            h += SAY(2, m => `ขบวนนักกีฬากำลังเคารพประธานและเคลื่อนออกจากสนาม ขอเชิญท่านผู้มีเกียรติร่วมให้กำลังใจนักกีฬาทุกคนอีกครั้ง${m.e}`);
+            const leadP = [];
+            if (has2(cd.mj)) leadP.push(`คฑากร ${v2(cd.mj)}`);
+            if (has2(cd.sign_school)) leadP.push(`ผู้ถือป้ายโรงเรียน ${v2(cd.sign_school)}`);
+            if (has2(cd.flag_school)) leadP.push(`ผู้ถือธงโรงเรียน ${v2(cd.flag_school)}`);
+            if (leadP.length) h += SAY(1, m => `ขบวนนำโดย<br>${leadP.join('<br>')}<br>ตามมาด้วยวงดุริยางค์ของ${S} ขอขอบคุณที่ช่วยสร้างบรรยากาศให้พิธีการสง่างามยิ่งขึ้น${m.e}`);
+            const PRAISE = [
+                (m, tn) => `นักกีฬา${tn}ทุกคนก้าวเดินได้พร้อมเพรียงและสง่างามจริง ๆ ${m.e}`,
+                (m, tn) => `ขอชื่นชมความตั้งใจและความพร้อมเพรียงของนักกีฬา${tn}ทุกคน ${m.e}`,
+                (m, tn) => `ภาพที่เห็นสะท้อนถึงความสามัคคีของชาว${tn}ได้เป็นอย่างดี ${m.e}`,
+                (m, tn) => `ขอเสียงปรบมือให้ความสง่างามของขบวน${tn} ${m.e}`
+            ];
+            teams.forEach((t, i) => {
+                const k = 'pt_' + t.key + '_', tn = cxEsc(t.name);
+                const parts = [];
+                let s1 = `ขบวน${tn}`;
+                if (has2(cd[k + 'alias'])) s1 += ` ในนาม “${v2(cd[k + 'alias'])}”`;
+                if (has2(cd[k + 'leader'])) s1 += ` นำโดย ${v2(cd[k + 'leader'])} ประธานสี`;
+                parts.push(s1);
+                if (has2(cd[k + 'sign'])) parts.push(`ผู้ถือป้าย${tn} ${v2(cd[k + 'sign'])}`);
+                if (has2(cd[k + 'cheer_sign'])) parts.push(`ผู้ถือป้ายคณะหลีดเดอร์ ${v2(cd[k + 'cheer_sign'])}`);
+                if (has2(cd[k + 'flag'])) parts.push(`ผู้ถือธง${tn} ${v2(cd[k + 'flag'])}`);
+                h += SAY(i % 2 === 0 ? 1 : 2, m => parts.join('<br>') + '<br>' + PRAISE[i % PRAISE.length](m, tn));
+            });
+            h += SAY(teams.length % 2 === 0 ? 1 : 2, m => `ขอเสียงปรบมือดัง ๆ ให้นักกีฬาทุกคณะสีอีกครั้ง${m.e}`);
             h += SP(`การแสดงพิธีเปิดโดยคณะสีต่าง ๆ ของ${S}`);
             h += SP('ดำเนินการแข่งขันตามกำหนดการแข่งขัน');
             const prog = (cd.mc_prog || []);
@@ -1597,8 +1630,12 @@
             h += L(m2, `ลำดับต่อไปจะเป็นกิจกรรมแสดงเชียร์ลีดเดอร์ของ${tw}คณะสี เพื่อความฮึกเหิมและให้กำลังใจนักกีฬาให้ฮึดสู้ในการแข่งขัน`);
             h += L(m1, `เชียร์ลีดเดอร์ของ${tw}สีมีสีหน้ามุ่งมั่นเอาจริง ฝึกซ้อมกันอย่างแข็งขัน ร่วมส่งแรงใจแรงเชียร์ให้เชียร์ลีดเดอร์${tw}สี หากทุกท่านพร้อมแล้ว ขอเชิญชมกิจกรรมเชียร์ลีดเดอร์จาก${cheerTxt}ได้ ณ บัดนี้ครับ`);
 
+            // ถ้าส่งออกรวมเล่มพร้อมบทบรรยายกีฬา จะตัดส่วนนี้ออก (ซ้ำกับบทบรรยายกีฬาที่ดึงจากตารางแข่งขัน)
+            if (!opt.noSports) {
             // ----- บรรยายกีฬา -----
-            const MATCH_NOTE = D('เมื่อการแข่งขันเริ่มขึ้น ให้บรรยายไปตามสภาพจริง โดยสังเกตดูสถานการณ์ แทรกอารมณ์ขันได้ตามสมควร แต่ระมัดระวังอย่าให้หยาบคายหรือสร้างความไม่พอใจให้แก่ผู้ฟัง');
+            let noteShown = false;
+            const MATCH_NOTE_HTML = D('เมื่อการแข่งขันเริ่มขึ้น ให้บรรยายไปตามสภาพจริง โดยสังเกตดูสถานการณ์ แทรกอารมณ์ขันได้ตามสมควร แต่ระมัดระวังอย่าให้หยาบคายหรือสร้างความไม่พอใจให้แก่ผู้ฟัง');
+            const noteOnce = () => { if (noteShown) return ''; noteShown = true; return MATCH_NOTE_HTML; };
             h += DIV('ขั้นตอนการบรรยายกีฬา');
             const folk = (cd.folk_items || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
             if (folk.length || (cd.folk_venue || '').trim()) {
@@ -1606,7 +1643,7 @@
                 h += L(m1, 'ลำดับต่อไป จะเป็นการแข่งขันกีฬาพื้นบ้าน ประกอบไปด้วย') + BL(folk.map(cxEsc));
                 h += L(m1, `เรียกได้ว่าความสนุกสนานจากการแข่งขันทุกรายการจะสามารถเรียกเสียงเฮจากกองเชียร์${tw}สีได้แน่นอนครับ เชียร์ให้สุดพลังเลยนะครับ`);
                 h += L(m2, `สำหรับกีฬาพื้นบ้านจะดำเนินการแข่งขันบริเวณ ${cxDots(cd.folk_venue, 30)} ขอให้${tw}คณะสีตรวจสอบความพร้อมของนักกีฬา เมื่อเรียบร้อยดีแล้วเชิญนักกีฬาเข้าประจำจุด เพื่อฟังท่านกรรมการตัดสินชี้แจงกติกา ก่อนดำเนินการแข่งขันต่อไปค่ะ`);
-                h += MATCH_NOTE;
+                h += noteOnce();
             }
             const ath = (cd.ath_rows || []).filter(r => (r.event || '').trim());
             if (ath.length) {
@@ -1616,16 +1653,19 @@
                 h += BL(ath.map(r => `${cxEsc(r.event)} แต่ละคณะสีส่งนักกีฬาสีละ ${cxDots(r.teams, 8)} ทีม ทีมละ ${cxDots(r.people, 6)} คน`));
                 h += L(m2, `สำหรับการแข่งขันกรีฑาจะดำเนินการแข่งขันบริเวณ${cxDots(cd.ath_venue, 25)}นี้ ขอให้${tw}คณะสีตรวจสอบความพร้อมของนักกีฬา เมื่อเรียบร้อยดีแล้วเชิญนักกีฬาเข้าประจำจุด เพื่อฟังท่านกรรมการผู้ตัดสินชี้แจงกติกา ก่อนดำเนินการแข่งขันต่อไปค่ะ`);
                 h += L(m2, 'นักกีฬาดูเพียบพร้อม กองเชียร์ก็ดูเข้มแข็งห้าวหาญ สีใดจะคว้าชัยชนะไปครองมาลุ้นกัน แม้บรรยากาศจะร้อนแรงสักเพียงไหน เชื่อว่ามิอาจเทียบความร้อนแรงของทั้งสองทีมได้ มาร่วมส่งแรงใจแรงเชียร์ให้สีที่ใช่ ทีมที่ชอบ กันค่ะ!!');
-                h += MATCH_NOTE;
+                h += noteOnce();
             }
             (cd.mc_extra || []).filter(x => (x.title || '').trim()).forEach(x => {
                 const items = (x.items || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
                 h += cxH(cxEsc(x.title));
                 h += L(m1, `ลำดับต่อไป จะเป็นการแข่งขัน${cxEsc(x.title)}${items.length ? ' ประกอบไปด้วย' : ''}`) + (items.length ? BL(items.map(cxEsc)) : '');
                 h += L(m2, `สำหรับการแข่งขัน${cxEsc(x.title)}จะดำเนินการแข่งขันบริเวณ ${cxDots(x.venue, 30)} ขอให้${tw}คณะสีตรวจสอบความพร้อมของนักกีฬา เมื่อเรียบร้อยดีแล้วเชิญนักกีฬาเข้าประจำจุด เพื่อฟังท่านกรรมการตัดสินชี้แจงกติกา ก่อนดำเนินการแข่งขันต่อไปค่ะ`);
-                h += MATCH_NOTE;
+                h += noteOnce();
             });
+            }
 
+            // ถ้ามีบทกล่าวปิด/ประกาศผลรางวัลในเล่มแล้ว จะตัดส่วนพิธีปิดตรงนี้ออก (ซ้ำกัน)
+            if (!opt.noClose) {
             // ----- พิธีปิด -----
             h += DIV('พิธีปิดโครงการ');
             h += L(m1, `และแล้วเราก็เดินทางมาถึงช่วงสุดท้ายของกิจกรรมแข่งขันกีฬาภายใน ประจำปี ${year} ในลำดับถัดไป จะเป็นพิธีปิดโครงการ ในการนี้ ขอเรียนเชิญ ${cxDots(cd.closer, 40)}`);
@@ -1633,6 +1673,7 @@
             h += L(m2, `ขอบพระคุณคณะผู้บริหาร คณะครู และนักเรียนผู้ร่วมกิจกรรมทุกท่าน สำหรับดิฉัน ${cxDots(cd.mc2_full, 30)} นักเรียนชั้นมัธยมศึกษาปีที่ ${cxDots(cd.mc2_cls, 6)}`);
             h += L(m1, `ผม${cxDots(cd.mc1_full, 30)} นักเรียนชั้นมัธยมศึกษาปีที่ ${cxDots(cd.mc1_cls, 6)}`);
             h += L(m2, 'ขอยุติหน้าที่การเป็นพิธีกรเพียงเท่านี้ สวัสดีค่ะ') + L(m1, 'สวัสดีครับ');
+            }
             return cxWrap(h);
         }
 
@@ -1700,17 +1741,17 @@
             return map;
         };
 
-        function cxFormMcSport() {
+        function cxFormMcSport(withInfo = true) {
             msState = { date: 'all', sel: null };
             msFiles = [];
             const school = systemSettings.schoolName;
             const opt = (k, label) => `<div class="form-check"><input class="form-check-input" type="checkbox" id="msOpt_${k}" ${msOpts[k] ? 'checked' : ''} onchange="msOpt('${k}', this.checked)"><label class="form-check-label" for="msOpt_${k}">${label}</label></div>`;
-            return cxSec('ข้อมูลงานและพิธีกร', 'fa-microphone', 'ใช้ข้อมูลชุดเดียวกับเอกสารพิธีการอื่น กรอกที่ไหนก็ใช้ร่วมกัน')
+            return (withInfo ? cxSec('ข้อมูลงานและพิธีกร', 'fa-microphone', 'ใช้ข้อมูลชุดเดียวกับเอกสารพิธีการอื่น กรอกที่ไหนก็ใช้ร่วมกัน')
                 + cxFld('x_date', 'วันที่จัดงาน', '', 'เช่น 2-3 ธันวาคม 2568')
                 + cxFld('x_venue', 'สถานที่', 'สนามกีฬา' + school)
                 + cxFld('mc1', 'พิธีกร 1 (พูดแบบผู้ชาย ผม/ครับ)', 'ณัฐกร', '', 'col-md-6')
                 + cxFld('mc2', 'พิธีกร 2 (พูดแบบผู้หญิง ดิฉัน/ค่ะ)', 'ฐาปนีย์', '', 'col-md-6')
-                + cxFld('closer', 'ผู้กล่าวปิดโครงการ (ใช้ในบทกล่าวปิด)', '', 'ระบุชื่อ/ตำแหน่ง', 'col-12')
+                + cxFld('closer', 'ผู้กล่าวปิดโครงการ (ใช้ในบทกล่าวปิด)', '', 'ระบุชื่อ/ตำแหน่ง', 'col-12') : '')
                 + cxSec('เลือกกีฬาที่จะสร้างบท', 'fa-futbol', 'ดึงจากตารางแข่งขันในระบบ บทเรียงตามเวลาแข่งขัน กีฬาที่เพิ่มในระบบภายหลังจะขึ้นให้เลือกอัตโนมัติ')
                 + `<div class="col-12"><div class="d-flex flex-wrap gap-2 align-items-center mb-2"><label class="small fw-bold mb-0">วันที่แข่ง</label>
                         <select id="msDate" class="form-select form-select-sm" style="max-width:260px" onchange="msSetDate(this.value)"></select>
@@ -1810,7 +1851,7 @@
 
         function msBodyHtml(kit, matches, opts) {
             // opts.byDay: แบ่งหัวข้อตามวัน; ตรวจการเปลี่ยนชนิดกีฬา แล้วขึ้นหัวข้อ/เกริ่นกีฬาใหม่
-            let h = '', prevDate = null, prevSport = null, idx = 0;
+            let h = '', prevDate = null, prevSport = null, idx = 0, noteShown = false;
             const counts = {};
             matches.forEach(m => { counts[m.sport] = (counts[m.sport] || 0) + 1; });
             matches.forEach(m => {
@@ -1819,7 +1860,7 @@
                     const s = kit.next(), sp = cxEsc(getSportName(m.sport));
                     h += kit.DIV(`${sp}`);
                     h += kit.L(s.n, `ต่อไปจะเป็นช่วงการแข่งขัน${sp} ${counts[m.sport] > 1 ? `มีการแข่งขันทั้งหมด ${counts[m.sport]} รายการ` : ''} ขอให้ทุกคณะสีตรวจสอบความพร้อมของนักกีฬา เมื่อเรียบร้อยแล้วเชิญนักกีฬาเข้าประจำจุด เพื่อฟังท่านกรรมการผู้ตัดสินชี้แจงกติกา ก่อนดำเนินการแข่งขัน${s.e}`);
-                    h += kit.D('เมื่อการแข่งขันเริ่มขึ้น ให้บรรยายไปตามสภาพจริง โดยสังเกตดูสถานการณ์ แทรกอารมณ์ขันได้ตามสมควร แต่ระมัดระวังอย่าให้หยาบคายหรือสร้างความไม่พอใจให้แก่ผู้ฟัง');
+                    if (!noteShown) { noteShown = true; h += kit.D('เมื่อการแข่งขันเริ่มขึ้น ให้บรรยายไปตามสภาพจริง โดยสังเกตดูสถานการณ์ แทรกอารมณ์ขันได้ตามสมควร แต่ระมัดระวังอย่าให้หยาบคายหรือสร้างความไม่พอใจให้แก่ผู้ฟัง'); }
                     prevSport = m.sport; idx = 0;
                 }
                 h += msMatchBlock(kit, m, idx++, opts.withSport);
@@ -1853,7 +1894,7 @@
             return h;
         }
 
-        function msCloseHtml(kit, matches) {
+        function msCloseHtml(kit, matches, o = {}) {
             const ev = cxEsc(systemSettings.eventName), year = cxEsc(systemSettings.academicYear), S = cxEsc(systemSettings.schoolName);
             const teams = getActiveTeams();
             const done = matches.filter(m => m.status === 'done');
@@ -1864,15 +1905,22 @@
                 : teams.map(t => `${msTeamName(t.key)} ${cxDots('', 6)} รายการ`).join(' ');
             let h = cxHead('บทพิธีกร ช่วงกล่าวปิดการแข่งขัน') + cxTitleBlock();
             h += cxH('กล่าวปิด');
+            if (o.afterAwards) {
+                // รวมเล่มพร้อมบทประกาศผลรางวัล: ผลรางวัลและเชิญประธานปิดอยู่ในบทประกาศผลแล้ว ตรงนี้เหลือเฉพาะขอบคุณและปิดงาน
+                h += kit.D('ประธานกล่าวให้โอวาทและปิดการแข่งขันเรียบร้อยแล้ว');
+                h += kit.L(kit.m2, `ขอขอบคุณท่านกรรมการผู้ตัดสิน เจ้าหน้าที่ประจำสนาม คณะครู นักกีฬา และกองเชียร์ทุกคณะสีที่ช่วยกันสร้างบรรยากาศอันสนุกสนาน และดำเนินการแข่งขันให้ผ่านไปได้ด้วยดีค่ะ`);
+                h += kit.L(kit.m1, `ก่อนแยกย้าย ขอให้ทุกคนช่วยกันเก็บขยะและอุปกรณ์ให้เรียบร้อย และเดินทางกลับด้วยความปลอดภัยครับ`);
+            } else {
             h += kit.D('เมื่อการแข่งขันรายการสุดท้ายเสร็จสิ้น');
-            h += kit.L(kit.m1, `และแล้วการแข่งขันกีฬาภายใน ${ev} ประจำปีการศึกษา ${year} ก็เดินทางมาถึงรายการสุดท้ายแล้วนะครับ ขอขอบคุณนักกีฬาทุกคนที่ทุ่มเทแข่งขันอย่างเต็มความสามารถ`);
-            h += kit.L(kit.m2, `ขอขอบคุณท่านกรรมการผู้ตัดสิน เจ้าหน้าที่ประจำสนาม คณะครู และกองเชียร์ทุกคณะสีที่ช่วยกันสร้างบรรยากาศอันสนุกสนาน และดำเนินการแข่งขันให้ผ่านไปได้ด้วยดีค่ะ`);
-            h += kit.L(kit.m1, `สรุปผลการแข่งขันโดยรวม ${summary} ครับ`);
-            h += kit.D('อ่านสรุปผลหรือประกาศผลตามที่คณะกรรมการจัดการแข่งขันแจ้ง');
-            h += kit.L(kit.m2, 'ไม่ว่าผลการแข่งขันจะออกมาเป็นอย่างไร ทุกคณะสีล้วนได้รับสิ่งที่มีค่า คือมิตรภาพ ความสามัคคี และประสบการณ์ที่ดีร่วมกันค่ะ');
-            h += kit.L(kit.m1, `ในลำดับต่อไป ขอเรียนเชิญ ${cxDots(cd.closer, 40)} กล่าวปิดโครงการแข่งขันกีฬาภายใน ขอเรียนเชิญครับ`);
-            h += kit.D('ผู้กล่าวปิดโครงการกล่าวจบ');
-            h += kit.L(kit.m2, `ขอบพระคุณคณะผู้บริหาร คณะครู และนักเรียนผู้ร่วมกิจกรรมทุกท่านจากใจจริงค่ะ ก่อนแยกย้าย ขอให้ทุกคนช่วยกันเก็บขยะและอุปกรณ์ให้เรียบร้อย และเดินทางกลับด้วยความปลอดภัยค่ะ`);
+                h += kit.L(kit.m1, `และแล้วการแข่งขันกีฬาภายใน ${ev} ประจำปีการศึกษา ${year} ก็เดินทางมาถึงรายการสุดท้ายแล้วนะครับ ขอขอบคุณนักกีฬาทุกคนที่ทุ่มเทแข่งขันอย่างเต็มความสามารถ`);
+                h += kit.L(kit.m2, `ขอขอบคุณท่านกรรมการผู้ตัดสิน เจ้าหน้าที่ประจำสนาม คณะครู และกองเชียร์ทุกคณะสีที่ช่วยกันสร้างบรรยากาศอันสนุกสนาน และดำเนินการแข่งขันให้ผ่านไปได้ด้วยดีค่ะ`);
+                h += kit.L(kit.m1, `สรุปผลการแข่งขันโดยรวม ${summary} ครับ`);
+                h += kit.D('อ่านสรุปผลหรือประกาศผลตามที่คณะกรรมการจัดการแข่งขันแจ้ง');
+                h += kit.L(kit.m2, 'ไม่ว่าผลการแข่งขันจะออกมาเป็นอย่างไร ทุกคณะสีล้วนได้รับสิ่งที่มีค่า คือมิตรภาพ ความสามัคคี และประสบการณ์ที่ดีร่วมกันค่ะ');
+                h += kit.L(kit.m1, `ในลำดับต่อไป ขอเรียนเชิญ ${cxDots(cd.closer, 40)} กล่าวปิดโครงการแข่งขันกีฬาภายใน ขอเรียนเชิญครับ`);
+                h += kit.D('ผู้กล่าวปิดโครงการกล่าวจบ');
+                h += kit.L(kit.m2, `ขอบพระคุณคณะผู้บริหาร คณะครู และนักเรียนผู้ร่วมกิจกรรมทุกท่านจากใจจริงค่ะ ก่อนแยกย้าย ขอให้ทุกคนช่วยกันเก็บขยะและอุปกรณ์ให้เรียบร้อย และเดินทางกลับด้วยความปลอดภัยค่ะ`);
+            }
             h += kit.L(kit.m1, `ขอยุติหน้าที่การเป็นพิธีกรของ${S}เพียงเท่านี้ สวัสดีครับ`) + kit.L(kit.m2, 'สวัสดีค่ะ');
             return h;
         }
@@ -1880,15 +1928,18 @@
         // =========================================================
         // ส่งออกบทพิธีกรทั้งหมด (.docx): ปกหน้า + กำหนดการ + บทพิธีกรพิธีเปิด + บทบรรยายกีฬา รวมไฟล์เดียว
         // =========================================================
-        let bkOpts = { cover: true, schedule: true, opening: true, sports: true, awards: true };
+        let bkOpts = { cover: true, toc: true, schedule: true, opening: true, sports: true, awards: true, apxReport: true, apxChairOpen: true, apxOath: true, apxBio: true, apxChairClose: true };
         window.bkOpt = (k, v) => { bkOpts[k] = v; };
         function cxFormMcBook() {
-            // เตรียมค่าเริ่มต้นของข้อมูลทุกฟอร์มที่ต้องใช้ (กำหนดการ/บทพิธีกรพิธีเปิด) แม้ยังไม่เคยเปิดฟอร์มนั้น
-            cxFormSchedule(); cxFormMc();
+            // เตรียมค่าเริ่มต้นของข้อมูลทุกฟอร์มที่ต้องใช้ แม้ยังไม่เคยเปิดฟอร์มนั้น
+            cxFormSchedule(); cxFormOath(); cxFormBio();
             const chk = (k, label) => `<div class="form-check"><input class="form-check-input" type="checkbox" id="bk_${k}" ${bkOpts[k] ? 'checked' : ''} onchange="bkOpt('${k}', this.checked)"><label class="form-check-label" for="bk_${k}">${label}</label></div>`;
-            return cxSec('ส่วนประกอบของเล่ม', 'fa-book', 'ไฟล์เดียวเรียงตามลำดับ: ปกหน้า → กำหนดการ → บทพิธีกรพิธีเปิด → บทบรรยายกีฬา (เริ่มหน้าใหม่ทุกส่วน) แก้ข้อมูลของกำหนดการ/บทพิธีกรพิธีเปิดได้ที่เมนูของเอกสารนั้น ๆ')
-                + `<div class="col-12"><div class="p-3 rounded-4 border bg-white">${chk('cover', 'ปกหน้า (มีรายการสารบัญและชื่อพิธีกร)')}${chk('schedule', 'กำหนดการพิธีเปิด')}${chk('opening', 'บทพิธีกร พิธีเปิด (ขบวน/พิธีการ)')}${chk('sports', 'บทพิธีกรบรรยายกีฬา (ตามกีฬาที่เลือกด้านล่าง)')}${chk('awards', 'บทพิธีกรประกาศผลรางวัล (ตั้งค่าแยกรายการ/แยกเพศ/คะแนนรวม และครูผู้มอบรางวัลที่เมนู “บทพิธีกรประกาศผลรางวัล”)')}</div></div>`
-                + cxFormMcSport();
+            return cxSec('ส่วนประกอบของเล่ม', 'fa-book', 'ไฟล์เดียวเรียงตามลำดับ: ปกหน้า → สารบัญ → กำหนดการ → บทพิธีกรพิธีเปิด → บทบรรยายกีฬา → ประกาศผลรางวัล → กล่าวปิด → ภาคผนวก (เริ่มหน้าใหม่ทุกส่วน)')
+                + `<div class="col-12"><div class="p-3 rounded-4 border bg-white">${chk('cover', 'ปกหน้า')}${chk('toc', 'สารบัญ (หน้าถัดจากปก — เปิดไฟล์ใน Word แล้วกด “ใช่” เพื่ออัปเดตเลขหน้า)')}${chk('schedule', 'กำหนดการพิธีเปิด')}${chk('opening', 'บทพิธีกร พิธีเปิด (ขบวน/พิธีการ)')}${chk('sports', 'บทพิธีกรบรรยายกีฬา (ตามกีฬาที่เลือกด้านล่าง)')}${chk('awards', 'บทพิธีกรประกาศผลรางวัล (ตั้งค่าที่เมนู “บทพิธีกรประกาศผลรางวัล”)')}</div></div>`
+                + cxSec('ภาคผนวก', 'fa-paperclip', 'ต่อท้ายเล่ม ดึงจากข้อมูลที่กรอกในเล่มนี้ และการ์ด “คำกล่าวปฏิญาณตน” / “ประวัตินักกีฬา”')
+                + `<div class="col-12"><div class="p-3 rounded-4 border bg-white">${chk('apxReport', 'ก. คำกล่าวรายงาน (พิธีเปิด)')}${chk('apxChairOpen', 'ข. คำกล่าวเปิด (ประธานในพิธี)')}${chk('apxOath', 'ค. คำกล่าวปฏิญาณตน')}${chk('apxBio', 'ง. ประวัตินักกีฬาอาวุโสและนักกีฬาวิ่งคบเพลิง')}${chk('apxChairClose', 'จ. คำกล่าวปิด (ประธานในพิธี)')}</div></div>`
+                + cxFormMc(true)
+                + cxFormMcSport(false);
         }
         function bkCoverHtml(parts) {
             const ev = cxEsc(systemSettings.eventName), yr = cxEsc(systemSettings.academicYear), S = cxEsc(systemSettings.schoolName);
@@ -1905,14 +1956,14 @@
                 <div style="text-align:center; font-size:18pt;">ณ ${cxDots(cd.x_venue, 25)}</div>
                 <div style="text-align:center; font-size:18pt; font-weight:bold; margin-top:50px;">พิธีกร</div>
                 ${mc(cd.mc1, cd.mc1_full, cd.mc1_cls)}${mc(cd.mc2, cd.mc2_full, cd.mc2_cls)}
-                <div style="text-align:center; font-size:18pt; font-weight:bold; margin-top:50px;">รายการในเล่ม</div>
-                ${toc}`;
+                `;
         }
         // ปรับหน้าตาบทพิธีกรสำหรับไฟล์ .docx: พิธีกร 1 = น้ำเงินเข้ม, พิธีกร 2 = น้ำตาลเข้ม, ข้อความในวงเล็บ/คำบรรยายเป็นสีดำ, เพิ่มช่องไฟระหว่างย่อหน้า
-        const BK_COLOR = { mc1: '#0B2A6F', mc2: '#5C3317' };
+        const bkColors = () => ({ mc1: cd.mc1_color || '#0B2A6F', mc2: cd.mc2_color || '#5C3317' });
         function bkStyleHtml(html) {
             const doc = new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html');
-            const n1 = (cd.mc1 || 'พิธีกร 1').trim(), n2 = (cd.mc2 || 'พิธีกร 2').trim();
+            const n1 = (cd.mc1 || 'พิธีกร 1').trim(), n2 = (cd.mc2 || 'พิธีกร 2').trim(), BK_COLOR = bkColors();
+            doc.body.querySelectorAll('.speech-line').forEach(d => { d.style.marginBottom = '10px'; d.style.textAlign = 'justify'; if (d.classList.contains('speech-indent')) d.style.textIndent = '2.5cm'; });
             doc.body.querySelectorAll('div').forEach(d => {
                 const st = d.firstElementChild;
                 if (st && st.tagName === 'STRONG' && d.firstChild === st && /^\(.*\)$/.test(st.textContent.trim())) {
@@ -1931,28 +1982,50 @@
             if (typeof docx === 'undefined' || typeof JSZip === 'undefined' || !window.ThaiDocx) {
                 Swal.fire({ icon: 'error', title: 'โหลดตัวสร้างไฟล์ .docx ไม่สำเร็จ', text: 'ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้านี้' }); return;
             }
+            cxFormSchedule(); cxFormOath(); cxFormBio(); cxFormMc(true);   // กันค่าเริ่มต้นหาย ถ้ายังไม่เคยเปิดฟอร์ม
             let files = [];
-            if (bkOpts.sports) { files = msBuildFiles(true); if (files === null) return; }
-            const secs = [], toc = [];
-            if (bkOpts.schedule) { secs.push({ html: cxDocSchedule(), newPage: true }); toc.push('กำหนดการพิธีเปิด'); }
-            if (bkOpts.opening) { secs.push({ html: cxDocMc(), newPage: true, line: 312 }); toc.push('บทพิธีกร พิธีเปิด'); }
+            if (bkOpts.sports) { files = msBuildFiles(true, { afterAwards: bkOpts.awards }); if (files === null) return; }
+            const sportsAll = [...new Set(allMatchesArray.map(m => m.sport))];
+            const secs = [];
+            const add = (html, title, o = {}) => { secs.push({ html, newPage: true, tocTitle: title, ...o }); };
             const closeIdx = files.findIndex(f => f.name === 'บทพิธีกร_9_กล่าวปิด');
+            // บทพิธีกรพิธีเปิด: ตัดส่วนที่ซ้ำกับบทบรรยายกีฬา/บทกล่าวปิด/ประกาศผลรางวัล
+            if (bkOpts.schedule) add(cxDocSchedule(), 'กำหนดการพิธีเปิด');
+            if (bkOpts.opening) add(cxDocMc({ noSports: bkOpts.sports && files.length > 0, noClose: bkOpts.awards || closeIdx >= 0 }), 'บทพิธีกร พิธีเปิด', { line: 312 });
             files.forEach((f, i) => {
-                if (i === closeIdx && bkOpts.awards) { secs.push({ html: cxAwardMcDoc('', [...new Set(allMatchesArray.map(m => m.sport))]), newPage: true, line: 312 }); toc.push('บทพิธีกรประกาศผลรางวัล'); }
-                secs.push({ html: f.html, newPage: true, line: 312 }); toc.push(f.title);
+                if (i === closeIdx && bkOpts.awards) add(cxAwardMcDoc('', sportsAll), 'บทพิธีกรประกาศผลรางวัล', { line: 312 });
+                add(f.html, f.title, { line: 312 });
             });
-            if (bkOpts.awards && closeIdx < 0 && isMatchesLoaded) { secs.push({ html: cxAwardMcDoc('', [...new Set(allMatchesArray.map(m => m.sport))]), newPage: true, line: 312 }); toc.push('บทพิธีกรประกาศผลรางวัล'); }
+            if (bkOpts.awards && closeIdx < 0 && isMatchesLoaded) add(cxAwardMcDoc('', sportsAll), 'บทพิธีกรประกาศผลรางวัล', { line: 312 });
+            // ภาคผนวก
+            const yearShort = String(systemSettings.academicYear).slice(-2);
+            const sportListText = sportsAll.map(k => getSportName(k)).join(' ');
+            const teamListText = getActiveTeams().map(t => t.name).join(' และ');
+            const nT = getActiveTeams().length;
+            const dots = (n) => '.'.repeat(n);
+            const rep = (cd.reporter || '').trim() || dots(45), chair = (cd.chairman || '').trim() || dots(60), closer = (cd.closer || '').trim() || chair;
+            const apx = [];
+            if (bkOpts.apxReport) apx.push(['ภาคผนวก ก คำกล่าวรายงาน (พิธีเปิด)', () => generateOpeningReportSpeech(rep, chair, getPronoun(rep), getEnding(rep), yearShort, sportListText, sportsAll.length, teamListText, nT)]);
+            if (bkOpts.apxChairOpen) apx.push(['ภาคผนวก ข คำกล่าวเปิด (ประธานในพิธี)', () => generateOpeningChairmanSpeech(chair, getPronoun(chair), getEnding(chair), yearShort, sportListText, teamListText, nT)]);
+            if (bkOpts.apxOath) apx.push(['ภาคผนวก ค คำกล่าวปฏิญาณตน', () => cxDocOath()]);
+            if (bkOpts.apxBio) apx.push(['ภาคผนวก ง ประวัตินักกีฬาอาวุโสและนักกีฬาวิ่งคบเพลิง', () => cxDocBio()]);
+            if (bkOpts.apxChairClose) apx.push(['ภาคผนวก จ คำกล่าวปิด (ประธานในพิธี)', () => generateClosingChairmanSpeech(closer, getPronoun(closer), getEnding(closer), yearShort)]);
+            if (apx.length) {
+                const list = apx.map(a => `<div style="text-align:center; font-size:18pt; margin-top:6px;">${cxEsc(a[0])}</div>`).join('');
+                add(`<div style="text-align:center; font-size:40pt; font-weight:bold; margin-top:150px; margin-bottom:30px;">ภาคผนวก</div>${list}`, 'ภาคผนวก');
+                apx.forEach(a => add(a[1](), a[0], { tocLevel: 1 }));
+            }
             if (!secs.length && !bkOpts.cover) { Swal.fire({ icon: 'warning', title: 'ยังไม่ได้เลือกส่วนประกอบ' }); return; }
             if (bkOpts.sports && !files.length) { await Swal.fire({ icon: 'info', title: 'ไม่มีบทบรรยายกีฬา', text: 'ยังไม่ได้เลือกกีฬา หรือยังไม่มีรายการแข่งขัน จะส่งออกเฉพาะส่วนอื่น', timer: 2500, showConfirmButton: false }); }
-            if (bkOpts.cover) secs.unshift({ html: bkCoverHtml(toc), newPage: false });
+            if (bkOpts.cover) secs.unshift({ html: bkCoverHtml(), newPage: false, tocAfter: true });
             Swal.fire({ title: 'กำลังสร้างไฟล์ .docx', text: 'รอสักครู่...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
             try {
-                const blob = await ThaiDocx.build(secs.map(x => ({ ...x, html: bkStyleHtml(x.html) })), { title: `บทพิธีกร ${systemSettings.eventName} ${systemSettings.academicYear}`, footerText: 'เอกสารนี้พิมพ์จากระบบจัดการกีฬาภายใน พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง' });
+                const blob = await ThaiDocx.build(secs.map(x => ({ ...x, html: bkStyleHtml(x.html) })), { title: `บทพิธีกร ${systemSettings.eventName} ${systemSettings.academicYear}`, footerText: 'เอกสารนี้พิมพ์จากระบบจัดการกีฬาภายใน พัฒนาโดย ครูนนทพัทธ์ หิรัญเรือง', toc: !!bkOpts.toc });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
                 a.download = `บทพิธีกรทั้งหมด_${msFileName(systemSettings.eventName)}_${systemSettings.academicYear}.docx`;
                 document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-                Swal.fire({ icon: 'success', title: 'ส่งออกเรียบร้อย', text: `รวม ${secs.length} ส่วน ในไฟล์เดียว`, timer: 2200, showConfirmButton: false });
+                Swal.fire({ icon: 'success', title: 'ส่งออกเรียบร้อย', text: `รวม ${secs.length} ส่วน ในไฟล์เดียว${bkOpts.toc ? ' — เปิดใน Word แล้วกด “ใช่” เพื่ออัปเดตเลขหน้าสารบัญ' : ''}`, timer: 3500, showConfirmButton: false });
             } catch (err) {
                 console.error(err);
                 Swal.fire({ icon: 'error', title: 'สร้างไฟล์ไม่สำเร็จ', text: String(err && err.message || err) });
@@ -1961,7 +2034,7 @@
 
         const msFileName = (s) => String(s).replace(/[\\/:*?"<>|]+/g, '').trim();
         // สร้างรายการไฟล์บทพิธีกรบรรยายกีฬา (ใช้ร่วมกันระหว่าง "สร้างบทแยกไฟล์" และ "ส่งออกรวมเล่ม") — silent=true: ไม่เด้งแจ้งเตือนเมื่อไม่มีรายการ
-        function msBuildFiles(silent) {
+        function msBuildFiles(silent, ctx = {}) {
             if (!isMatchesLoaded) { Swal.fire({ icon: 'info', title: 'กำลังโหลดตารางแข่งขัน', text: 'รอสักครู่แล้วลองใหม่' }); return null; }
             const sel = msState.sel || new Set();
             const matches = allMatchesArray.filter(m => sel.has(m.sport) && (msState.date === 'all' || m.date === msState.date))
@@ -1981,7 +2054,7 @@
                 files.push({ name: 'บทพิธีกร_2_บรรยายกีฬาตามเวลา', title: 'บทบรรยายกีฬา (รวมทุกชนิด เรียงตามเวลา)', note: `${matches.length} รายการ`,
                     html: cxWrap(head('บทพิธีกร บรรยายกีฬา เรียงตามเวลาแข่งขัน') + msBodyHtml(msKit(), matches, { withSport: true })) });
             }
-            if (msOpts.close) files.push({ name: 'บทพิธีกร_9_กล่าวปิด', title: 'บทกล่าวปิด', note: 'สรุปผล/กล่าวขอบคุณ/ปิดงาน', html: cxWrap(msCloseHtml(msKit(), matches)) });
+            if (msOpts.close) files.push({ name: 'บทพิธีกร_9_กล่าวปิด', title: 'บทกล่าวปิด', note: 'สรุปผล/กล่าวขอบคุณ/ปิดงาน', html: cxWrap(msCloseHtml(msKit(), matches, { afterAwards: !!ctx.afterAwards })) });
             return files;
         }
         window.msGenerate = () => {
@@ -2006,7 +2079,7 @@
         window.msDownload = (i) => {
             const f = msFiles[i];
             const doc = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>${cxEsc(f.title)}</title>
-                <style>@page{size:A4;margin:2cm 2.5cm} body{font-family:'TH SarabunPSK','Sarabun',sans-serif;font-size:16pt;line-height:1.5}</style></head><body>${f.html}</body></html>`;
+                <style>@page{size:A4;margin:2cm 2.5cm} body{font-family:'Sarabun',sans-serif;font-size:16pt;line-height:1.5}</style></head><body>${f.html}</body></html>`;
             const a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob(['﻿', doc], { type: 'application/msword' }));
             a.download = `${f.name}_${systemSettings.eventName}.doc`;

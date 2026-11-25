@@ -3,7 +3,7 @@
  * ใช้: const blob = await ThaiDocx.build([{ html, newPage: true }, ...], { footerText }); */
 (function () {
     'use strict';
-    const FONT = 'TH SarabunPSK', BASE_PT = 16;
+    const FONT = 'Sarabun', BASE_PT = 16;
     const PAGE = { top: 1134, bottom: 1134, left: 1417, right: 1417 };     // A4: บน/ล่าง 2 ซม. ซ้าย/ขวา 2.5 ซม.
     const CONTENT_W = 11906 - PAGE.left - PAGE.right;                      // DXA
     const BLOCK = new Set(['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TABLE', 'UL', 'OL']);
@@ -88,7 +88,7 @@
             k: 'p', runs, size: st.size,
             align: cs.textAlign === 'center' ? 'center' : cs.textAlign === 'right' ? 'right' : cs.textAlign === 'justify' ? 'dist' : 'left',
             before: toTwip(cs.marginTop), after: toTwip(cs.marginBottom),
-            left: toTwip(cs.marginLeft) + toTwip(cs.paddingLeft), hanging: 0,
+            left: toTwip(cs.marginLeft) + toTwip(cs.paddingLeft), hanging: 0, firstLine: toTwip(cs.textIndent),
             bTop: borderOf(cs.borderTop), bBottom: borderOf(cs.borderBottom),
             box: (cs.border && !/none/.test(cs.border)) ? borderOf(cs.border) : null,
             keep: /avoid/.test(cs.pageBreakInside || cs.breakInside || ''),
@@ -192,6 +192,7 @@
         const runOf = (r, size) => {
             if (r.br) return new D.TextRun({ break: 1 });
             if (r.tab) return new D.TextRun({ children: [new D.Tab()] });
+            if (r.pageref) { const z = Math.round((r.size || size || BASE_PT) * 2); return new D.TextRun({ children: [new D.PageReference(r.pageref, { hyperlink: true })], size: z, sizeComplexScript: z }); }
             if (r.img) return new D.ImageRun({ type: r.img.type, data: r.img.data, transformation: { width: r.w, height: r.h }, altText: { title: 'logo', description: 'logo', name: 'logo' } });
             const sz = Math.round((r.size || size || BASE_PT) * 2);
             return new D.TextRun({ text: r.t, bold: !!r.b, italics: !!r.i, color: colorHex(r.color) || undefined, size: sz, sizeComplexScript: sz });
@@ -199,11 +200,15 @@
         const para = (sp) => {
             const runs = [];
             if (sp.bullet) { runs.push(new D.TextRun({ text: sp.bullet, size: Math.round((sp.size || BASE_PT) * 2), sizeComplexScript: Math.round((sp.size || BASE_PT) * 2) })); runs.push(new D.TextRun({ children: [new D.Tab()] })); }
+            if (sp.bm) runs.push(new D.Bookmark({ id: sp.bm, children: [new D.TextRun({ text: '' })] }));
             sp.runs.forEach(r => runs.push(runOf(r, sp.size)));
+            // บรรทัดที่ถูกตัดด้วย <br> ห้ามจัดแบบกระจายอักษรไทย ไม่งั้นตัวอักษรถูกยืดจนอ่านไม่ออก
+            const alignKey = (sp.align === 'dist' && sp.runs.some(r => r.br)) ? 'left' : sp.align;
             const o = {
-                children: runs, alignment: ALIGN[sp.align] || D.AlignmentType.LEFT,
+                children: runs, alignment: ALIGN[alignKey] || D.AlignmentType.LEFT,
+                tabStops: sp.tabRight ? [{ type: D.TabStopType.RIGHT, position: sp.tabRight, leader: D.LeaderType.DOT }] : undefined,
                 spacing: { before: sp.before || 0, after: sp.after == null ? 0 : sp.after, line: sp.line || opts.line || 276, lineRule: D.LineRuleType.AUTO },
-                indent: (sp.left || sp.hanging) ? { left: sp.left + (sp.hanging || 0), hanging: sp.hanging || undefined } : undefined,
+                indent: (sp.left || sp.hanging || sp.firstLine) ? { left: sp.left + (sp.hanging || 0), hanging: sp.hanging || undefined, firstLine: (!sp.hanging && sp.firstLine) ? sp.firstLine : undefined } : undefined,
                 pageBreakBefore: !!sp.pageBreak, keepLines: !!sp.keep, keepNext: !!sp.keepNext
             };
             if (sp.bullet) o.indent = { left: sp.left, hanging: sp.hanging };
@@ -243,6 +248,7 @@
         });
         return new D.Document({
             creator: opts.creator || 'ระบบจัดการกีฬาภายใน', title: opts.title || '',
+            features: opts.toc ? { updateFields: true } : undefined,
             styles: {
                 default: {
                     document: {
@@ -285,13 +291,24 @@
         docs.forEach(d => d.querySelectorAll('img').forEach(i => { const s = i.getAttribute('src'); if (s) srcs.add(s); }));
         const imgs = {};
         await Promise.all([...srcs].map(async s => { imgs[s] = await loadImage(s); }));
-        const specs = [];
+        const specs = [], marks = [];
+        let tocAt = 0;
         docs.forEach((d, idx) => {
             const part = convertChildren(d.body, { size: BASE_PT }, imgs, []);
-            if (part.length && sections[idx].newPage && specs.length) part[0].pageBreak = true;
-            if (sections[idx].line) part.forEach(sp => { sp.line = sections[idx].line; });
+            const sec = sections[idx];
+            if (part.length && sec.newPage && specs.length) part[0].pageBreak = true;
+            if (sec.line) part.forEach(sp => { sp.line = sec.line; });
+            if (sec.tocTitle && part.length) { const bm = 'sec' + idx; part[0].bm = bm; marks.push({ title: sec.tocTitle, bm, level: sec.tocLevel || 0 }); }
             specs.push(...part);
+            if (sec.tocAfter) tocAt = specs.length;
         });
+        if (opts.toc && marks.length) {
+            // สารบัญ: ชื่อส่วน ....... เลขหน้า (เลขหน้าเป็นฟิลด์ PAGEREF ให้ Word อัปเดตตอนเปิดไฟล์)
+            const toc = [{ k: 'p', runs: [{ t: 'สารบัญ', b: true, size: 24 }], size: 24, align: 'center', before: 0, after: 360, left: 0, hanging: 0, pageBreak: tocAt > 0, keepNext: true }];
+            marks.forEach(m => toc.push({ k: 'p', runs: [{ t: m.title, b: m.level === 0 && !!m.bold }, { tab: true }, { pageref: m.bm }], size: 16, align: 'left', before: 0, after: 100, left: m.level ? 567 : 0, hanging: 0, tabRight: CONTENT_W - (m.level ? 567 : 0) }));
+            if (specs[tocAt]) specs[tocAt].pageBreak = true;
+            specs.splice(tocAt, 0, ...toc);
+        }
         const blob = await docx.Packer.toBlob(buildDocx(specs, opts));
         return addThaiCs(blob);
     }
