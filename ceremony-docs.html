@@ -1815,8 +1815,8 @@
             let turn = 0;
             const kit = {
                 m1, m2,
-                L: (n, t) => `<div style="margin-bottom:10px; text-align:justify; page-break-inside:avoid;"><strong>(${cxEsc(n)})</strong> ${t}</div>`,
-                D: (t) => `<div style="margin:8px 0 12px; color:#555; font-style:italic; font-size:14pt;">( ${t} )</div>`,
+                L: (n, t) => { const c = n === m1 ? bkColors().mc1 : n === m2 ? bkColors().mc2 : '#000'; return `<div style="margin:0 0 20px; line-height:1.8; text-align:justify; color:${c}; page-break-inside:avoid;"><strong>(${cxEsc(n)})</strong> <strong>${t}</strong></div>`; },
+                D: (t) => `<div style="margin:16px 0 18px; line-height:1.7; color:#555; font-style:italic; font-size:14pt;">( ${t} )</div>`,
                 DIV: (t) => `<div style="text-align:center; font-weight:bold; margin:22px 0 12px; border-top:1px dashed #666; border-bottom:1px dashed #666; padding:4px 0; page-break-after:avoid;">${t}</div>`,
                 BL: (arr) => `<ul style="margin:4px 0 10px; padding-left:1.6cm;">${arr.map(a => `<li>${a}</li>`).join('')}</ul>`,
                 // พิธีกรสลับกันพูด: คืน {n: ชื่อ, e: คำลงท้าย, p: สรรพนาม}
