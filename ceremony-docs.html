@@ -1177,7 +1177,7 @@
         });
 
         // ----- เปิดหน้าฟอร์มของเอกสารเพิ่มเติม -----
-        function openExtra(type) {
+        function openExtra(type, noAuto) {
             document.getElementById('step1').classList.add('d-none');
             const s = document.getElementById('stepExtra');
             s.classList.remove('d-none');
@@ -1191,6 +1191,8 @@
             saveCd();
             Object.keys(cxEditors).forEach(cxRenderList);
             if (type === 'mc_sport' || type === 'mc_book') msRenderPicker();
+            // เปิดฟอร์มแล้วดึงข้อมูลที่กรอกผ่านลิงก์มาเติมเฉพาะช่องว่างให้อัตโนมัติ (ไม่ทับสิ่งที่กรอกไว้)
+            if (!noAuto) cxPullRemote(true).then(n => { if (n && selectedDocType === type && !document.getElementById('stepExtra').classList.contains('d-none')) openExtra(type, true); });
         }
 
         window.generateExtraDocument = async () => {
@@ -1262,19 +1264,20 @@
             }
         };
 
-        window.cxPullRemote = async () => {
+        window.cxPullRemote = async (silent) => {
+            silent = silent === true;
             let d;
             try { d = (await get(ref(db, 'mcData'))).val(); }
-            catch (e) { Swal.fire({ icon: 'error', title: 'ดึงข้อมูลไม่สำเร็จ' }); return; }
-            if (!d || (!d.shared && !d.teams)) { Swal.fire({ icon: 'info', title: 'ยังไม่มีข้อมูลที่กรอกผ่านลิงก์' }); return; }
-            const ask = await Swal.fire({
+            catch (e) { if (!silent) Swal.fire({ icon: 'error', title: 'ดึงข้อมูลไม่สำเร็จ' }); return 0; }
+            if (!d || (!d.shared && !d.teams)) { if (!silent) Swal.fire({ icon: 'info', title: 'ยังไม่มีข้อมูลที่กรอกผ่านลิงก์' }); return 0; }
+            const ask = silent ? { isConfirmed: true, isDismissed: false } : await Swal.fire({
                 icon: 'question', title: 'ดึงข้อมูลที่กรอกผ่านลิงก์',
                 html: 'จะให้ทำอย่างไรกับข้อมูลที่มีอยู่ในระบบตอนนี้?',
                 showDenyButton: true, showCancelButton: true,
                 confirmButtonText: 'เติมเฉพาะช่องว่าง', denyButtonText: 'ทับข้อมูลปัจจุบัน', cancelButtonText: 'ยกเลิก',
                 confirmButtonColor: '#0d6efd', denyButtonColor: '#dc3545'
             });
-            if (ask.isDismissed) return;
+            if (ask.isDismissed) return 0;
             const fillOnly = ask.isConfirmed;   // true = เติมเฉพาะช่องว่าง, false = ทับ
             const isEmpty = (x) => Array.isArray(x) ? !x.filter(Boolean).length : !String(x ?? '').trim();
             const toArr = (v) => (v && typeof v === 'object') ? Object.values(v) : v;
@@ -1293,7 +1296,8 @@
                 }
             }));
             saveCd();
-            if (EXTRA_TYPES.includes(selectedDocType)) openExtra(selectedDocType);
+            if (silent) return n;
+            if (EXTRA_TYPES.includes(selectedDocType)) openExtra(selectedDocType, true);
             Swal.fire({ icon: 'success', title: `ดึงข้อมูลแล้ว ${n} รายการ`, text: fillOnly ? 'เติมเฉพาะช่องที่ยังว่าง ข้อมูลเดิมไม่ถูกแก้ไข' : 'ทับข้อมูลเดิมในช่องที่ตรงกันแล้ว', timer: 2200, showConfirmButton: false });
         };
 
