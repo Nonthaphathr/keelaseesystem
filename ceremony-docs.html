@@ -1843,10 +1843,13 @@
                 return box('<b>ผลการจัดอันดับ</b> ' + (done ? ranks.map(x => `${x.r ? 'อันดับ ' + x.r : '-'} ${msTeamName(x.tk)}`).join(' &nbsp; ') : tks.map((_, i) => `อันดับ ${i + 1} ${dots(14)}`).join(' &nbsp; ')));
             }
             const w = m.winner;
-            const wTxt = done ? (w === 'draw' ? 'เสมอ' : (w && w !== 'none' ? msTeamName(w) : dots(14))) : dots(16);
-            if (method === 'win_once') return box(`<b>ผู้ชนะ</b> ${wTxt}`);
-            const sc = tks.map(tk => `${msTeamName(tk)} ${done ? ((m.scores || {})[tk] ?? 0) : dots(6)}`).join(' &nbsp;:&nbsp; ');
-            return box(`<b>ผลการแข่งขัน</b> ${sc} &nbsp; <b>ผู้ชนะ</b> ${wTxt}`);
+            const wTxt = done ? (w === 'draw' ? 'เสมอ' : (w && w !== 'none' ? msTeamName(w) : 'สี' + dots(14))) : 'สี' + dots(14);
+            if (method === 'win_once') return box(`<b>ผู้ชนะ ได้แก่</b> ${wTxt}`);
+            const isSet = method === 'score_set' || method === 'win_set';
+            const sc = tks.map(tk => isSet
+                ? `${msTeamName(tk)} ชนะ ${done ? ((m.scores || {})[tk] ?? 0) : dots(6)} เซ็ต`
+                : `${msTeamName(tk)} ${done ? ((m.scores || {})[tk] ?? 0) : dots(6)}`).join(' &nbsp;:&nbsp; ');
+            return box(`<b>ผลการแข่งขัน</b> ${sc} &nbsp; <b>ผู้ชนะ ได้แก่</b> ${wTxt}`);
         }
 
         function msMatchBlock(kit, m, idx, withSport) {
@@ -1970,16 +1973,18 @@
             const logos = `<div style="display:flex; justify-content:center; align-items:center; gap:30px; margin-bottom:10px;"><img src="${systemSettings.schoolLogo}" style="height:4cm;">${hasEv ? `<img src="${systemSettings.eventLogo}" style="height:4cm;">` : ''}</div>`;
             const mc = (n, full, cls) => (full || n) ? `<div style="text-align:center; font-size:18pt; margin-top:6px;">${cxEsc(full || n)}${(cls || '').trim() ? ' ชั้นมัธยมศึกษาปีที่ ' + cxEsc(cls) : ''}</div>` : '';
             const C = bkColors();
-            const mcc = (n, full, cls, col) => (full || n) ? `<div style="text-align:center; font-size:20pt; font-weight:bold; margin-top:8px; color:${col};">${cxEsc(full || n)}${(cls || '').trim() ? ' ชั้นมัธยมศึกษาปีที่ ' + cxEsc(cls) : ''}</div>` : '';
-            return `<div data-band="1"><div style="text-align:center; margin-top:20px;">${logos}</div>
-                <div style="text-align:center; font-size:44pt; font-weight:bold; margin-top:40px;">บทพิธีกร</div>
-                <div style="text-align:center; font-size:26pt; font-weight:bold; margin-top:12px;">"${ev}"</div>
-                <div style="text-align:center; font-size:22pt; margin-top:8px;">ประจำปีการศึกษา ${yr}</div>
-                <div style="text-align:center; font-size:20pt; margin-top:36px;">${S}</div>
-                <div style="text-align:center; font-size:18pt; margin-top:10px; font-weight:bold;">${cxDateLine()}</div>
-                <div style="text-align:center; font-size:18pt;">ณ ${cxDots(cd.x_venue, 25)}</div></div>
-                <div data-band="2"><div style="text-align:center; font-size:18pt; font-weight:bold;">พิธีกร</div>
-                ${mcc(cd.mc1, cd.mc1_full, cd.mc1_cls, C.mc1)}${mcc(cd.mc2, cd.mc2_full, cd.mc2_cls, C.mc2)}</div>
+            const mcc = (lab, n, full, cls, col) => (full || n) ? `<div style="text-align:center; font-size:12pt; color:#777; margin-top:14px;">${lab}</div><div style="text-align:center; font-size:22pt; font-weight:bold; color:${col};">${cxEsc(full || n)}${(cls || '').trim() ? ' <span style="font-size:15pt; font-weight:normal; color:#555;">ม.' + cxEsc(cls) + '</span>' : ''}</div>` : '';
+            const bar = `<div style="text-align:center; font-size:20pt; margin-top:22px;"><span style="color:${C.mc1};">▬▬▬</span> <span style="color:${C.mc2};">▬▬▬</span></div>`;
+            return `<div data-band="1"><div style="text-align:center; margin-top:10px;">${logos}</div>
+                <div style="text-align:center; font-size:15pt; color:#555; margin-top:24px;">${S}</div>
+                <div style="text-align:center; font-size:72pt; font-weight:bold; margin-top:30px; color:#111;">บทพิธีกร</div>
+                ${bar}
+                <div style="text-align:center; font-size:28pt; font-weight:bold; margin-top:22px;">${ev}</div>
+                <div style="text-align:center; font-size:20pt; color:#444; margin-top:6px;">ประจำปีการศึกษา ${yr}</div>
+                <div style="text-align:center; font-size:16pt; color:#555; margin-top:36px;">${cxDateLine()}</div>
+                <div style="text-align:center; font-size:16pt; color:#555;">ณ ${cxDots(cd.x_venue, 25)}</div></div>
+                <div data-band="2"><div style="text-align:center; font-size:14pt; font-weight:bold; color:#111;">พิธีกรผู้ดำเนินรายการ</div>
+                ${mcc('พิธีกร 1', cd.mc1, cd.mc1_full, cd.mc1_cls, C.mc1)}${mcc('พิธีกร 2', cd.mc2, cd.mc2_full, cd.mc2_cls, C.mc2)}</div>
                 `;
         }
         // ปรับหน้าตาบทพิธีกรสำหรับไฟล์ .docx: พิธีกร 1 = น้ำเงินเข้ม, พิธีกร 2 = น้ำตาลเข้ม, ข้อความในวงเล็บ/คำบรรยายเป็นสีดำ, เพิ่มช่องไฟระหว่างย่อหน้า

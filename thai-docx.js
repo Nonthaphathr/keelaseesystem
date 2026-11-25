@@ -252,20 +252,23 @@
         };
         // ปกเต็มหน้า: ตารางแถบสีอ่อน 2 แถบ (ตามสีพิธีกร 1 และ 2) ในส่วน (section) ที่ไม่มีขอบกระดาษ
         const coverSection = () => {
-            const rowsH = [11400, 5000];
-            const rows = cover.bands.map((band, i) => new D.TableRow({
+            const strip = () => new D.TableRow({
+                cantSplit: true, height: { value: 420, rule: D.HeightRule.EXACT },
+                children: [0, 1].map(i => new D.TableCell({ width: { size: 5953, type: D.WidthType.DXA }, borders: noBorders, shading: { type: D.ShadingType.CLEAR, fill: cover.colors[i] || '444444', color: 'auto' }, children: [new D.Paragraph({ children: [] })] }))
+            });
+            const rowsH = [10400, 5400];
+            const band = (b, i) => new D.TableRow({
                 cantSplit: true, height: { value: rowsH[i] || 3000, rule: D.HeightRule.EXACT },
                 children: [new D.TableCell({
-                    width: { size: 11906, type: D.WidthType.DXA }, borders: noBorders,
-                    shading: { type: D.ShadingType.CLEAR, fill: cover.colors[i] || 'FFFFFF', color: 'auto' },
-                    verticalAlign: i === 0 ? D.VerticalAlign.TOP : D.VerticalAlign.CENTER,
-                    margins: { top: i === 0 ? 700 : 0, bottom: 0, left: 1417, right: 1417 },
-                    children: band.length ? band.map(x => x.k === 't' ? table(x) : para(x)) : [new D.Paragraph({ children: [] })]
+                    columnSpan: 2, width: { size: 11906, type: D.WidthType.DXA }, borders: noBorders,
+                    verticalAlign: i === 0 ? D.VerticalAlign.CENTER : D.VerticalAlign.TOP,
+                    margins: { top: 200, bottom: 0, left: 1417, right: 1417 },
+                    children: b.length ? b.map(x => x.k === 't' ? table(x) : para(x)) : [new D.Paragraph({ children: [] })]
                 })]
-            }));
+            });
             return {
                 properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 0, bottom: 0, left: 0, right: 0, header: 0, footer: 0 } } },
-                children: [new D.Table({ width: { size: 11906, type: D.WidthType.DXA }, columnWidths: [11906], borders: noBorders, rows }),
+                children: [new D.Table({ width: { size: 11906, type: D.WidthType.DXA }, columnWidths: [5953, 5953], borders: noBorders, rows: [strip(), ...cover.bands.map(band), strip()] }),
                     new D.Paragraph({ spacing: { before: 0, after: 0, line: 20, lineRule: D.LineRuleType.EXACT }, children: [new D.TextRun({ text: '', size: 2 })] })]
             };
         };
@@ -344,7 +347,7 @@
             const sec = sections[idx];
             if (sec.cover) {
                 const bands = [...d.body.querySelectorAll('[data-band]')].map(b => convertChildren(b, { size: BASE_PT }, imgs, []));
-                cover = { bands, colors: (sec.bandColors || []).map(c => tint(c, 0.16)) };
+                cover = { bands, colors: (sec.bandColors || []).map(c => String(c || '').replace('#', '').toUpperCase()) };
                 nextPage = 2;
                 return;
             }
