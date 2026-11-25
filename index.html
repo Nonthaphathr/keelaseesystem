@@ -347,6 +347,7 @@
         .rp-tbl th, .rp-tbl td { border: 1px solid #333; padding: 2px 8px; vertical-align: top; }
         .rp-tbl th { background: #eee; text-align: center; }
         .rp-tbl td.c { text-align: center; width: 48px; }
+        .rp-tbl td.nm { white-space: nowrap; width: 1%; }
         .rp-vs { margin: 0 0 10px; break-inside: avoid; page-break-inside: avoid; }
         .rp-vs .rp-mt { background: #f3f3f3; text-align: left; font-size: 13.5pt; }
         .rp-sub { font-weight: 700; margin: 10px 0 3px; font-size: 13.5pt; break-after: avoid; }
@@ -407,7 +408,6 @@
                         </a>
                     </li>
                     <li class="nav-item"><button class="btn btn-sm btn-outline-success border-0 w-100" onclick="printAthleteRoster()"><i class="fas fa-print me-1"></i> พิมพ์รายชื่อนักกีฬา</button></li>
-                    <li class="nav-item"><button class="btn btn-sm btn-outline-light border-0 w-100" onclick="showQRCode()"><i class="fas fa-qrcode me-1"></i> QR ระบบ</button></li>
                     <li class="nav-item"><button class="btn btn-sm btn-outline-info border-0 w-100" onclick="showManual()"><i class="fas fa-book-reader me-1"></i> คู่มือ</button></li>
                     <li class="nav-item"><button class="btn btn-sm btn-outline-success border-0 w-100" onclick="showSettings()"><i class="fas fa-cog me-1"></i> ตั้งค่าระบบ</button></li>
                     <li class="nav-item ms-lg-2"><button class="btn btn-sm btn-add-match w-100 px-3" onclick="prepareAddMatch()"><i class="fas fa-plus me-1"></i> เพิ่มรายการ</button></li>
@@ -1733,7 +1733,7 @@
                 <title>พิมพ์เอกสาร - ${systemSettings.eventName} ${systemSettings.academicYear}</title>
                 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800&display=swap" rel="stylesheet">
                 <style>
-                    @page { size: A4; margin: 10mm 15mm; }
+                    @page { size: ${element.dataset.landscape === '1' ? 'A4 landscape' : 'A4'}; margin: 10mm 15mm; }
                     body { font-family: 'Kanit', sans-serif; margin: 0; padding: 0; background: white; line-height: 1.5; color: #000 !important; }
                     @media print { 
                         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
@@ -1817,7 +1817,7 @@
             const rs = rpRoster(tk);
             return `<div class="rp-page">${head(tm, `<div>รวมรายชื่อนักกีฬา (ไม่ซ้ำ) ทั้งหมด ${rs.length} คน</div>`)}
                 <table class="rp-tbl"><thead><tr><th>ที่</th><th>ชื่อ - สกุล</th><th>รายการที่เข้าร่วม</th></tr></thead><tbody>
-                ${rs.length ? rs.map((r, i) => `<tr><td class="c">${i + 1}</td><td>${rpEsc(r.name)}</td><td>${rpEsc(r.sports.join(', '))}</td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center">ยังไม่มีรายชื่อนักกีฬา</td></tr>'}
+                ${rs.length ? rs.map((r, i) => `<tr><td class="c">${i + 1}</td><td class="nm">${rpEsc(r.name)}</td><td>${rpEsc(r.sports.join(', '))}</td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center">ยังไม่มีรายชื่อนักกีฬา</td></tr>'}
                 </tbody></table></div>`;
         }).join('');
     }
@@ -1843,11 +1843,14 @@
             let box = document.getElementById('rosterPrint');
             if (!box) { box = document.createElement('div'); box.id = 'rosterPrint'; document.body.appendChild(box); }
             box.innerHTML = rpHTML(keys, r.value.fmt);
+            let ps = document.getElementById('rpPageStyle');
+            if (!ps) { ps = document.createElement('style'); ps.id = 'rpPageStyle'; document.head.appendChild(ps); }
+            ps.textContent = r.value.fmt === 'all' ? '@page{size:A4 landscape;margin:10mm 12mm}' : '@page{size:A4;margin:10mm 15mm}';
             document.body.classList.add('printing-roster');
             setTimeout(() => window.print(), 150);
         });
     };
-    window.addEventListener('afterprint', () => document.body.classList.remove('printing-roster'));
+    window.addEventListener('afterprint', () => { document.body.classList.remove('printing-roster'); const ps = document.getElementById('rpPageStyle'); if (ps) ps.remove(); });
 
     window.showManual = () => {
         Swal.fire({
@@ -1980,40 +1983,6 @@
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['คำนำหน้า', 'ชื่อ', 'นามสกุล', 'ชั้น', 'ห้อง'], ['เด็กชาย', 'สมชาย', 'ใจดี', 'ม.1', '1']]), 'นักเรียน');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['ชื่อ-สกุล', 'ตำแหน่ง'], ['นายสมศักดิ์ รักเรียน', 'ครูกลุ่มสาระฯ ภาษาไทย']]), 'ครู');
         XLSX.writeFile(wb, 'ตัวอย่างรายชื่อ.xlsx');
-    };
-
-    // ===== QR Code =====
-    window.showQRCode = () => {
-        const currentUrl = window.location.href;
-        const path = currentUrl.substring(0, currentUrl.lastIndexOf('/'));
-        const registerUrl = `${path}/register-admin.html`;
-
-        const html = `
-            <div class="row g-3">
-                <div class="col-12 col-md-6">
-                    <div class="p-3 border rounded bg-light h-100">
-                        <h6 class="fw-bold text-primary mb-2">1. ระบบจัดการ (สำหรับครู/กรรมการ)</h6>
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(currentUrl)}" class="img-fluid mb-2 border bg-white p-1">
-                        <p class="small text-muted mb-0">ใช้บันทึกผลและจัดการการแข่งขัน</p>
-                    </div>
-                </div>
-                <div class="col-12 col-md-6">
-                    <div class="p-3 border rounded bg-white h-100 shadow-sm border-warning">
-                        <h6 class="fw-bold text-warning-emphasis mb-2">2. ระบบลงทะเบียนนักกีฬา</h6>
-                        <div class="py-4"><i class="fas fa-user-edit fa-4x text-warning"></i></div>
-                        <p class="small text-muted mb-2">ลิงก์/QR แยกตามคณะสี ออกได้จากหน้าจัดการลงทะเบียน (สำหรับครู)</p>
-                        <button type="button" class="btn btn-sm btn-outline-dark w-100" onclick="openRegAdmin()">เปิดหน้าจัดการลงทะเบียน</button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const modalDialog = document.querySelector('#qrModal .modal-dialog');
-        modalDialog.classList.remove('modal-sm');
-        modalDialog.classList.add('modal-lg');
-        
-        document.querySelector('#qrModal .modal-body').innerHTML = html;
-        new bootstrap.Modal(document.getElementById('qrModal')).show();
     };
 
     // เรียงทีมในแต่ละรายการให้ลำดับเดียวกันทั้งระบบ (ตามลำดับในตั้งค่าทีม) ไม่ให้สลับซ้าย-ขวาตามลำดับที่เคยบันทึก
@@ -3402,7 +3371,9 @@
                 activeTeams.forEach(t => {
                     let score = '-';
                     if (m.status === 'done') {
-                        score = isRankRow ? getRankLabel(m, t.key) : (m.scores?.[t.key] || 0);
+                        if (isRankRow) score = getRankLabel(m, t.key);
+                        else if (m.scoringMethod === 'score_set' || m.scoringMethod === 'win_set') score = `ชนะ ${m.scores?.[t.key] || 0} เซ็ต`;
+                        else score = (m.scores?.[t.key] || 0);
                     }
                     teamScores += `<td style="border:1px solid #333; padding:5px; text-align:center; font-weight:bold;">${score}</td>`;
                 });
@@ -3520,6 +3491,7 @@
         const schedEl = document.getElementById('scheduleContent');
         // แบบรายการใช้ขอบเท่ากับตอนพิมพ์ (กว้างเนื้อหา 180 มม.) เพื่อให้พรีวิวตรงกับกระดาษจริง
         schedEl.style.padding = isPaged ? '10mm 15mm' : '';
+        schedEl.dataset.landscape = isPaged ? '' : '1';
         schedEl.innerHTML = html;
         bootstrap.Modal.getInstance(document.getElementById('schedulePDFModal')).hide();
         new bootstrap.Modal(document.getElementById('schedulePreviewModal')).show();
@@ -3823,7 +3795,7 @@
         const cards = list.map(c => `<div class="c" style="border-color:${scTeamColor(c.team)}"><div class="ev">${ev}</div><div class="ti">การ์ดส่งคะแนนประจำสนาม</div>
             <img src="${scQr(c, 260)}"><div class="nm">${esc2(c.name)}</div><div class="tm" style="color:${scTeamColor(c.team)}">${esc2(scTeamName(c.team))}</div>
             <div class="sm">สแกนเพื่อเข้าลงคะแนนรายการที่รับผิดชอบ (${c.ms.length} รายการ)</div>
-            <ul>${c.ms.slice(0, 8).map(m => `<li>${scLine(m)}</li>`).join('')}${c.ms.length > 8 ? '<li>...</li>' : ''}</ul></div>`).join('');
+            <ul>${c.ms.slice(0, 8).map(m => `<li>${scLine(m)}</li>`).join('')}${c.ms.length > 8 ? '<li>...</li>' : ''}</ul><div class="wn">โปรดลงคะแนนตามข้อเท็จจริงและเป็นธรรม ห้าม! ลงคะแนนมั่วหรือลงเล่น ระบบสามารถแกะรอยอุปกรณ์ได้<br>ห้ามเผยแพร่ QR code ให้ผู้ไม่เกี่ยวข้อง</div></div>`).join('');
         const w = window.open('', '_blank');
         if (!w) { Swal.fire({ icon: 'warning', title: 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์', text: 'กรุณาอนุญาต pop-up แล้วลองใหม่' }); return; }
         w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>การ์ด QR ผู้ส่งคะแนน</title>
@@ -3831,7 +3803,7 @@
             <style>@page{size:A4;margin:10mm}body{font-family:'Sarabun',sans-serif;margin:0}.g{display:grid;grid-template-columns:repeat(2,1fr);gap:8mm}
             .c{border:3px dashed;border-radius:10px;padding:7mm;text-align:center;page-break-inside:avoid}.ev{font-size:11pt;color:#555}.ti{font-family:'Kanit',sans-serif;font-size:15pt;color:#1a237e}
             img{width:52mm;height:52mm;margin:3mm 0}.nm{font-size:16pt;font-weight:700}.tm{font-size:13pt;font-weight:700}.sm{font-size:10pt;color:#555;margin-bottom:2mm}
-            ul{text-align:left;font-size:9.5pt;margin:2mm 0 0;padding-left:5mm}</style></head><body><div class="g">${cards}</div>
+            ul{text-align:left;font-size:9.5pt;margin:2mm 0 0;padding-left:5mm}.wn{color:#d00;font-weight:700;font-size:9.5pt;line-height:1.35;margin-top:2mm;text-align:center}</style></head><body><div class="g">${cards}</div>
             <script>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))<\/script></body></html>`);
         w.document.close();
     };

@@ -654,7 +654,7 @@
                 return `<div class="c" style="border-color:${esc(t.color || '#3949ab')}"><div class="ev">${ev}</div><div class="ti">การ์ดส่งคะแนนประจำสนาม</div>
                 <img src="${staffQr(c, 260)}"><div class="nm">${esc(c.name)}</div><div class="tm" style="color:${esc(t.color || '#333')}">${esc(teamName(c.team))}</div>
                 <div class="sm">สแกน QR → แตะรายการที่รับผิดชอบ (${c.ms.length} รายการ) → ลงคะแนนระหว่างการแข่งขัน</div>
-                <ul>${c.ms.slice(0, 8).map(m => `<li>${esc(mLabel(m))} • ${thaiDate(m.date)} ${esc(m.time)} น.</li>`).join('')}${c.ms.length > 8 ? '<li>...</li>' : ''}</ul></div>`; }).join('');
+                <ul>${c.ms.slice(0, 8).map(m => `<li>${esc(mLabel(m))} • ${thaiDate(m.date)} ${esc(m.time)} น.</li>`).join('')}${c.ms.length > 8 ? '<li>...</li>' : ''}</ul><div class="wn">โปรดลงคะแนนตามข้อเท็จจริงและเป็นธรรม ห้าม! ลงคะแนนมั่วหรือลงเล่น ระบบสามารถแกะรอยอุปกรณ์ได้<br>ห้ามเผยแพร่ QR code ให้ผู้ไม่เกี่ยวข้อง</div></div>`; }).join('');
             const w = window.open('', '_blank');
             if (!w) return Swal.fire({ icon: 'warning', title: 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์', text: 'กรุณาอนุญาต pop-up แล้วลองใหม่' });
             w.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>การ์ดผู้ส่งคะแนน</title>
@@ -662,7 +662,7 @@
                 <style>@page{size:A4;margin:10mm}body{font-family:'Sarabun',sans-serif;margin:0}.g{display:grid;grid-template-columns:repeat(2,1fr);gap:8mm}
                 .c{border:3px dashed;border-radius:10px;padding:7mm;text-align:center;page-break-inside:avoid}.ev{font-size:11pt;color:#555}.ti{font-family:'Kanit',sans-serif;font-size:15pt;color:#1a237e}
                 img{width:52mm;height:52mm;margin:3mm 0}.nm{font-size:16pt;font-weight:700}.tm{font-size:13pt;font-weight:700}.sm{font-size:10pt;color:#555;margin-bottom:2mm}
-                ul{text-align:left;font-size:9.5pt;margin:2mm 0 0;padding-left:5mm}</style></head><body><div class="g">${cards}</div>
+                ul{text-align:left;font-size:9.5pt;margin:2mm 0 0;padding-left:5mm}.wn{color:#d00;font-weight:700;font-size:9.5pt;line-height:1.35;margin-top:2mm;text-align:center}</style></head><body><div class="g">${cards}</div>
                 <script>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))<\/script></body></html>`);
             w.document.close();
         };
@@ -715,7 +715,7 @@
                 }).join('');
                 return `<div class="c"><div class="hd"><div class="ev">${ev} • การ์ดผู้ส่งคะแนนประจำสนาม</div>
                     <div class="ml">${esc(mLabel(m))}</div><div class="mt">${esc(thaiDate(m.date))} เวลา ${esc(m.time || '-')} น.${m.location ? ' • ' + esc(m.location) : ''}</div></div>
-                    <div class="cols">${cols || '<div class="tc"><div class="no">ยังไม่ได้ระบุผู้ส่งคะแนน</div></div>'}</div><div class="ft">สแกน QR ของตนเอง → แตะรายการที่ได้รับมอบหมาย → ลงคะแนนระหว่างการแข่งขัน</div></div>`;
+                    <div class="cols">${cols || '<div class="tc"><div class="no">ยังไม่ได้ระบุผู้ส่งคะแนน</div></div>'}</div><div class="ft">สแกน QR ของตนเอง → แตะรายการที่ได้รับมอบหมาย → ลงคะแนนระหว่างการแข่งขัน</div><div class="wn">โปรดลงคะแนนตามข้อเท็จจริงและเป็นธรรม ห้าม! ลงคะแนนมั่วหรือลงเล่น ระบบสามารถแกะรอยอุปกรณ์ได้<br>ห้ามเผยแพร่ QR code ให้ผู้ไม่เกี่ยวข้อง</div></div>`;
             }).join('');
             const w = window.open('', '_blank');
             if (!w) return Swal.fire({ icon: 'warning', title: 'เบราว์เซอร์บล็อกหน้าต่างพิมพ์', text: 'กรุณาอนุญาต pop-up แล้วลองใหม่' });
@@ -729,7 +729,7 @@
                 ${one ? '.tc{width:75mm}.q{width:58mm}.q img{width:56mm;height:56mm}.nm{font-size:14pt}' : ''}
                 .tc{border:3px solid;border-radius:8px;padding:3mm;text-align:center}.tn{font-size:14pt;font-weight:700;margin-bottom:2mm}
                 .qs{display:flex;flex-wrap:wrap;justify-content:center;gap:3mm}.q{width:38mm}.q img{width:36mm;height:36mm}.nm{font-size:11pt;font-weight:700;line-height:1.2}
-                .no{font-size:11pt;color:#b71c1c;padding:10mm 0}.ft{text-align:center;font-size:9pt;color:#555;margin-top:2mm}</style></head><body>${html}
+                .no{font-size:11pt;color:#b71c1c;padding:10mm 0}.wn{color:#d00;font-weight:700;font-size:9.5pt;line-height:1.35;margin-top:2mm;text-align:center}.ft{text-align:center;font-size:9pt;color:#555;margin-top:2mm}</style></head><body>${html}
                 <script>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))<\/script></body></html>`);
             w.document.close();
         };

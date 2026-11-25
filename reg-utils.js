@@ -250,12 +250,12 @@ export function lfBind(opts = {}) {
 export const VIA_LABEL = { staff: 'การ์ดประจำสนาม', emergency: 'การ์ดฉุกเฉิน', link: 'ลิงก์กรรมการ' };
 export function emergencyCardsPage(evName, staffHref, n) {
     const qr = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=4&data=${encodeURIComponent(staffHref)}`;
-    const card = (i) => `<div class="c"><div class="ev">${evName}</div><div class="ti">การ์ดฉุกเฉิน</div><div class="sub">ลงคะแนนได้ทุกรายการ</div><img src="${qr}"><div class="nm">ใบที่ ${i}</div><div class="sm">ใช้เมื่อผู้ส่งคะแนนประจำสนามไม่อยู่หรือขัดข้องเท่านั้น<br>ระบบบันทึกประวัติทุกครั้งที่ส่งคะแนน (เวลา/ผู้ส่ง/อุปกรณ์)</div></div>`;
+    const card = (i) => `<div class="c"><div class="ev">${evName}</div><div class="ti">การ์ดฉุกเฉิน</div><div class="sub">ลงคะแนนได้ทุกรายการ</div><img src="${qr}"><div class="nm">ใบที่ ${i}</div><div class="sm">ใช้เมื่อผู้ส่งคะแนนประจำสนามไม่อยู่หรือขัดข้องเท่านั้น<br>ระบบบันทึกประวัติทุกครั้งที่ส่งคะแนน (เวลา/ผู้ส่ง/อุปกรณ์)</div><div class="wn">โปรดลงคะแนนตามข้อเท็จจริงและเป็นธรรม ห้าม! ลงคะแนนมั่วหรือลงเล่น ระบบสามารถแกะรอยอุปกรณ์ได้<br>ห้ามเผยแพร่ QR code ให้ผู้ไม่เกี่ยวข้อง</div></div>`;
     return `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>การ์ดฉุกเฉิน</title>
         <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&family=Kanit:wght@600&display=swap" rel="stylesheet">
         <style>@page{size:A4;margin:10mm}body{font-family:'Sarabun',sans-serif;margin:0}.g{display:grid;grid-template-columns:repeat(2,1fr);gap:8mm}
         .c{border:4px dashed #c62828;border-radius:10px;padding:7mm;text-align:center;page-break-inside:avoid}.ev{font-size:11pt;color:#555}.ti{font-family:'Kanit',sans-serif;font-size:20pt;color:#c62828}.sub{font-size:14pt;font-weight:700}
-        img{width:56mm;height:56mm;margin:3mm 0}.nm{font-size:14pt;font-weight:700}.sm{font-size:10pt;color:#555}</style></head><body><div class="g">${Array.from({ length: n }, (_, i) => card(i + 1)).join('')}</div>
+        img{width:56mm;height:56mm;margin:3mm 0}.nm{font-size:14pt;font-weight:700}.sm{font-size:10pt;color:#555}.wn{color:#d00;font-weight:700;font-size:9.5pt;line-height:1.35;margin-top:2mm;text-align:center}</style></head><body><div class="g">${Array.from({ length: n }, (_, i) => card(i + 1)).join('')}</div>
         <script>Promise.all([...document.images].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>setTimeout(()=>print(),300))</script></body></html>`;
 }
 export function scoreLogRows(logs) {
