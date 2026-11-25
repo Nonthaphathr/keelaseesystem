@@ -1965,7 +1965,6 @@
             const hasEv = (systemSettings.eventLogo || '').trim() !== '';
             const logos = `<div style="display:flex; justify-content:center; align-items:center; gap:30px; margin-bottom:10px;"><img src="${systemSettings.schoolLogo}" style="height:4cm;">${hasEv ? `<img src="${systemSettings.eventLogo}" style="height:4cm;">` : ''}</div>`;
             const mc = (n, full, cls) => (full || n) ? `<div style="text-align:center; font-size:18pt; margin-top:6px;">${cxEsc(full || n)}${(cls || '').trim() ? ' ชั้นมัธยมศึกษาปีที่ ' + cxEsc(cls) : ''}</div>` : '';
-            const toc = parts.map((t, i) => `<div style="font-size:16pt; margin-left:3cm; margin-top:4px;">${i + 1}. ${cxEsc(t)}</div>`).join('');
             return `<div style="text-align:center; margin-top:40px;">${logos}</div>
                 <div style="text-align:center; font-size:44pt; font-weight:bold; margin-top:50px;">บทพิธีกร</div>
                 <div style="text-align:center; font-size:26pt; font-weight:bold; margin-top:12px;">"${ev}"</div>
