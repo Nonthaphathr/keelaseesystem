@@ -2236,16 +2236,19 @@
             let setDetail = '';
             if (m.scoringMethod === 'score_set' || m.scoringMethod === 'win_set') {
                 const n = parseInt(m.setCount) || 3, parts = [];
+                const nm = (tk) => getTeamByKey(tk).name;
                 for (let i = 1; i <= n; i++) {
                     if (m.scoringMethod === 'score_set') {
                         const v = matchTeams.map(tk => m.details?.[`s${i}_${tk}`] || 0);
-                        if (v.some(x => x > 0)) parts.push(v.join('-'));
+                        if (v.some(x => x > 0)) parts.push(matchTeams.length === 2
+                            ? `เซ็ต ${i} ${nm(matchTeams[0])} ${v[0]} - ${v[1]} ${nm(matchTeams[1])}`
+                            : `เซ็ต ${i} ` + matchTeams.map((tk, j) => `${nm(tk)} ${v[j]}`).join(' / '));
                     } else {
                         const w = m.details?.[`set${i}`];
-                        if (w && w !== 'none' && matchTeams.includes(w)) parts.push(getTeamByKey(w).name);
+                        if (w && w !== 'none' && matchTeams.includes(w)) parts.push(`เซ็ต ${i} ชนะ ${nm(w)}`);
                     }
                 }
-                if (parts.length) setDetail = `<div class="text-muted" style="font-size:0.72rem; line-height:1.3; margin-top:3px;">${m.scoringMethod === 'score_set' ? 'เซ็ต: ' : 'ชนะเซ็ต: '}${parts.join(' , ')}</div>`;
+                if (parts.length) setDetail = `<div class="text-muted" style="font-size:0.72rem; line-height:1.4; margin-top:3px;">${parts.join('<br>')}</div>`;
             }
             
             let winnerDisplay = '-';
@@ -2294,7 +2297,11 @@
                                     <li><a class="dropdown-item" href="#" onclick="copyMatchText('${m.id}', 'schedule')">คัดลอกกำหนดการ</a></li>
                                     <li><a class="dropdown-item" href="#" onclick="copyMatchText('${m.id}', 'result')">คัดลอกผลการแข่งขัน</a></li>
                                 </ul>
-                                ${m.status === 'done' ? `<button class="btn btn-outline-danger" onclick="previewReport('${m.id}')" title="พิมพ์รายงาน"><i class="fas fa-print"></i></button>` : ''}
+                                <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" title="พิมพ์เอกสาร"><i class="fas fa-print"></i></button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" onclick="previewPlayerListFor('${m.id}'); return false;"><i class="fas fa-clipboard-user me-2"></i>ใบรายชื่อรายงานตัว</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="previewReport('${m.id}'); return false;"><i class="fas fa-trophy me-2"></i>ผลการแข่งขันรายการนี้</a></li>
+                                </ul>
                                 <button class="btn btn-outline-danger" onclick="deleteMatch('${m.id}')" title="ลบรายการ"><i class="fas fa-trash"></i></button>
                             </div>
                         </div>
@@ -3600,6 +3607,11 @@
     };
 
     // ===== พิมพ์รายชื่อนักกีฬา =====
+    window.previewPlayerListFor = (id) => {
+        const m = allMatchesArray.find(x => x.id === id); if (!m) return;
+        const keep = matchDataLocal; matchDataLocal = m;
+        try { previewPlayerList(); } finally { matchDataLocal = keep; }
+    };
     window.previewPlayerList = () => {
         const m = matchDataLocal;
         const teams = m.teams || [];
