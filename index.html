@@ -3183,7 +3183,7 @@
                     <table style="width:100%; font-size:11pt;">
                         <tr>
                             <td><strong>กีฬา:</strong> ${getSportName(m.sport)}</td>
-                            <td style="text-align:right;"><strong>วันที่:</strong> ${formatDateThaiLong(m.date)}</td>
+                            <td style="text-align:right;"><strong>วันที่:</strong> ${formatDateThaiLong(m.date)}${m.time ? ' &nbsp; <strong>เวลา:</strong> ' + m.time + ' น.' : ''}</td>
                         </tr>
                         <tr>
                             <td><strong>รุ่น:</strong> ${m.category}</td>
@@ -3625,7 +3625,7 @@
                 <table style="width:100%; font-size:11pt;">
                     <tr>
                         <td><strong>กีฬา:</strong> ${getSportName(m.sport)}</td>
-                        <td style="text-align:right;"><strong>วันที่:</strong> ${formatDateThaiLong(m.date)}</td>
+                        <td style="text-align:right;"><strong>วันที่:</strong> ${formatDateThaiLong(m.date)}${m.time ? ' &nbsp; <strong>เวลา:</strong> ' + m.time + ' น.' : ''}</td>
                     </tr>
                     <tr>
                         <td><strong>รุ่น:</strong> ${m.category}</td>

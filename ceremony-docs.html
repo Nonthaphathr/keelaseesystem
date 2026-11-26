@@ -1136,7 +1136,33 @@
         };
         let cd = {};
         try { cd = JSON.parse(localStorage.getItem('ceremonyDocData') || '{}') || {}; } catch (e) { cd = {}; }
-        const saveCd = () => { try { localStorage.setItem('ceremonyDocData', JSON.stringify(cd)); } catch (e) {} };
+        // ข้อมูลฟอร์มเอกสารพิธีการ: เก็บในเครื่อง + ซิงก์ขึ้น Firebase (appData/ceremonyDoc) ใช้ข้ามเครื่องได้
+        let cdPushTimer = null;
+        const cxPushCd = async () => {
+            try { await authReady; await set(ref(db, 'appData/ceremonyDoc'), { t: cd.__t || Date.now(), json: JSON.stringify(cd) }); }
+            catch (e) { console.warn('ซิงก์ข้อมูลขึ้น Firebase ไม่สำเร็จ (ตรวจ Rules พาธ appData)', e); }
+        };
+        const saveCd = () => {
+            cd.__t = Date.now();
+            try { localStorage.setItem('ceremonyDocData', JSON.stringify(cd)); } catch (e) {}
+            clearTimeout(cdPushTimer); cdPushTimer = setTimeout(cxPushCd, 900);
+        };
+        // โหลดจาก Firebase: ถ้าข้อมูลบนคลาวด์ใหม่กว่าในเครื่องให้ใช้ของคลาวด์ ถ้าในเครื่องใหม่กว่าให้ส่งขึ้นคลาวด์
+        async function cxSyncLoad() {
+            try {
+                await authReady;
+                const r = (await get(ref(db, 'appData/ceremonyDoc'))).val();
+                const remoteT = r && r.t ? +r.t : 0, localT = +cd.__t || 0;
+                if (r && r.json && remoteT > localT) {
+                    const rc = JSON.parse(r.json);
+                    Object.keys(cd).forEach(k => delete cd[k]); Object.assign(cd, rc);
+                    try { localStorage.setItem('ceremonyDocData', JSON.stringify(cd)); } catch (e) {}
+                    try { renderAwardTypes(); } catch (e) {}
+                    const se = document.getElementById('stepExtra');
+                    if (selectedDocType && se && !se.classList.contains('d-none') && EXTRA_TYPES.includes(selectedDocType)) openExtra(selectedDocType, true);
+                } else if (localT > remoteT && Object.keys(cd).length > 1) cxPushCd();
+            } catch (e) { console.warn('โหลดข้อมูลจาก Firebase ไม่สำเร็จ', e); }
+        }
         const cxEsc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const cxBr = (s) => cxEsc(s).replace(/\r?\n/g, '<br>');
         // ชื่อคณะสี: ตัวหนา สีโทนเข้มของคณะนั้น ขีดเส้นใต้ เพื่อเน้น
@@ -2265,7 +2291,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             // รอเข้าสู่ระบบแบบ anonymous ก่อนอ่านฐานข้อมูล (ไม่งั้นโดน permission denied แล้วตัวโหลดค้างตลอด)
-            authReady.then(() => { loadSettings(); loadMatches(); cxLoadPeople(); });
+            authReady.then(() => { loadSettings(); loadMatches(); cxLoadPeople(); cxSyncLoad(); });
         });
     </script>
 </body>

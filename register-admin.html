@@ -442,7 +442,8 @@
             sel.value = tk || (activeTeams()[0] || {}).key;
             document.getElementById(type === 'follow' ? 'tplFollow' : type === 'meet' ? 'tplMeet' : 'tplInvite').checked = true;
             try {
-                const p = JSON.parse(localStorage.getItem('regTplPrefs') || '{}');
+                let p = JSON.parse(localStorage.getItem('regTplPrefs') || '{}');
+                try { await authReady; const rp = (await get(ref(db, 'appData/regTplPrefs'))).val(); if (rp && (rp.t || 0) > (p.t || 0)) p = rp; } catch (e) {}
                 document.getElementById('tplDeadline').value = p.deadline || ''; document.getElementById('tplContact').value = p.contact || ''; document.getElementById('tplMeetTxt').value = p.meet || '';
             } catch (e) {}
             // เตรียมลิงก์ทุกสีไว้ก่อน เพื่อใส่ในข้อความได้ทันที
@@ -541,7 +542,7 @@
             const tk = document.getElementById('tplTeam').value;
             const deadline = document.getElementById('tplDeadline').value.trim(), contact = document.getElementById('tplContact').value.trim(), meet = document.getElementById('tplMeetTxt').value.trim();
             document.getElementById('tplMeetRow').style.display = type === 'meet' ? '' : 'none';
-            try { localStorage.setItem('regTplPrefs', JSON.stringify({ deadline, contact, meet })); } catch (e) {}
+            try { const pv = { deadline, contact, meet, t: Date.now() }; localStorage.setItem('regTplPrefs', JSON.stringify(pv)); authReady.then(() => set(ref(db, 'appData/regTplPrefs'), pv)).catch(() => {}); } catch (e) {}
             const text = buildTpl(tk === 'all' && type !== 'meet' ? 'follow' : type, tk, deadline, contact, meet);
             document.getElementById('tplText').value = text;
             document.getElementById('tplLine').href = 'https://line.me/R/msg/text/?' + encodeURIComponent(text);
