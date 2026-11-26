@@ -367,6 +367,10 @@
                 page-break-after: auto;
             }
         }
+        @keyframes rbPulse { 0% { box-shadow: 0 0 0 0 rgba(25,135,84,.7); transform: scale(1); } 50% { transform: scale(1.06); } 70% { box-shadow: 0 0 0 10px rgba(25,135,84,0); } 100% { box-shadow: 0 0 0 0 rgba(25,135,84,0); transform: scale(1); } }
+        .rb-pulse { animation: rbPulse 1.8s ease-in-out infinite; }
+        .rb-pulse:hover { animation: none; }
+        .rb-chip { transition: transform .15s; } .rb-chip:hover { transform: translateY(-2px); }
     </style>
 </head>
 <body>
@@ -481,6 +485,7 @@
 
                         <button class="btn btn-sm btn-primary" onclick="prepareSchedulePDF()"><i class="fas fa-calendar-alt me-1"></i><span class="d-none d-sm-inline">กำหนดการ(PDF)</span></button>
                         <button class="btn btn-sm btn-danger" onclick="previewSummaryReport()"><i class="fas fa-file-pdf me-1"></i><span class="d-none d-sm-inline">สรุปผล(PDF)</span></button>
+                        <button class="btn btn-sm btn-success rb-pulse" onclick="openRosterBatch()"><i class="fas fa-print me-1"></i><span class="d-none d-sm-inline">พิมพ์ใบรายงานตัวนักกีฬา</span></button>
                         <button class="btn btn-sm btn-warning" onclick="openShiftTime()"><i class="fas fa-clock me-1"></i><span class="d-none d-sm-inline">เลื่อนเวลาแข่งขัน</span></button>
                     </div>
                 </div>
@@ -857,6 +862,30 @@
                 <div class="modal-footer py-2">
                     <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
                     <button class="btn btn-primary btn-sm" onclick="printDocument('scheduleContent')"><i class="fas fa-print me-1"></i> พิมพ์</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="rosterBatchModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white py-2">
+                    <h5 class="modal-title"><i class="fas fa-print me-2"></i>พิมพ์ใบรายงานตัวนักกีฬา</h5>
+                    <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="small fw-bold mb-1">1) เลือกชนิดกีฬา</div>
+                    <div id="rbSports" class="d-flex flex-wrap gap-2 mb-3"></div>
+                    <div class="small fw-bold mb-1">2) ติ๊กเลือกประเภทย่อยที่ต้องการพิมพ์ <span class="text-muted fw-normal">(เลือกข้ามกีฬาได้)</span></div>
+                    <div id="rbCats" class="border rounded p-2 bg-light" style="min-height:120px;"></div>
+                </div>
+                <div class="modal-footer py-2 justify-content-between">
+                    <span class="small text-muted">เลือกแล้ว <b id="rbCount">0</b> รายการ</span>
+                    <span>
+                        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+                        <button id="rbPrintBtn" class="btn btn-success btn-sm" onclick="rbPrint()" disabled><i class="fas fa-print me-1"></i> สั่งพิมพ์</button>
+                    </span>
                 </div>
             </div>
         </div>
@@ -3612,8 +3641,7 @@
         const keep = matchDataLocal; matchDataLocal = m;
         try { previewPlayerList(); } finally { matchDataLocal = keep; }
     };
-    window.previewPlayerList = () => {
-        const m = matchDataLocal;
+    const plHtml = (m) => {
         const teams = m.teams || [];
         
         let html = `
@@ -3675,8 +3703,50 @@
             </div>
         `;
         
-        document.getElementById('playerListContent').innerHTML = html;
+        return html;
+    };
+    window.previewPlayerList = () => {
+        document.getElementById('playerListContent').innerHTML = plHtml(matchDataLocal);
         new bootstrap.Modal(document.getElementById('playerListModal')).show();
+    };
+
+    // ===== พิมพ์ใบรายงานตัวนักกีฬาแบบเลือกหลายรายการ (ฟอร์มเดียวกับใบรายชื่อท้ายรายการ) =====
+    const rbSel = new Set();
+    let rbSport = null;
+    const rbSports = () => [...new Set(allMatchesArray.map(m => m.sport))];
+    window.openRosterBatch = () => {
+        if (!allMatchesArray.length) { Swal.fire({ icon: 'info', title: 'ยังไม่มีรายการแข่งขัน' }); return; }
+        rbSel.clear(); rbSport = null; rbRender();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('rosterBatchModal')).show();
+    };
+    window.rbPickSport = (sk) => { rbSport = sk; rbRender(); };
+    window.rbToggle = (id, on) => { on ? rbSel.add(id) : rbSel.delete(id); rbRender(); };
+    window.rbAllInSport = (on) => {
+        allMatchesArray.filter(m => m.sport === rbSport).forEach(m => on ? rbSel.add(m.id) : rbSel.delete(m.id)); rbRender();
+    };
+    function rbRender() {
+        const sports = rbSports();
+        document.getElementById('rbSports').innerHTML = sports.map(sk => {
+            const n = allMatchesArray.filter(m => m.sport === sk && rbSel.has(m.id)).length;
+            return `<button type="button" class="btn btn-sm ${rbSport === sk ? 'btn-primary' : 'btn-outline-primary'} rb-chip" onclick="rbPickSport('${sk}')">${rpEsc(getSportName(sk))}${n ? ` <span class="badge bg-warning text-dark">${n}</span>` : ''}</button>`;
+        }).join('');
+        const box = document.getElementById('rbCats');
+        if (!rbSport) box.innerHTML = '<div class="text-muted text-center py-4"><i class="fas fa-hand-pointer me-1"></i> เลือกชนิดกีฬาด้านบนก่อน</div>';
+        else {
+            const list = allMatchesArray.filter(m => m.sport === rbSport).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''));
+            const allOn = list.every(m => rbSel.has(m.id));
+            box.innerHTML = `<div class="form-check mb-2 pb-2 border-bottom"><input class="form-check-input" type="checkbox" id="rbAll" ${allOn ? 'checked' : ''} onchange="rbAllInSport(this.checked)"><label class="form-check-label fw-bold" for="rbAll">เลือกทั้งหมดของ ${rpEsc(getSportName(rbSport))} (${list.length})</label></div>` +
+                list.map(m => `<div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="rb_${m.id}" ${rbSel.has(m.id) ? 'checked' : ''} onchange="rbToggle('${m.id}', this.checked)"><label class="form-check-label" for="rb_${m.id}">${rpEsc(m.category || '-')} <span class="text-muted small">· ${rpEsc(formatDateThai(m.date))} ${rpEsc(m.time || '')}${m.time ? ' น.' : ''}</span></label></div>`).join('');
+        }
+        document.getElementById('rbCount').textContent = rbSel.size;
+        document.getElementById('rbPrintBtn').disabled = !rbSel.size;
+    }
+    window.rbPrint = () => {
+        const ms = allMatchesArray.filter(m => rbSel.has(m.id)).sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''));
+        if (!ms.length) return;
+        document.getElementById('playerListContent').innerHTML = ms.map((m, i) => `<div style="${i ? 'page-break-before:always;' : ''}">${plHtml(m)}</div>`).join('');
+        bootstrap.Modal.getInstance(document.getElementById('rosterBatchModal'))?.hide();
+        printDocument('playerListContent');
     };
 
     // ===== Copy Text Functions =====
