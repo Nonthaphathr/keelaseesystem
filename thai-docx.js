@@ -78,7 +78,7 @@
         node.childNodes.forEach(n => {
             if (n.nodeType === 3) {
                 const t = clean(n.nodeValue);
-                if (t) out.push({ t, b: st.b, i: st.i, color: st.color, size: st.size });
+                if (t) out.push({ t, b: st.b, i: st.i, u: st.u, color: st.color, size: st.size });
             } else if (n.nodeType === 1) {
                 const tag = n.tagName;
                 if (tag === 'BR') { out.push({ br: true }); return; }
@@ -94,6 +94,7 @@
                 if (tag === 'STRONG' || tag === 'B' || /bold|[6-9]00/.test(n.style.fontWeight)) s2.b = true;
                 if (tag === 'EM' || tag === 'I' || n.style.fontStyle === 'italic') s2.i = true;
                 if (n.style.color) s2.color = n.style.color;
+                if (/underline/.test(n.style.textDecoration || '')) s2.u = true;
                 if (n.style.fontSize) s2.size = toPt(n.style.fontSize, st.size);
                 runsOf(n, s2, imgs, out);
             }
@@ -145,7 +146,7 @@
             pending = [];
         };
         parent.childNodes.forEach(n => {
-            if (n.nodeType === 3) { const t = clean(n.nodeValue); if (t.trim() || pending.length) pending.push({ t, b: st.b, i: st.i, color: st.color, size: st.size }); return; }
+            if (n.nodeType === 3) { const t = clean(n.nodeValue); if (t.trim() || pending.length) pending.push({ t, b: st.b, i: st.i, u: st.u, color: st.color, size: st.size }); return; }
             if (n.nodeType !== 1) return;
             if (!BLOCK.has(n.tagName)) { runsOf({ childNodes: [n] }, st, imgs, pending); return; }
             flush();
@@ -229,7 +230,7 @@
             if (r.pageref) { const z = Math.round((r.size || size || BASE_PT) * 2); return new D.TextRun({ children: [new D.PageReference(r.pageref, { hyperlink: true })], size: z, sizeComplexScript: z }); }
             if (r.img) return new D.ImageRun({ type: r.img.type, data: r.img.data, transformation: { width: r.w, height: r.h }, altText: { title: 'logo', description: 'logo', name: 'logo' } });
             const sz = Math.round((r.size || size || BASE_PT) * 2);
-            return new D.TextRun({ text: r.t, bold: !!r.b, italics: !!r.i, color: colorHex(r.color) || undefined, size: sz, sizeComplexScript: sz });
+            return new D.TextRun({ text: r.t, bold: !!r.b, italics: !!r.i, underline: r.u ? {} : undefined, color: colorHex(r.color) || undefined, size: sz, sizeComplexScript: sz });
         };
         const para = (sp) => {
             const runs = [];

@@ -717,7 +717,17 @@
         // ----- ผู้มอบรางวัลรายรายการ (กรอกอิสระ เว้นว่าง = ประธานมอบ) -----
         // รายชื่อครูสำหรับ suggest (ดึงจากทะเบียนบุคลากร registry/people แบบเดียวกับหน้าอื่น; ถ้าไม่มีครูใช้รายชื่อทั้งหมด)
         let cxPeoplePool = [];
-        const cxSug = attachSuggest(document.getElementById('sugBox'), () => cxPeoplePool, (el, p) => { el.value = p.n; cxSetPres(el); });
+        // รายชื่อที่ใช้ suggest: ทะเบียนบุคลากร + ชื่อกรรมการในรายการแข่งขัน + ชื่อที่เคยกรอกในเอกสารนี้ (ใช้ได้แม้ยังไม่ได้นำเข้าทะเบียน)
+        const cxSugPool = () => {
+            const seen = new Set(), out = [];
+            const add = (n, c) => { n = String(n || '').trim(); if (n.length > 1 && !seen.has(n)) { seen.add(n); out.push({ n, c: c || '' }); } };
+            Object.values(cd.award_pres || {}).forEach(v => add(v, 'เคยกรอก'));
+            ['chairman', 'reporter', 'closer', 'sr_name'].forEach(k => add(cd[k], 'ผู้ร่วมพิธี'));
+            cxPeoplePool.forEach(p => add(p.n, p.c));
+            allMatchesArray.forEach(m => (Array.isArray(m.referees) ? m.referees : Object.values(m.referees || {})).forEach(r => add(r, 'กรรมการ')));
+            return out;
+        };
+        const cxSug = attachSuggest(document.getElementById('sugBox'), cxSugPool, (el, p) => { el.value = p.n; cxSetPres(el); });
         document.addEventListener('scroll', () => { const b = document.getElementById('sugBox'); if (b) b.style.display = 'none'; }, true);
         function cxLoadPeople() {
             get(ref(db, 'registry/people')).then(sn => {
@@ -1056,11 +1066,16 @@
             const chair = (chairmanName || cd.chairman || '').trim();
             const chairTxt = chair ? `${cxEsc(chair)} ${cxEsc(cd.chairman_pos || 'ประธานในพิธี')}` : 'ท่านประธานในพิธี';
             const T = cxAwardTeachers();
-            const team = (w) => (!w || /^\.+$/.test(w)) ? '.'.repeat(20) : (w === '-' ? '-' : 'คณะ' + cxEsc(w));
+            const teamByName = (n) => Object.values(systemSettings.teams || {}).find(t => t && t.name === n);
+            const team = (w) => {
+                if (!w || /^\.+$/.test(w)) return '.'.repeat(20);
+                if (w === '-') return '-';
+                return String(w).split(' และ ').map(p => { const mm = p.match(/^(.*?)( \(เสมอกัน\))?$/), tm = teamByName(mm[1].trim()); return tm ? cxTeamSpan('คณะ' + cxEsc(mm[1].trim()), tm.color) + cxEsc(mm[2] || '') : 'คณะ' + cxEsc(p); }).join(' และ');
+            };
             const say = (fn) => { const s = kit.next(); return fn(s); };
             const pres = (key) => ((cd.award_pres || {})[key] || '').trim();
-            const presTxt = (key) => pres(key) ? cxEsc(pres(key)) : '.'.repeat(20) + ' ';   // ว่าง = จุดไข่ปลาให้เขียนเติม
-            const presInv = (key) => pres(key) ? cxEsc(pres(key)) : '.'.repeat(20);   // ว่าง = จุดไข่ปลาให้เขียนเติม
+            const presTxt = (key) => pres(key) ? cxEsc(pres(key)) : '.'.repeat(50) + ' ';   // ว่าง = จุดไข่ปลาให้เขียนเติม
+            const presInv = (key) => pres(key) ? cxEsc(pres(key)) : '.'.repeat(50);   // ว่าง = จุดไข่ปลาให้เขียนเติม
             // ลำดับการมอบทั้งหมด: ผู้มอบคนเดียวกันมอบรายการติดกัน = เชิญขึ้นเวทีครั้งเดียว ไม่ต้องเชิญซ้ำ
             const seq = awardList.map(a => a.title).concat(['__runnerup', '__overall']);
             const pid = (k) => pres(k) || ('__blank_' + k);   // ช่องว่างแต่ละรายการถือเป็นผู้มอบคนละคน (เชิญขึ้นเวทีทุกรายการ)
@@ -1120,6 +1135,9 @@
         const saveCd = () => { try { localStorage.setItem('ceremonyDocData', JSON.stringify(cd)); } catch (e) {} };
         const cxEsc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const cxBr = (s) => cxEsc(s).replace(/\r?\n/g, '<br>');
+        // ชื่อคณะสี: ตัวหนา สีโทนเข้มของคณะนั้น ขีดเส้นใต้ เพื่อเน้น
+        const cxDark = (hex) => { const h = String(hex || '').replace('#', ''); if (!/^[0-9a-f]{6}$/i.test(h)) return '#333333'; return '#' + [0, 2, 4].map(i => Math.round(parseInt(h.substr(i, 2), 16) * 0.58).toString(16).padStart(2, '0')).join(''); };
+        const cxTeamSpan = (text, color) => `<span style="color:${cxDark(color)}; font-weight:bold; text-decoration:underline;">${text}</span>`;
         const cxDots = (v, n = 30) => (v && String(v).trim()) ? cxEsc(String(v).trim()) : '.'.repeat(n);
         const cxEditors = {};
 
@@ -1830,7 +1848,7 @@
             const order = getActiveTeams().map(t => t.key);
             return (m.teams || []).slice().sort((a, b) => { const x = order.indexOf(a), y = order.indexOf(b); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y); });
         };
-        const msTeamName = (k) => 'คณะ' + cxEsc(getTeamByKey(k).name);
+        const msTeamName = (k) => { const t = getTeamByKey(k); return cxTeamSpan('คณะ' + cxEsc(t.name), t.color); };
         const msJoin = (arr) => arr.length <= 1 ? arr.join('') : arr.slice(0, -1).join(' ') + ' และ' + arr[arr.length - 1];
 
         function msResultBox(m, tks) {
