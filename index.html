@@ -481,6 +481,7 @@
 
                         <button class="btn btn-sm btn-primary" onclick="prepareSchedulePDF()"><i class="fas fa-calendar-alt me-1"></i><span class="d-none d-sm-inline">กำหนดการ(PDF)</span></button>
                         <button class="btn btn-sm btn-danger" onclick="previewSummaryReport()"><i class="fas fa-file-pdf me-1"></i><span class="d-none d-sm-inline">สรุปผล(PDF)</span></button>
+                        <button class="btn btn-sm btn-warning" onclick="openShiftTime()"><i class="fas fa-clock me-1"></i><span class="d-none d-sm-inline">เลื่อนเวลาแข่งขัน</span></button>
                     </div>
                 </div>
                 
@@ -1720,6 +1721,92 @@
         return methods[method] || method;
     }
     
+    // ===== เลื่อนเวลาแข่งขัน =====
+    const shiftSt = { sport: '', date: 'all', cats: new Set(), mode: 'delta', delta: 15, setTime: '' };
+    const hmToMin = (t) => { const p = String(t || '').split(':'); return p.length >= 2 && !isNaN(p[0]) && !isNaN(p[1]) ? (+p[0]) * 60 + (+p[1]) : null; };
+    const minToHm = (n) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+    const shiftMatches = () => allMatchesArray.filter(m => m.sport === shiftSt.sport && (shiftSt.date === 'all' || m.date === shiftSt.date) && shiftSt.cats.has(m.category || ''))
+        .sort((a, b) => ((a.date || '') + (a.time || '')).localeCompare((b.date || '') + (b.time || '')));
+    // คำนวณเวลาใหม่ของแต่ละรายการที่เลือก
+    function shiftPlan() {
+        const ms = shiftMatches();
+        let d = 0;
+        if (shiftSt.mode === 'delta') d = parseInt(shiftSt.delta) || 0;
+        else {
+            const target = hmToMin(shiftSt.setTime), first = ms.map(m => hmToMin(m.time)).filter(x => x !== null).sort((a, b) => a - b)[0];
+            d = (target !== null && first !== undefined) ? target - first : 0;
+        }
+        return ms.map(m => {
+            const o = hmToMin(m.time);
+            let n = o === null ? null : o + d, bad = false;
+            if (n !== null && (n < 0 || n > 1439)) { bad = true; n = Math.max(0, Math.min(1439, n)); }
+            return { m, old: m.time || '-', nw: n === null ? '-' : minToHm(n), bad, changed: n !== null && n !== o };
+        });
+    }
+    window.openShiftTime = () => {
+        const sports = [...new Set(allMatchesArray.map(m => m.sport))];
+        if (!sports.length) { Swal.fire({ icon: 'info', title: 'ยังไม่มีรายการแข่งขัน' }); return; }
+        const fd = document.getElementById('filterDate') ? document.getElementById('filterDate').value : 'all';
+        if (!sports.includes(shiftSt.sport)) shiftSt.sport = sports[0];
+        shiftSt.date = fd && fd !== 'all' ? fd : 'all';
+        shiftSt.cats = new Set(allMatchesArray.filter(m => m.sport === shiftSt.sport).map(m => m.category || ''));
+        let el = document.getElementById('shiftModal');
+        if (!el) {
+            el = document.createElement('div'); el.className = 'modal fade'; el.id = 'shiftModal'; el.tabIndex = -1;
+            el.innerHTML = `<div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+                <div class="modal-header bg-warning"><h5 class="modal-title fw-bold"><i class="fas fa-clock me-2"></i>เลื่อนเวลาแข่งขัน</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body" id="shiftBody"></div>
+                <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button><button class="btn btn-warning fw-bold" onclick="shiftApply()"><i class="fas fa-save me-1"></i>บันทึกการเลื่อนเวลา</button></div></div></div>`;
+            document.body.appendChild(el);
+        }
+        shiftRender();
+        bootstrap.Modal.getOrCreateInstance(el).show();
+    };
+    window.shiftSet = (k, v) => {
+        if (k === 'sport') { shiftSt.sport = v; shiftSt.cats = new Set(allMatchesArray.filter(m => m.sport === v).map(m => m.category || '')); }
+        else if (k === 'date') shiftSt.date = v;
+        else if (k === 'delta') { shiftSt.mode = 'delta'; shiftSt.delta = v; }
+        else if (k === 'preset') { shiftSt.mode = 'delta'; shiftSt.delta = v; }
+        else if (k === 'setTime') { shiftSt.mode = 'set'; shiftSt.setTime = v; }
+        shiftRender(k === 'delta' || k === 'setTime');
+    };
+    window.shiftCat = (c, on) => { on ? shiftSt.cats.add(c) : shiftSt.cats.delete(c); shiftRender(true); };
+    window.shiftCatAll = (on) => { const all = allMatchesArray.filter(m => m.sport === shiftSt.sport && (shiftSt.date === 'all' || m.date === shiftSt.date)).map(m => m.category || ''); shiftSt.cats = on ? new Set(all) : new Set(); shiftRender(); };
+    function shiftRender(keepInputs) {
+        const body = document.getElementById('shiftBody'); if (!body) return;
+        const esc = (x) => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const sports = [...new Set(allMatchesArray.map(m => m.sport))];
+        const dates = [...new Set(allMatchesArray.filter(m => m.sport === shiftSt.sport).map(m => m.date).filter(Boolean))].sort();
+        const catsAll = [...new Set(allMatchesArray.filter(m => m.sport === shiftSt.sport && (shiftSt.date === 'all' || m.date === shiftSt.date)).map(m => m.category || ''))];
+        const plan = shiftPlan();
+        const planHtml = plan.length ? `<table class="table table-sm align-middle mb-0"><thead class="table-light"><tr><th>วันที่</th><th>รายการ</th><th class="text-center">เวลาเดิม</th><th class="text-center">เวลาใหม่</th></tr></thead><tbody>${plan.map(p => `<tr><td class="text-nowrap">${esc(formatDateThai(p.m.date))}</td><td>${esc(p.m.category || '')} ${p.m.status === 'done' ? '<span class="badge bg-secondary">จบแล้ว</span>' : ''}</td><td class="text-center">${esc(p.old)}</td><td class="text-center fw-bold ${p.changed ? 'text-primary' : 'text-muted'}">${esc(p.nw)}${p.bad ? ' <span class="text-danger small">(เกินวัน)</span>' : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="text-muted text-center py-2">ยังไม่ได้เลือกประเภทย่อย</div>';
+        if (keepInputs) { const pv = document.getElementById('shiftPlan'); if (pv) { pv.innerHTML = planHtml; return; } }
+        body.innerHTML = `<div class="row g-2 mb-2">
+            <div class="col-md-6"><label class="form-label fw-bold small">ชนิดกีฬา</label><select class="form-select" onchange="shiftSet('sport', this.value)">${sports.map(k => `<option value="${esc(k)}" ${k === shiftSt.sport ? 'selected' : ''}>${esc(getSportName(k))}</option>`).join('')}</select></div>
+            <div class="col-md-6"><label class="form-label fw-bold small">วันที่</label><select class="form-select" onchange="shiftSet('date', this.value)"><option value="all">ทุกวัน</option>${dates.map(d => `<option value="${esc(d)}" ${d === shiftSt.date ? 'selected' : ''}>${esc(formatDateThai(d))}</option>`).join('')}</select></div></div>
+            <div class="d-flex align-items-center gap-2 mb-1"><label class="fw-bold small mb-0">ประเภทย่อยที่จะเลื่อน</label><button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="shiftCatAll(true)">เลือกทั้งหมด</button><button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="shiftCatAll(false)">ไม่เลือก</button></div>
+            <div class="border rounded p-2 mb-3 bg-light" style="max-height:170px; overflow:auto;">${catsAll.map(c => { const n = allMatchesArray.filter(m => m.sport === shiftSt.sport && (m.category || '') === c && (shiftSt.date === 'all' || m.date === shiftSt.date)).length; return `<label class="d-flex gap-2 align-items-center py-1"><input type="checkbox" class="form-check-input mt-0" ${shiftSt.cats.has(c) ? 'checked' : ''} onchange="shiftCat('${esc(c).replace(/'/g, "\\'")}', this.checked)"><span>${esc(c) || '(ไม่ระบุ)'}</span><span class="badge bg-secondary">${n} รายการ</span></label>`; }).join('') || '<div class="text-muted">ไม่มีประเภทย่อย</div>'}</div>
+            <div class="row g-2 mb-3">
+              <div class="col-md-6"><div class="p-2 border rounded h-100"><div class="fw-bold small mb-1">เลื่อนตามจำนวนนาที (คำนวณจากเวลาปัจจุบันของแต่ละรายการ)</div>
+                <div class="d-flex flex-wrap gap-1 mb-2">${[5, 10, 15, 30, 60].map(n => `<button type="button" class="btn btn-sm btn-outline-warning text-dark" onclick="shiftSet('preset', ${n}); document.getElementById('shiftDelta').value=${n}">เลื่อน ${n} นาที</button>`).join('')}</div>
+                <div class="input-group input-group-sm"><span class="input-group-text">เลื่อน</span><input type="number" id="shiftDelta" class="form-control" value="${esc(shiftSt.delta)}" oninput="shiftSet('delta', this.value)"><span class="input-group-text">นาที</span></div><div class="form-text">ใส่เลขติดลบเพื่อเลื่อนให้เร็วขึ้น</div></div></div>
+              <div class="col-md-6"><div class="p-2 border rounded h-100"><div class="fw-bold small mb-1">หรือกรอกเวลาเอง</div>
+                <div class="input-group input-group-sm"><span class="input-group-text">รายการแรกเริ่มเวลา</span><input type="time" class="form-control" value="${esc(shiftSt.setTime)}" oninput="shiftSet('setTime', this.value)"></div><div class="form-text">รายการที่เลือกอื่น ๆ จะเลื่อนตามด้วยระยะห่างเท่ากัน</div></div></div></div>
+            <div class="fw-bold small mb-1">ตัวอย่างเวลาที่จะเปลี่ยน</div><div id="shiftPlan" style="max-height:260px; overflow:auto;">${planHtml}</div>`;
+    }
+    window.shiftApply = async () => {
+        const plan = shiftPlan().filter(p => p.changed);
+        if (!plan.length) { Swal.fire({ icon: 'info', title: 'ไม่มีรายการที่เวลาเปลี่ยน', target: document.getElementById('shiftModal') }); return; }
+        const ok = await Swal.fire({ icon: 'question', title: `เลื่อนเวลา ${plan.length} รายการ?`, text: 'บันทึกเวลาใหม่ลงระบบทันที', showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก', target: document.getElementById('shiftModal') });
+        if (!ok.isConfirmed) return;
+        try {
+            const upd = {}; plan.forEach(p => { upd[`${p.m.id}/time`] = p.nw; });
+            await update(ref(db, 'matches'), upd);
+            bootstrap.Modal.getInstance(document.getElementById('shiftModal')).hide();
+            Swal.fire({ icon: 'success', title: 'เลื่อนเวลาเรียบร้อย', text: `${plan.length} รายการ`, timer: 1800, showConfirmButton: false });
+        } catch (e) { Swal.fire({ icon: 'error', title: 'บันทึกไม่สำเร็จ', text: String(e.message || e) }); }
+    };
+
     // ===== พิมพ์เอกสาร =====
     window.printDocument = (elementId) => {
         const element = document.getElementById(elementId);
@@ -2144,7 +2231,22 @@
                 return { key: tk, name: team.name, color: team.color, score };
             });
             
-            const scoreDisplay = scores.map(s => `${s.score}`).join(' - ');
+            let scoreDisplay = scores.map(s => `${s.score}`).join(' - ');
+            // รายการแบบเซ็ต: แสดงผลคะแนนรายเซ็ตเป็นตัวเล็กใต้คะแนนหลัก
+            let setDetail = '';
+            if (m.scoringMethod === 'score_set' || m.scoringMethod === 'win_set') {
+                const n = parseInt(m.setCount) || 3, parts = [];
+                for (let i = 1; i <= n; i++) {
+                    if (m.scoringMethod === 'score_set') {
+                        const v = matchTeams.map(tk => m.details?.[`s${i}_${tk}`] || 0);
+                        if (v.some(x => x > 0)) parts.push(v.join('-'));
+                    } else {
+                        const w = m.details?.[`set${i}`];
+                        if (w && w !== 'none' && matchTeams.includes(w)) parts.push(getTeamByKey(w).name);
+                    }
+                }
+                if (parts.length) setDetail = `<div class="text-muted" style="font-size:0.72rem; line-height:1.3; margin-top:3px;">${m.scoringMethod === 'score_set' ? 'เซ็ต: ' : 'ชนะเซ็ต: '}${parts.join(' , ')}</div>`;
+            }
             
             let winnerDisplay = '-';
             if (m.status === 'done' && m.winner) {
@@ -2180,7 +2282,7 @@
                         <div class="mt-1 small">${refIcon} ${playerIcon}</div>
                     </td>
                     <td class="text-center teams-cell" style="line-height: 1.8;">${getMatchTeamsHTML(m)}</td>
-                    <td class="text-center"><span class="badge bg-light text-dark border">${scoreDisplay}</span></td>
+                    <td class="text-center"><span class="badge bg-light text-dark border">${scoreDisplay}</span>${setDetail}</td>
                     <td class="text-center">${winnerDisplay}</td>
                     <td class="text-end" style="min-width: 190px;">
                         <div class="d-grid gap-1">
