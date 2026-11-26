@@ -686,13 +686,13 @@
                             <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-2 rounded">
                                 <div class="form-check form-check-inline m-0 me-2">
                                     <input class="form-check-input" type="radio" name="award_${sport.key}" 
-                                           id="${sport.key}_separate" value="separate" checked onchange="renderAwardPresenters()">
+                                           id="${sport.key}_separate" value="separate" ${cxAwType(sport.key, hasGenderSplit) === 'separate' ? 'checked' : ''} onchange="cxSetAwType('${sport.key}', this.value)">
                                     <label class="form-check-label small" for="${sport.key}_separate">แยกรายการ</label>
                                 </div>
                                 ${hasGenderSplit ? `
                                 <div class="form-check form-check-inline m-0 me-2">
                                     <input class="form-check-input" type="radio" name="award_${sport.key}" 
-                                           id="${sport.key}_gender" value="gender" onchange="renderAwardPresenters()">
+                                           id="${sport.key}_gender" value="gender" ${cxAwType(sport.key, hasGenderSplit) === 'gender' ? 'checked' : ''} onchange="cxSetAwType('${sport.key}', this.value)">
                                     <label class="form-check-label small text-success fw-bold" for="${sport.key}_gender">
                                         <i class="fas fa-venus-mars"></i> แยกเพศ
                                     </label>
@@ -700,7 +700,7 @@
                                 ` : ''}
                                 <div class="form-check form-check-inline m-0">
                                     <input class="form-check-input" type="radio" name="award_${sport.key}" 
-                                           id="${sport.key}_combined" value="combined" onchange="renderAwardPresenters()">
+                                           id="${sport.key}_combined" value="combined" ${cxAwType(sport.key, hasGenderSplit) === 'combined' ? 'checked' : ''} onchange="cxSetAwType('${sport.key}', this.value)">
                                     <label class="form-check-label small" for="${sport.key}_combined">คะแนนรวม</label>
                                 </div>
                             </div>
@@ -737,6 +737,9 @@
                 cxPeoplePool = t.length ? t : pool(arr(v.students));
             }).catch((e) => console.warn('โหลดรายชื่อบุคลากรไม่สำเร็จ', e));
         }
+        // ตัวเลือกประเภทรางวัลต่อกีฬา บันทึกตามการเลือกล่าสุด
+        const cxAwType = (sk, hasGender) => { const v = (cd.award_type || {})[sk]; return (v === 'gender' && !hasGender) ? 'separate' : (v || 'separate'); };
+        window.cxSetAwType = (sk, v) => { cd.award_type = cd.award_type || {}; cd.award_type[sk] = v; saveCd(); renderAwardPresenters(); };
         window.renderAwardPresenters = () => {
             const sports = [...new Set(allMatchesArray.map(m => m.sport))];
             const aw = cxComputeAwards(sports);
@@ -1033,7 +1036,8 @@
             const awardList = [];
             sportsInEvent.forEach(sportKey => {
                 const selectedRadio = document.querySelector(`input[name="award_${sportKey}"]:checked`);
-                const awardType = selectedRadio ? selectedRadio.value : 'separate';
+                // ใช้ตัวเลือกล่าสุดที่บันทึกไว้ (คงอยู่แม้รีเฟรช) ถ้าไม่มีให้ดูจากหน้าจอ
+                const awardType = (cd.award_type || {})[sportKey] || (selectedRadio ? selectedRadio.value : 'separate');
                 const sn = getSportName(sportKey);
                 if (awardType === 'combined') {
                     awardList.push({ sport: sportKey, title: `ถ้วยชนะเลิศการแข่งขัน${sn} (คะแนนรวม)`, winner: calculateCombinedScore(sportKey) });
