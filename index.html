@@ -761,6 +761,11 @@
                     </div>
                     <div class="small fw-bold mb-1">ประเภทกีฬา</div>
                     <div id="tsSports" class="d-flex flex-wrap gap-2 mb-3"></div>
+                    <div class="small fw-bold mb-1">ตัวเลือกข้อความ</div>
+                    <div class="d-flex flex-wrap gap-3 mb-3">
+                        <div class="form-check"><input class="form-check-input" type="checkbox" id="tsLink" checked onchange="tsRender()"><label class="form-check-label" for="tsLink"><i class="fas fa-link me-1"></i>แนบลิงก์ส่งคะแนนของแต่ละรายการ</label></div>
+                        <div class="form-check"><input class="form-check-input" type="checkbox" id="tsSite" onchange="tsRender()"><label class="form-check-label" for="tsSite"><i class="fas fa-globe me-1"></i>แนบลิงก์หน้าระบบหลัก</label></div>
+                    </div>
                     <div class="small fw-bold mb-1">ตัวอย่างข้อความ <span class="text-muted fw-normal">(แก้ไขได้ก่อนคัดลอก)</span></div>
                     <textarea id="tsText" class="form-control" rows="12" style="font-size:.9rem; background:#fafafa;"></textarea>
                 </div>
@@ -4026,7 +4031,7 @@
     let tsSportSel = null;   // null = ทุกกีฬา, ไม่เช่นนั้นเป็น Set ของ key กีฬา
     const tsDT = (m) => new Date(`${m.date}T${m.time && /^\d{1,2}:\d{2}/.test(m.time) ? m.time.padStart(5, '0') : '23:59'}:00`);
     window.openTrackScore = () => {
-        tsSportSel = null; document.getElementById('tsPassed').checked = true; tsRender();
+        tsSportSel = null; document.getElementById('tsPassed').checked = true; document.getElementById('tsLink').checked = true; document.getElementById('tsSite').checked = false; tsRender();
         bootstrap.Modal.getOrCreateInstance(document.getElementById('trackScoreModal')).show();
     };
     window.tsToggleSport = (sk) => {
@@ -4055,6 +4060,8 @@
         document.getElementById('tsCopyBtn').disabled = !list.length;
         const tag = `#${systemSettings.eventName.replace(/\s+/g, '')}${systemSettings.academicYear}`;
         if (!list.length) { document.getElementById('tsText').value = '✅ ไม่มีรายการค้างส่งคะแนนตามเงื่อนไขที่เลือก'; return; }
+        const withLink = document.getElementById('tsLink').checked, withSite = document.getElementById('tsSite').checked;
+        const dir = location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, ''), base = dir + 'judge.html?m=';
         let t = `📢 ติดตามการส่งคะแนน\n${systemSettings.eventName} ${systemSettings.academicYear}\n`;
         t += passedOnly ? `รายการที่แข่งขันผ่านมาแล้วแต่ยังไม่ได้ส่งคะแนน (${list.length} รายการ)\n` : `รายการที่ยังไม่ได้ส่งคะแนน (${list.length} รายการ)\n`;
         t += `----------------------------\n`;
@@ -4063,8 +4070,10 @@
             t += `\n🏅 ${getSportName(sk)}\n`;
             list.filter(m => m.sport === sk).forEach(m => {
                 t += `   ⏳ ${m.category || '-'} · ${formatDateThai(m.date)}${m.time ? ' ' + m.time + ' น.' : ''}${m.location ? ' (' + m.location + ')' : ''}\n`;
+                if (withLink) t += `      🔗 ${base}${m.id}\n`;
             });
         });
+        if (withSite) t += `\n🌐 ระบบ: ${dir}\n`;
         t += `\n----------------------------\n🙏 รบกวนครู/ผู้รับผิดชอบรายการข้างต้น ส่งคะแนนเข้าระบบโดยเร็ว ขอบคุณครับ/ค่ะ\n${tag}`;
         document.getElementById('tsText').value = t;
     };
